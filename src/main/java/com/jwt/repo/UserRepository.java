@@ -3,6 +3,9 @@ package com.jwt.repo;
 import com.jwt.model.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface UserRepository extends JpaRepository<User, Long> {
+import java.util.UUID;
+
+public interface UserRepository extends JpaRepository<User, UUID> {
     public User findByUsername(String username);
+    public boolean existsByEmail(String email);
 }

@@ -1,8 +1,10 @@
 package com.jwt.model;
 
 import lombok.*;
+import org.hibernate.annotations.GenericGenerator;
 
 import javax.persistence.*;
+import java.util.UUID;
 
 @Getter
 @Setter
@@ -10,12 +12,13 @@ import javax.persistence.*;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "app_user")  // Renamed the table to avoid reserved keyword issues
+@Table(name = "users")
 public class User {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    private Long id;
+    @GeneratedValue(generator = "UUID")
+    @GenericGenerator(name = "uuid", strategy = "uuid2")
+    private UUID id;
 
     @Column(nullable = false, unique = true)
     private String username;

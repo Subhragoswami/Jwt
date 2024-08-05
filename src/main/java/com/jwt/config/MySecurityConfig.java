@@ -16,11 +16,19 @@ import org.springframework.security.crypto.password.NoOpPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
 @EnableWebSecurity
+@EnableWebMvc
+@EnableGlobalMethodSecurity(prePostEnabled = true)
 public class MySecurityConfig extends WebSecurityConfigurerAdapter {
+
+    public static final String[] URLS = {
+    "/authenticate", "/v2/api-docs", "/v3/api-docs", "/swagger-resources/", "/swagger-ui/**", "/swagger-ui.html",
+            "/create"
+    };
 
 
     @Autowired
@@ -34,14 +42,13 @@ public class MySecurityConfig extends WebSecurityConfigurerAdapter {
 
     @Override
     protected void configure(HttpSecurity http) throws Exception {
-        http
-                .csrf()
+        http.csrf()
                 .disable()
                 .cors()
                 .disable()
                 .authorizeRequests()
-                .antMatchers("/token").permitAll()
-                .antMatchers(HttpMethod.OPTIONS).permitAll()
+                .antMatchers(URLS).permitAll()
+                .antMatchers(HttpMethod.GET).permitAll()
                 .anyRequest().authenticated()
                 .and()
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
@@ -52,7 +59,6 @@ public class MySecurityConfig extends WebSecurityConfigurerAdapter {
 
     }
 
-    //over
     @Override
     protected void configure(AuthenticationManagerBuilder auth) throws Exception {
         auth.userDetailsService(customUserDetailsService);
@@ -67,7 +73,6 @@ public class MySecurityConfig extends WebSecurityConfigurerAdapter {
     public AuthenticationManager authenticationManagerBean() throws Exception {
         return super.authenticationManagerBean();
     }
-
 
 
 }

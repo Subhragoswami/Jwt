@@ -20,15 +20,12 @@ public class JwtUtil {
 
     public static final long JWT_TOKEN_VALIDITY = 5 * 60 * 60;
 
-    // Use a secure key
     private Key secretKey = Keys.secretKeyFor(SignatureAlgorithm.HS512);
 
-    //retrieve username from jwt token
     public String getUsernameFromToken(String token) {
         return getClaimFromToken(token, Claims::getSubject);
     }
 
-    //retrieve expiration date from jwt token
     public Date getExpirationDateFromToken(String token) {
         return getClaimFromToken(token, Claims::getExpiration);
     }
