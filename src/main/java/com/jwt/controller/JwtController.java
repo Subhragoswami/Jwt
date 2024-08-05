@@ -27,9 +27,8 @@ public class JwtController {
     @Autowired
     private JwtUtil jwtUtil;
 
-    @RequestMapping(value = "/token", method = RequestMethod.POST)
+    @PostMapping("/authenticate")
     public ResponseEntity<?> generateToken(@RequestBody JwtRequest jwtRequest) throws Exception {
-
         System.out.println("Inside Controller");
         System.out.println(jwtRequest);
         try {
