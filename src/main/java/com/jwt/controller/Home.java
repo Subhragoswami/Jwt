@@ -13,20 +13,27 @@ import java.util.UUID;
 @RestController
 @Slf4j
 @RequiredArgsConstructor
+@RequestMapping("/user")
 public class Home {
     private final UserService userService;
 
-    @PostMapping("/create")
+    @PostMapping
     public ResponseDto<String> register(@RequestBody UserRequest userRequest) {
         log.info("creating user : {}", userRequest);
         return userService.createUser(userRequest);
     }
 
 
-    @GetMapping("/getusers/{userId}")
+    @GetMapping("/{userId}")
     public ResponseDto<UserResponse> getUser(@PathVariable(required = false) UUID userId){
         log.info("getting user details");
         return userService.allUser(userId);
     }
 
+    @PutMapping("/{userId}")
+    public ResponseDto<String> updateUser(@PathVariable UUID userId,
+                                          @RequestBody UserRequest UserRequest){
+        log.info("updating user : {}", userId);
+        return userService.updateUser(userId, UserRequest) ;
+    }
 }

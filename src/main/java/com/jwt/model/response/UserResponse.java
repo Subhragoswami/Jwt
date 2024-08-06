@@ -6,9 +6,7 @@ import lombok.*;
 import java.util.UUID;
 
 @AllArgsConstructor
-@Getter
-@Setter
-@Builder
+@Data
 @NoArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class UserResponse {

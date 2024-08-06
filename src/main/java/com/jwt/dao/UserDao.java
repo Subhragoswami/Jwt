@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
 
 import javax.transaction.Transactional;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -22,7 +23,11 @@ public class UserDao {
        return userRepository.existsByEmail(email);
     }
 
-    public User getUserById(UUID id){
-       return userRepository.getById(id);
+    public Optional<User> getUserById(UUID id){
+       return userRepository.findById(id);
+    }
+
+    public User updateUser(User user){
+        return userRepository.save(user);
     }
 }
