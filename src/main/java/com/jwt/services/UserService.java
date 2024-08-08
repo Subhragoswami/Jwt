@@ -2,6 +2,7 @@ package com.jwt.services;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jwt.dao.UserDao;
+import com.jwt.exceptions.CustomException;
 import com.jwt.model.User;
 import com.jwt.model.request.UserRequest;
 import com.jwt.model.response.ResponseDto;
@@ -29,7 +30,7 @@ public class UserService {
         User user = objectMapper.convertValue(userRequest, User.class);
         boolean flag = userDao.checkUser(user.getEmail());
         if (flag) {
-            throw new RuntimeException("email is already present");
+            throw new CustomException("432", "email is already present");
         } else {
             userDao.saveUser(user);
         }
@@ -37,14 +38,14 @@ public class UserService {
     }
 
     public ResponseDto<UserResponse> allUser(UUID id){
-        User user = userDao.getUserById(id).orElseThrow(() -> new RuntimeException("user is not present"));
+        User user = userDao.getUserById(id).orElseThrow(() -> new CustomException("","user is not present"));
         log.info("getting user details");
         UserResponse userResponse = objectMapper.convertValue(user, UserResponse.class);
         return ResponseDto.<UserResponse>builder().data(List.of(userResponse)).build();
     }
 
     public ResponseDto<String> updateUser(UUID userId, UserRequest userRequest){
-        User user =userDao.getUserById(userId).orElseThrow(() -> new RuntimeException("user is not present"));
+        User user =userDao.getUserById(userId).orElseThrow(() -> new CustomException("","user is not present"));
         log.info("updating user details");
         if(ObjectUtils.isNotEmpty(userRequest)){
             mergeNonNullFields(user,userRequest);

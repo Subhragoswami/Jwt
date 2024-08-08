@@ -13,7 +13,7 @@ import java.util.UUID;
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ResponseDto<T> {
-    private UUID status;
+    private Integer status;
     private List<T> data;
     private Long count;
     private Long total;
