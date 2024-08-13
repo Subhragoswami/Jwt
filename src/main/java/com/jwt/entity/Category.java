@@ -23,4 +23,5 @@ public class Category {
     private UUID id;
     private String categoryTitle;
     private String categoryDescription;
+    private UUID userId;
 }

@@ -3,6 +3,8 @@ package com.jwt.model.request;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;
 
+import java.util.UUID;
+
 @AllArgsConstructor
 @Getter
 @Setter
@@ -12,4 +14,5 @@ import lombok.*;
 public class CategoryRequest {
     private String categoryTitle;
     private String categoryDescription;
+    private UUID userId;
 }
