@@ -12,6 +12,6 @@ public interface CategoryRepository extends JpaRepository<Category, UUID> {
 //    @Query("SELECT c FROM Category c JOIN c.user u WHERE u.id = :userId")
 //    List<Category> findCategoriesByUserId(@Param("userId") UUID userId);
 
-    @Query("SELECT c FROM Category c ORDER BY c.id DESC")
+    @Query(value = "SELECT * FROM Categories ORDER BY id DESC LIMIT 10", nativeQuery = true)
     List<Category> findLast10Categories();
 }

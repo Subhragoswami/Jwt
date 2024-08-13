@@ -18,6 +18,6 @@ public class CategoryDao {
         return categoryRepository.save(category);
     }
     public List<Category> getAll(){
-        return categoryRepository.findAll();
+        return categoryRepository.findLast10Categories();
     }
 }
