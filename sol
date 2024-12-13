@@ -284,6 +284,45 @@ CREATE TABLE IF NOT EXISTS PUBLIC.Event(
         event_end_date TIMESTAMP WITHOUT TIME ZONE,
         CONSTRAINT event_id_PK PRIMARY KEY(ID)
 );
+..,??):₹₹.):):!!:.!!.!:!:!.!:
+snshsjd
 
+
+
+.....
+..
+
+....
+
+
+
+
+-- liquibase formatted sql
+
+-- ChangeSet author:your_name date:2024-06-13
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+CREATE TABLE IF NOT EXISTS PUBLIC.captcha_management (
+    id UUID NOT NULL DEFAULT uuid_generate_v4(),
+    captcha_text VARCHAR NOT NULL,
+    expiry_time TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+    request_id UUID NOT NULL UNIQUE,
+    request_type VARCHAR NOT NULL,
+    is_verified BOOLEAN DEFAULT false,
+    created_date TIMESTAMP WITHOUT TIME ZONE,
+    updated_date TIMESTAMP WITHOUT TIME ZONE,
+    CONSTRAINT captcha_management_pk PRIMARY KEY (id)
+);
+
+-- Add comments or constraints (optional)
+COMMENT ON TABLE PUBLIC.captcha_management IS 'Table for Captcha Management';
+COMMENT ON COLUMN PUBLIC.captcha_management.id IS 'Primary key UUID';
+COMMENT ON COLUMN PUBLIC.captcha_management.captcha_text IS 'Text for the captcha';
+COMMENT ON COLUMN PUBLIC.captcha_management.expiry_time IS 'Expiry time of the captcha';
+COMMENT ON COLUMN PUBLIC.captcha_management.request_id IS 'Unique request ID for identifying captcha';
+COMMENT ON COLUMN PUBLIC.captcha_management.request_type IS 'Type of request for captcha';
+COMMENT ON COLUMN PUBLIC.captcha_management.is_verified IS 'Flag indicating if captcha is verified';
+COMMENT ON COLUMN PUBLIC.captcha_management.created_date IS 'Timestamp when the captcha record is created';
+COMMENT ON COLUMN PUBLIC.captcha_management.updated_date IS 'Timestamp when the captcha record is last updated';
 
 
