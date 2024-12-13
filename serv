@@ -63,3 +63,108 @@ public class CaptchaService {
 
 
 }
+
+
+...........
+
+
+
+package com.epay.merchant.service;
+
+import com.epay.merchant.dao.CaptchaDao;
+import com.epay.merchant.entity.Captcha;
+import com.epay.merchant.model.request.CaptchaRequest;
+import com.epay.merchant.model.response.CaptchaResponse;
+import com.epay.merchant.model.response.ResponseDto;
+import com.epay.merchant.util.enums.RequestType;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.code.kaptcha.impl.DefaultKaptcha;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.time.LocalDateTime;
+import java.util.Base64;
+import java.util.List;
+import java.util.UUID;
+
+import static com.epay.merchant.util.AppConstants.RESPONSE_SUCCESS;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+class CaptchaServiceTest {
+
+    @Mock
+    private CaptchaDao captchaDao;
+
+    @Mock
+    private DefaultKaptcha defaultKaptcha;
+
+    @Mock
+    private ObjectMapper mapper;
+
+    @InjectMocks
+    private CaptchaService captchaService;
+
+    private CaptchaRequest captchaRequest;
+    private Captcha captchaEntity;
+    private CaptchaResponse captchaResponse;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+
+        UUID requestId = UUID.randomUUID();
+        captchaRequest = new CaptchaRequest();
+        captchaRequest.setRequestId(requestId);
+        captchaRequest.setRequestType(RequestType.LOGIN);
+
+        captchaEntity = new Captcha();
+        captchaEntity.setId(UUID.randomUUID());
+        captchaEntity.setCaptchaText("base64EncodedCaptchaText");
+        captchaEntity.setRequestId(requestId);
+        captchaEntity.setRequestType(RequestType.LOGIN);
+        captchaEntity.setExpiryTime(LocalDateTime.now().plusMinutes(5));
+
+        captchaResponse = new CaptchaResponse();
+        captchaResponse.setCaptchaText(captchaEntity.getCaptchaText());
+    }
+
+    @Test
+    void testCreateCaptcha() throws IOException {
+        // Arrange
+        String generatedCaptchaText = "123456";
+        BufferedImage image = new BufferedImage(100, 40, BufferedImage.TYPE_INT_RGB);
+
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ImageIO.write(image, "jpg", outputStream);
+        String base64Image = Base64.getEncoder().encodeToString(outputStream.toByteArray());
+
+        // Mock behavior of dependencies
+        when(defaultKaptcha.createText()).thenReturn(generatedCaptchaText);
+        when(defaultKaptcha.createImage(generatedCaptchaText)).thenReturn(image);
+        when(captchaDao.save(any(Captcha.class))).thenReturn(captchaEntity);
+        when(mapper.convertValue(any(Captcha.class), eq(CaptchaResponse.class))).thenReturn(captchaResponse);
+
+        // Act
+        ResponseDto<CaptchaResponse> response = captchaService.createCaptcha(captchaRequest);
+
+        // Assert
+        assertEquals(RESPONSE_SUCCESS, response.getStatus());
+        assertEquals(1, response.getData().size());
+        assertEquals(captchaEntity.getCaptchaText(), response.getData().get(0).getCaptchaText());
+
+        // Verify interactions
+        verify(defaultKaptcha, times(1)).createText();
+        verify(defaultKaptcha, times(1)).createImage(generatedCaptchaText);
+        verify(captchaDao, times(1)).save(any(Captcha.class));
+        verify(mapper, times(1)).convertValue(any(Captcha.class), eq(CaptchaResponse.class));
+    }
+}
