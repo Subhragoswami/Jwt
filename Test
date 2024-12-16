@@ -1,15 +1,16 @@
-package com.quiz.quiz.service;
+package com.epay.merchant.service;
 
+import static com.epay.merchant.util.AppConstants.RESPONSE_SUCCESS;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.epay.merchant.entity.Captcha;
+import com.epay.merchant.model.request.CaptchaRequest;
+import com.epay.merchant.model.response.CaptchaResponse;
+import com.epay.merchant.model.response.ResponseDto;
+import com.epay.merchant.repository.CaptchaRepository;
+import com.epay.merchant.util.enums.RequestType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.code.kaptcha.impl.DefaultKaptcha;
-import com.quiz.quiz.entity.Captcha;
-import com.quiz.quiz.model.request.CaptchaRequest;
-import com.quiz.quiz.model.response.CaptchaResponse;
-import com.quiz.quiz.model.response.ResponseDto;
-import com.quiz.quiz.repository.CaptchaRepository;
-import com.quiz.quiz.util.RequestType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,13 +22,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Base64;
 import java.util.Optional;
 import java.util.List;
+import java.util.UUID;
 
 import javax.imageio.ImageIO;
 
-import static com.quiz.quiz.util.AppConstants.RESPONSE_SUCCESS;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -56,19 +58,19 @@ class CaptchaServiceTest {
     void setUp() throws Exception {
         // Prepare test data
         captchaRequest = new CaptchaRequest();
-        captchaRequest.setRequestId("12345");
+        captchaRequest.setRequestId(UUID.randomUUID());
         captchaRequest.setRequestType(RequestType.LOGIN);
 
         captcha = new Captcha();
-        captcha.setCaptchaText("BASE64_IMAGE");
-        captcha.setRequestId("12345");
+        captcha.setCaptchaImage("BASE64_IMAGE");
+        captcha.setRequestId(UUID.randomUUID());
         captcha.setRequestType(RequestType.LOGIN);
-        captcha.setExpiryTime(LocalDateTime.now().plusMinutes(5));
+        captcha.setExpiryTime(LocalDateTime.now().plusMinutes(5).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
 
         captchaResponse = new CaptchaResponse();
-        captchaResponse.setCaptchaText("BASE64_IMAGE");
+        captchaResponse.setCaptchaImage("BASE64_IMAGE");
         //captchaResponse.setCaptchaText("12345");
-       // captchaResponse.se(RequestType.USER_REGISTRATION);
+        // captchaResponse.se(RequestType.USER_REGISTRATION);
         captchaResponse.setExpiryTime(LocalDateTime.now().plusMinutes(5));
 
         // Simulated image and base64
@@ -78,7 +80,7 @@ class CaptchaServiceTest {
     }
 
     @Test
-    void testCreateCaptcha() throws Exception {
+    void testCreateCaptcha()  {
         // Mock behavior
         when(captchaProducer.createText()).thenReturn("ABCD12");
         when(captchaProducer.createImage(anyString())).thenReturn(bufferedImage);
@@ -92,9 +94,9 @@ class CaptchaServiceTest {
         assertNotNull(response);
         assertEquals(RESPONSE_SUCCESS, response.getStatus());
         assertEquals(1, response.getData().size());
-        assertEquals("BASE64_IMAGE", response.getData().get(0).getCaptchaText());
+        assertEquals("BASE64_IMAGE", response.getData().get(0).getCaptchaImage());
         //assertEquals("12345", response.getData().get(0).getId());
-       // assertEquals(RequestType., response.getData().get(0).getRequestType());
+        // assertEquals(RequestType., response.getData().get(0).getRequestType());
 
         // Verify interactions
         verify(captchaProducer, times(1)).createText();
