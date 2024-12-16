@@ -1,0 +1,105 @@
+package com.quiz.quiz.service;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.code.kaptcha.impl.DefaultKaptcha;
+import com.quiz.quiz.entity.Captcha;
+import com.quiz.quiz.model.request.CaptchaRequest;
+import com.quiz.quiz.model.response.CaptchaResponse;
+import com.quiz.quiz.model.response.ResponseDto;
+import com.quiz.quiz.repository.CaptchaRepository;
+import com.quiz.quiz.util.RequestType;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.time.LocalDateTime;
+import java.util.Base64;
+import java.util.Optional;
+import java.util.List;
+
+import javax.imageio.ImageIO;
+
+import static com.quiz.quiz.util.AppConstants.RESPONSE_SUCCESS;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class CaptchaServiceTest {
+
+    @Mock
+    private DefaultKaptcha captchaProducer;
+
+    @Mock
+    private ObjectMapper objectMapper;
+
+    @Mock
+    private CaptchaRepository captchaRepository;
+
+    @InjectMocks
+    private CaptchaService captchaService;
+
+    private CaptchaRequest captchaRequest;
+    private Captcha captcha;
+    private CaptchaResponse captchaResponse;
+    private BufferedImage bufferedImage;
+    private ByteArrayOutputStream outputStream;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        // Prepare test data
+        captchaRequest = new CaptchaRequest();
+        captchaRequest.setRequestId("12345");
+        captchaRequest.setRequestType(RequestType.LOGIN);
+
+        captcha = new Captcha();
+        captcha.setCaptchaText("BASE64_IMAGE");
+        captcha.setRequestId("12345");
+        captcha.setRequestType(RequestType.LOGIN);
+        captcha.setExpiryTime(LocalDateTime.now().plusMinutes(5));
+
+        captchaResponse = new CaptchaResponse();
+        captchaResponse.setCaptchaText("BASE64_IMAGE");
+        //captchaResponse.setCaptchaText("12345");
+       // captchaResponse.se(RequestType.USER_REGISTRATION);
+        captchaResponse.setExpiryTime(LocalDateTime.now().plusMinutes(5));
+
+        // Simulated image and base64
+        bufferedImage = new BufferedImage(200, 50, BufferedImage.TYPE_INT_RGB);
+        outputStream = new ByteArrayOutputStream();
+        ImageIO.write(bufferedImage, "jpg", outputStream);
+    }
+
+    @Test
+    void testCreateCaptcha() throws Exception {
+        // Mock behavior
+        when(captchaProducer.createText()).thenReturn("ABCD12");
+        when(captchaProducer.createImage(anyString())).thenReturn(bufferedImage);
+        when(captchaRepository.save(any(Captcha.class))).thenReturn(captcha);
+        when(objectMapper.convertValue(any(Captcha.class), eq(CaptchaResponse.class))).thenReturn(captchaResponse);
+
+        // Execute the method
+        ResponseDto<CaptchaResponse> response = captchaService.createCaptcha(captchaRequest);
+
+        // Verify response
+        assertNotNull(response);
+        assertEquals(RESPONSE_SUCCESS, response.getStatus());
+        assertEquals(1, response.getData().size());
+        assertEquals("BASE64_IMAGE", response.getData().get(0).getCaptchaText());
+        //assertEquals("12345", response.getData().get(0).getId());
+       // assertEquals(RequestType., response.getData().get(0).getRequestType());
+
+        // Verify interactions
+        verify(captchaProducer, times(1)).createText();
+        verify(captchaProducer, times(1)).createImage("ABCD12");
+        verify(captchaRepository, times(1)).save(any(Captcha.class));
+        verify(objectMapper, times(1)).convertValue(any(Captcha.class), eq(CaptchaResponse.class));
+    }
+}
