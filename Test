@@ -242,3 +242,101 @@ class CaptchaServiceTest {
         verifyNoInteractions(captchaProducer, captchaDao, objectMapper);
     }
 }
+
+
+
+
+
+...........
+
+
+
+
+package com.epay.merchant.dao;
+
+import com.epay.merchant.entity.Captcha;
+import com.epay.merchant.repository.CaptchaRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class CaptchaDaoTest {
+
+    @Mock
+    private CaptchaRepository captchaRepository;
+
+    @InjectMocks
+    private CaptchaDao captchaDao;
+
+    private Captcha captcha;
+    private UUID requestId;
+
+    @BeforeEach
+    void setUp() {
+        // Initialize test data
+        requestId = UUID.randomUUID();
+
+        captcha = new Captcha();
+        captcha.setRequestId(requestId);
+        captcha.setCaptchaImage("BASE64_IMAGE");
+        captcha.setExpiryTime(LocalDateTime.now().plusMinutes(5).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
+    }
+
+    @Test
+    void testExistsByRequestId_WhenExists() {
+        // Mock repository behavior
+        when(captchaRepository.existsByRequestId(requestId)).thenReturn(true);
+
+        // Execute the DAO method
+        boolean result = captchaDao.existsByRequestId(requestId);
+
+        // Assertions
+        assertTrue(result, "The requestId should exist in the repository");
+
+        // Verify repository interaction
+        verify(captchaRepository, times(1)).existsByRequestId(requestId);
+    }
+
+    @Test
+    void testExistsByRequestId_WhenDoesNotExist() {
+        // Mock repository behavior
+        when(captchaRepository.existsByRequestId(requestId)).thenReturn(false);
+
+        // Execute the DAO method
+        boolean result = captchaDao.existsByRequestId(requestId);
+
+        // Assertions
+        assertFalse(result, "The requestId should not exist in the repository");
+
+        // Verify repository interaction
+        verify(captchaRepository, times(1)).existsByRequestId(requestId);
+    }
+
+    @Test
+    void testSave() {
+        // Mock repository behavior
+        when(captchaRepository.save(any(Captcha.class))).thenReturn(captcha);
+
+        // Execute the DAO method
+        Captcha savedCaptcha = captchaDao.save(captcha);
+
+        // Assertions
+        assertNotNull(savedCaptcha, "Saved Captcha should not be null");
+        assertEquals(requestId, savedCaptcha.getRequestId(), "RequestId should match");
+        assertEquals("BASE64_IMAGE", savedCaptcha.getCaptchaImage(), "Captcha image should match");
+
+        // Verify repository interaction
+        verify(captchaRepository, times(1)).save(captcha);
+    }
+}
