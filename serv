@@ -1,13 +1,18 @@
 package com.epay.merchant.service;
+
 import com.epay.merchant.dao.CaptchaDao;
 import com.epay.merchant.entity.Captcha;
+import com.epay.merchant.exception.MerchantException;
 import com.epay.merchant.model.request.CaptchaRequest;
 import com.epay.merchant.model.response.CaptchaResponse;
 import com.epay.merchant.model.response.ResponseDto;
+import com.epay.merchant.util.ErrorConstants;
 import com.epay.merchant.util.enums.RequestType;
+import com.epay.merchant.validator.CaptchaValidator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.code.kaptcha.impl.DefaultKaptcha;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -15,7 +20,9 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.text.MessageFormat;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
@@ -24,151 +31,46 @@ import static com.epay.merchant.util.AppConstants.RESPONSE_SUCCESS;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CaptchaService {
 
     private final CaptchaDao captchaDao;
-
-    @Autowired
-    private DefaultKaptcha defaultKaptcha;
 
     private final ObjectMapper mapper;
 
     private final DefaultKaptcha captchaProducer;
 
-    public ResponseDto<CaptchaResponse> createCaptcha(CaptchaRequest captchaRequest) throws IOException {
-        String captchaText = captchaProducer.createText();
-        BufferedImage image = captchaProducer.createImage(captchaText);
+    private  final CaptchaValidator captchaValidator;
 
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        ImageIO.write(image, "jpg", outputStream);
-        String base64Image = Base64.getEncoder().encodeToString(outputStream.toByteArray());
-        Captcha captcha = buildCaptcha(base64Image, captchaRequest.getRequestId(), captchaRequest.getRequestType());
-
-        captcha = captchaDao.save(captcha);
-        CaptchaResponse captchaResponse = mapper.convertValue(captcha, CaptchaResponse.class);
-        return ResponseDto.<CaptchaResponse>builder()
-                .data(List.of(captchaResponse))
-                .status(RESPONSE_SUCCESS)
-                .build();
+    public ResponseDto<CaptchaResponse> createCaptcha(CaptchaRequest captchaRequest) {
+        log.info("Starting captcha generation for requestId: {}", captchaRequest.getRequestId());
+        try {
+            captchaValidator.requestValidator(captchaRequest);
+            String captchaText = captchaProducer.createText();
+            log.info("generated captcha text: {}", captchaText);
+            BufferedImage image = captchaProducer.createImage(captchaText);
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            ImageIO.write(image, "jpg", outputStream);
+            String base64Image = Base64.getEncoder().encodeToString(outputStream.toByteArray());
+            Captcha captcha = buildCaptcha(base64Image, captchaRequest.getRequestId(), captchaRequest.getRequestType());
+            captcha = captchaDao.save(captcha);
+            CaptchaResponse captchaResponse = mapper.convertValue(captcha, CaptchaResponse.class);
+            return ResponseDto.<CaptchaResponse>builder()
+                    .data(List.of(captchaResponse))
+                    .status(RESPONSE_SUCCESS)
+                    .build();
+        }catch (Exception e){
+                throw new MerchantException(ErrorConstants.GENERATION_ERROR_CODE, MessageFormat.format(ErrorConstants.GENERATION_ERROR_MESSAGE, "Captcha"));
+        }
     }
 
-    private Captcha buildCaptcha(String captchaText, UUID requestId, RequestType requestType){
+    private Captcha buildCaptcha(String captchaText, UUID requestId, RequestType requestType) {
         Captcha captcha = new Captcha();
-        captcha.setCaptchaText(captchaText);
+        captcha.setCaptchaImage(captchaText);
         captcha.setRequestId(requestId);
         captcha.setRequestType(requestType);
-        captcha.setExpiryTime(LocalDateTime.now().plusMinutes(5));
+        captcha.setExpiryTime(LocalDateTime.now().plusMinutes(5).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
         return captcha;
     }
 
-
 }
-
-
-...........
-
-
-
-package com.epay.merchant.service;
-
-import com.epay.merchant.dao.CaptchaDao;
-import com.epay.merchant.entity.Captcha;
-import com.epay.merchant.model.request.CaptchaRequest;
-import com.epay.merchant.model.response.CaptchaResponse;
-import com.epay.merchant.model.response.ResponseDto;
-import com.epay.merchant.util.enums.RequestType;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.code.kaptcha.impl.DefaultKaptcha;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.time.LocalDateTime;
-import java.util.Base64;
-import java.util.List;
-import java.util.UUID;
-
-import static com.epay.merchant.util.AppConstants.RESPONSE_SUCCESS;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
-
-class CaptchaServiceTest {
-
-    @Mock
-    private CaptchaDao captchaDao;
-
-    @Mock
-    private DefaultKaptcha defaultKaptcha;
-
-    @Mock
-    private ObjectMapper mapper;
-
-    @InjectMocks
-    private CaptchaService captchaService;
-
-    private CaptchaRequest captchaRequest;
-    private Captcha captchaEntity;
-    private CaptchaResponse captchaResponse;
-
-    @BeforeEach
-    void setUp() {
-        MockitoAnnotations.openMocks(this);
-
-        UUID requestId = UUID.randomUUID();
-        captchaRequest = new CaptchaRequest();
-        captchaRequest.setRequestId(requestId);
-        captchaRequest.setRequestType(RequestType.LOGIN);
-
-        captchaEntity = new Captcha();
-        captchaEntity.setId(UUID.randomUUID());
-        captchaEntity.setCaptchaText("base64EncodedCaptchaText");
-        captchaEntity.setRequestId(requestId);
-        captchaEntity.setRequestType(RequestType.LOGIN);
-        captchaEntity.setExpiryTime(LocalDateTime.now().plusMinutes(5));
-
-        captchaResponse = new CaptchaResponse();
-        captchaResponse.setCaptchaText(captchaEntity.getCaptchaText());
-    }
-
-    @Test
-    void testCreateCaptcha() throws IOException {
-        // Arrange
-        String generatedCaptchaText = "123456";
-        BufferedImage image = new BufferedImage(100, 40, BufferedImage.TYPE_INT_RGB);
-
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        ImageIO.write(image, "jpg", outputStream);
-        String base64Image = Base64.getEncoder().encodeToString(outputStream.toByteArray());
-
-        // Mock behavior of dependencies
-        when(defaultKaptcha.createText()).thenReturn(generatedCaptchaText);
-        when(defaultKaptcha.createImage(generatedCaptchaText)).thenReturn(image);
-        when(captchaDao.save(any(Captcha.class))).thenReturn(captchaEntity);
-        when(mapper.convertValue(any(Captcha.class), eq(CaptchaResponse.class))).thenReturn(captchaResponse);
-
-        // Act
-        ResponseDto<CaptchaResponse> response = captchaService.createCaptcha(captchaRequest);
-
-        // Assert
-        assertEquals(RESPONSE_SUCCESS, response.getStatus());
-        assertEquals(1, response.getData().size());
-        assertEquals(captchaEntity.getCaptchaText(), response.getData().get(0).getCaptchaText());
-
-        // Verify interactions
-        verify(defaultKaptcha, times(1)).createText();
-        verify(defaultKaptcha, times(1)).createImage(generatedCaptchaText);
-        verify(captchaDao, times(1)).save(any(Captcha.class));
-        verify(mapper, times(1)).convertValue(any(Captcha.class), eq(CaptchaResponse.class));
-    }
-}
-.......
-
-
-/9j/4AAQSkZJRgABAgAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAAoAGQDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD5/ooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD//Z
