@@ -57,3 +57,25 @@ CREATE TABLE captcha_management (
     created_date TIMESTAMP,
     updated_date TIMESTAMP
 );
+
+..........................................
+
+
+
+package com.epay.merchant.util.enums;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
+@Getter
+@AllArgsConstructor
+public enum RequestType {
+
+    LOGIN("LOGIN"),
+    RESET_PASSWORD("RESET_PASSWORD");
+
+    public final String name;
+}
+  if (captchaRequest.getRequestType() != RequestType.LOGIN) {
+            errorDtoList.add(new ErrorDto(ErrorConstants.MANDATORY_ERROR_CODE, MessageFormat.format(ErrorConstants.MANDATORY_ERROR_MESSAGE, "request type")));
+        }
