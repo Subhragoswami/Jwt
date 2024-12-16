@@ -13,3 +13,19 @@
 
 liquibase.exception.DatabaseException: ORA-00922: missing or invalid option
 
+
+
+.......
+
+CREATE TABLE IF NOT EXISTS captcha_management (
+    id RAW(16) DEFAULT SYS_GUID() NOT NULL,
+    captcha_image VARCHAR2(255) NOT NULL,
+    expiry_time NUMBER,
+    request_id RAW(16) NOT NULL UNIQUE,
+    request_type VARCHAR2(255) NOT NULL,
+    is_verified NUMBER(1) DEFAULT 0,
+    created_date TIMESTAMP,
+    updated_date TIMESTAMP,
+    CONSTRAINT captcha_management_pk PRIMARY KEY (id)
+);
+
