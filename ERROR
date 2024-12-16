@@ -1,0 +1,16 @@
+CREATE TABLE IF NOT EXISTS PUBLIC.captcha_management(
+       id UUID NOT NULL DEFAULT uuid_generate_v4(),
+       captcha_image VARCHAR NOT NULL,
+       expiry_time BIGINT,
+       request_id UUID NOT NULL UNIQUE,
+       request_type VARCHAR NOT NULL,
+       is_verified BOOLEAN DEFAULT false,
+       created_date TIMESTAMP WITHOUT TIME ZONE,
+       updated_date TIMESTAMP WITHOUT TIME ZONE,
+       CONSTRAINT captcha_management_pk PRIMARY KEY (id)
+);
+2024-12-16T15:38:28.184+05:30 ERROR 18864 --- [epay_merchant_service] [  restartedMain] liquibase.changelog                      : ChangeSet db/changelog/scripts/1734095557673_create_table_captcha.sql::raw::includeAll encountered an exception.
+
+liquibase.exception.DatabaseException: ORA-00901: invalid CREATE command
+
+https://docs.oracle.com/error-help/db/ora-00901/ [Failed SQL: (901) CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
