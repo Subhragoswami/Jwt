@@ -1,81 +1,79 @@
-2024-12-16T15:52:22.748+05:30 DEBUG 3760 --- [epay_merchant_service] [  restartedMain] liquibase.executor                       : CREATE TABLE IF NOT EXISTS PUBLIC.captcha_management(
-       id RAW(16) DEFAULT SYS_GUID() NOT NULL,
-       captcha_image VARCHAR NOT NULL,
-       expiry_time BIGINT,
-       request_id UUID NOT NULL UNIQUE,
-       request_type VARCHAR NOT NULL,
-       is_verified BOOLEAN DEFAULT false,
-       created_date TIMESTAMP WITHOUT TIME ZONE,
-       updated_date TIMESTAMP WITHOUT TIME ZONE,
-       CONSTRAINT captcha_management_pk PRIMARY KEY (id)
-);
-2024-12-16T15:52:22.784+05:30 ERROR 3760 --- [epay_merchant_service] [  restartedMain] liquibase.changelog                      : ChangeSet db/changelog/scripts/1734095557673_create_table_captcha.sql::raw::includeAll encountered an exception.
-
-liquibase.exception.DatabaseException: ORA-00922: missing or invalid option
-
-
-
-.......
-
-CREATE TABLE IF NOT EXISTS captcha_management (
-    id RAW(16) DEFAULT SYS_GUID() NOT NULL,
-    captcha_image VARCHAR2(255) NOT NULL,
-    expiry_time NUMBER,
-    request_id RAW(16) NOT NULL UNIQUE,
-    request_type VARCHAR2(255) NOT NULL,
-    is_verified NUMBER(1) DEFAULT 0,
-    created_date TIMESTAMP,
-    updated_date TIMESTAMP,
-    CONSTRAINT captcha_management_pk PRIMARY KEY (id)
-);
-
-...............
-Caused by: liquibase.exception.LiquibaseException: liquibase.exception.MigrationFailedException: Migration failed for changeset db/changelog/scripts/1734095557675_create_table_captcha.sql::1::Subhra:
-     Reason: liquibase.exception.DatabaseException: ORA-00906: missing left parenthesis
-
-https://docs.oracle.com/error-help/db/ora-00906/ [Failed SQL: (906) CREATE TABLE captcha_management (
-    id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY NOT NULL,
-    captcha_image VARCHAR NOT NULL,
-    expiry_time NUMBER,
-    request_id RAW(16) NOT NULL UNIQUE,
-    request_type VARCHAR2(255) NOT NULL,
-    is_verified  BOOLEAN DEFAULT false,
-    created_date TIMESTAMP,
-    updated_date TIMESTAMP
-)]
-
-
--- liquibase formatted sql
--- changeset Subhra:1
-CREATE TABLE captcha_management (
-    id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY NOT NULL,
-    captcha_image VARCHAR NOT NULL,
-    expiry_time NUMBER,
-    request_id RAW(16) NOT NULL UNIQUE,
-    request_type VARCHAR2(255) NOT NULL,
-    is_verified  BOOLEAN DEFAULT false,
-    created_date TIMESTAMP,
-    updated_date TIMESTAMP
-);
-
-..........................................
+Error starting at line : 1 in command -
+INSERT INTO MERCHANT_USER (
+    MID, PARENT_USERID, USER_ID, FIRST_NAME, MIDDLE_NAME, LAST_NAME, EMAIL,
+    PRIMARY_PHONE, SECONDARY_PHONE, MOBILE_PHONE, OFFICE_PHONE, COUNTRY_CODE,
+    STATE_CODE, PIN_CODE, CITY, ROLE, STATUS, PASSWORD, LAST_PASSWORD_CHANGE,
+    PASSWORD_EXPIRY_TIME, LOGIN_FAIL_ATTEMPT, LAST_SUCCESS_LOGIN, LAST_FAIL_LOGIN, CREATED_DATE
+) VALUES (
+    'MID12345',
+    'PARENT123',
+    'USER123',
+    'John',
+    'Michael',
+    'Doe',
+    'john.doe@example.com',
+    '1234567890',
+    '0987654321',
+    '9876543210',
+    '123-456-7890',
+    'IN',
+    'MH',
+    '400001',
+    'Mumbai',
+    'Admin',
+    'Active',
+    'Password@123',
+    1715563200,
+    1718155200,
+    0,
+    1715563200,
+    1715563200,
+    CURRENT_TIMESTAMP
+)
+Error at Command Line : 2 Column : 1
+Error report -
+SQL Error: ORA-00911: invalid character
+00911. 00000 -  "invalid character"
+*Cause:    The identifier name started with an ASCII character other than a
+           letter or a number. After the first character of the identifier
+           name, ASCII characters are allowed including "$", "#" and "_".
+           Identifiers enclosed in double quotation marks may contain any
+           character other than a double quotation. Alternate quotation
+           marks (q'#...#') cannot use spaces, tabs, or carriage returns as
+           delimiters. For all other contexts, consult the SQL Language
+           Reference Manual.
+*Action:   Check the Oracle identifier naming convention. If you are
+           attempting to provide a password in the IDENTIFIED BY clause of
+           a CREATE USER or ALTER USER statement, then it is recommended to
+           always enclose the password in double quotation marks because
+           characters other than the double quotation are then allowed.
 
 
+..........
 
-package com.epay.merchant.util.enums;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-
-@Getter
-@AllArgsConstructor
-public enum RequestType {
-
-    LOGIN("LOGIN"),
-    RESET_PASSWORD("RESET_PASSWORD");
-
-    public final String name;
-}
-  if (captchaRequest.getRequestType() != RequestType.LOGIN) {
-            errorDtoList.add(new ErrorDto(ErrorConstants.MANDATORY_ERROR_CODE, MessageFormat.format(ErrorConstants.MANDATORY_ERROR_MESSAGE, "request type")));
-        }
+ID	RAW
+MID	VARCHAR2(255 BYTE)
+PARENT_USERID	VARCHAR2(255 BYTE)
+USER_ID	VARCHAR2(255 BYTE)
+FIRST_NAME	VARCHAR2(255 BYTE)
+MIDDLE_NAME	VARCHAR2(255 BYTE)
+LAST_NAME	VARCHAR2(255 BYTE)
+EMAIL	VARCHAR2(255 BYTE)
+PRIMARY_PHONE	VARCHAR2(255 BYTE)
+SECONDARY_PHONE	VARCHAR2(255 BYTE)
+MOBILE_PHONE	VARCHAR2(255 BYTE)
+OFFICE_PHONE	VARCHAR2(255 BYTE)
+COUNTRY_CODE	VARCHAR2(255 BYTE)
+STATE_CODE	VARCHAR2(255 BYTE)
+PIN_CODE	VARCHAR2(255 BYTE)
+CITY	VARCHAR2(255 BYTE)
+ROLE	VARCHAR2(255 BYTE)
+STATUS	VARCHAR2(255 BYTE)
+PASSWORD	VARCHAR2(255 BYTE)
+LAST_PASSWORD_CHANGE	NUMBER
+PASSWORD_EXPIRY_TIME	NUMBER
+LOGIN_FAIL_ATTEMPT	NUMBER
+LAST_SUCCESS_LOGIN	NUMBER
+LAST_FAIL_LOGIN	NUMBER
+CREATED_DATE	TIMESTAMP(6)
