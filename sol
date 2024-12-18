@@ -1,175 +1,92 @@
 package com.epay.merchant.service;
 
-import com.epay.merchant.dao.AdminDao;
-import com.epay.merchant.entity.MerchantUser;
+import com.epay.merchant.dao.CaptchaDao;
+import com.epay.merchant.entity.Captcha;
 import com.epay.merchant.exception.MerchantException;
-import com.epay.merchant.model.response.MerchantUserResponse;
+import com.epay.merchant.model.request.CaptchaRequest;
+import com.epay.merchant.model.response.CaptchaResponse;
 import com.epay.merchant.model.response.ResponseDto;
 import com.epay.merchant.util.ErrorConstants;
+import com.epay.merchant.util.enums.RequestType;
+import com.epay.merchant.validator.CaptchaValidator;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.code.kaptcha.impl.DefaultKaptcha;
+import com.sbi.epay.logging.utility.LoggerFactoryUtility;
+import com.sbi.epay.logging.utility.LoggerUtility;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.text.MessageFormat;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Base64;
 import java.util.List;
+import java.util.UUID;
 
 import static com.epay.merchant.util.AppConstants.RESPONSE_SUCCESS;
 
 @Service
 @RequiredArgsConstructor
-public class AdminService {
-    private final AdminDao adminDao;
+public class CaptchaService {
 
-    private final ObjectMapper objectMapper;
+    private final CaptchaDao captchaDao;
 
-    public ResponseDto<MerchantUserResponse> getAllUser(String mid, Pageable pageable) {
-        if (!adminDao.existsByMid(mid)) {
-            throw new MerchantException(ErrorConstants.INVALID_ERROR_CODE, MessageFormat.format(ErrorConstants.INVALID_ERROR_CODE_MESSAGE, "mid"));
+    private final ObjectMapper mapper;
+
+    private final DefaultKaptcha captchaProducer;
+
+    private final CaptchaValidator captchaValidator;
+
+    LoggerUtility logger = LoggerFactoryUtility.getLogger(CaptchaService.class);
+
+    public ResponseDto<CaptchaResponse> createCaptcha(CaptchaRequest captchaRequest) {
+        logger.info("Starting captcha generation for requestId: {}", captchaRequest.getRequestId());
+        captchaValidator.requestValidator(captchaRequest);
+        try {
+            String captchaText = captchaProducer.createText();
+            logger.info("generated captcha text: {}", captchaText);
+            BufferedImage image = captchaProducer.createImage(captchaText);
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            ImageIO.write(image, "jpg", outputStream);
+            String base64Image = Base64.getEncoder().encodeToString(outputStream.toByteArray());
+            Captcha captcha = buildCaptcha(base64Image, captchaRequest.getRequestId(), captchaRequest.getRequestType());
+            captcha = captchaDao.save(captcha);
+            CaptchaResponse captchaResponse = mapper.convertValue(captcha, CaptchaResponse.class);
+            return ResponseDto.<CaptchaResponse>builder()
+                    .data(List.of(captchaResponse))
+                    .status(RESPONSE_SUCCESS)
+                    .count(1L)
+                    .total(1L)
+                    .build();
+        } catch (Exception e) {
+            throw new MerchantException(ErrorConstants.GENERATION_ERROR_CODE, MessageFormat.format(ErrorConstants.GENERATION_ERROR_MESSAGE, "Captcha"));
         }
-        Page<MerchantUser> merchantUsers =adminDao.findByMid(mid, pageable);
-        List<MerchantUserResponse> merchantUserResponseList = merchantUsers.getContent().stream()
-                .map(user -> objectMapper.convertValue(user, MerchantUserResponse.class)).toList();
-        return ResponseDto.<MerchantUserResponse>builder()
-                .status(RESPONSE_SUCCESS)
-                .data(merchantUserResponseList)
-                .count(merchantUsers.stream().count())
-                .total(merchantUsers.getTotalElements())
-                .build();
     }
+
+    private Captcha buildCaptcha(String captchaText, UUID requestId, String requestType) {
+        Captcha captcha = new Captcha();
+        captcha.setCaptchaImage(captchaText);
+        captcha.setRequestId(requestId);
+        captcha.setRequestType(requestType);
+        captcha.setExpiryTime(LocalDateTime.now().plusMinutes(5).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
+        return captcha;
+    }
+
 }
 
-.........
 
-package com.epay.merchant.service;
 
-import com.epay.merchant.dao.AdminDao;
-import com.epay.merchant.entity.MerchantUser;
-import com.epay.merchant.exception.MerchantException;
-import com.epay.merchant.model.response.MerchantUserResponse;
-import com.epay.merchant.model.response.ResponseDto;
-import com.epay.merchant.util.ErrorConstants;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.Mockito;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
+..........
 
-import java.util.Collections;
-import java.util.List;
 
-import static com.epay.merchant.util.AppConstants.RESPONSE_SUCCESS;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+use builder and service should have DTO reference only
 
-@ExtendWith(MockitoExtension.class)
-class AdminServiceTest {
+Please read expiry time from application.properties
 
-    @Mock
-    private AdminDao adminDao;
-
-    @Mock
-    private ObjectMapper objectMapper;
-
-    @InjectMocks
-    private AdminService adminService;
-
-    private MerchantUser merchantUser;
-    private MerchantUserResponse merchantUserResponse;
-
-    @BeforeEach
-    void setUp() {
-        // Initialize test data
-        merchantUser = new MerchantUser();
-        merchantUser.setId(1L);
-        merchantUser.setName("Test User");
-
-        merchantUserResponse = new MerchantUserResponse();
-        merchantUserResponse.setId(1L);
-        merchantUserResponse.setName("Test User");
-    }
-
-    @Test
-    void getAllUser_WhenMidExists_ReturnsResponseDto() {
-        // Arrange
-        String mid = "validMid";
-        Pageable pageable = Pageable.unpaged();
-
-        Page<MerchantUser> merchantUserPage = new PageImpl<>(List.of(merchantUser));
-
-        when(adminDao.existsByMid(mid)).thenReturn(true);
-        when(adminDao.findByMid(eq(mid), any(Pageable.class))).thenReturn(merchantUserPage);
-        when(objectMapper.convertValue(merchantUser, MerchantUserResponse.class)).thenReturn(merchantUserResponse);
-
-        // Act
-        ResponseDto<MerchantUserResponse> response = adminService.getAllUser(mid, pageable);
-
-        // Assert
-        assertNotNull(response);
-        assertEquals(RESPONSE_SUCCESS, response.getStatus());
-        assertEquals(1, response.getData().size());
-        assertEquals(1, response.getCount());
-        assertEquals(1, response.getTotal());
-
-        verify(adminDao, times(1)).existsByMid(mid);
-        verify(adminDao, times(1)).findByMid(eq(mid), any(Pageable.class));
-        verify(objectMapper, times(1)).convertValue(merchantUser, MerchantUserResponse.class);
-    }
-
-    @Test
-    void getAllUser_WhenMidDoesNotExist_ThrowsMerchantException() {
-        // Arrange
-        String invalidMid = "invalidMid";
-        Pageable pageable = Pageable.unpaged();
-
-        when(adminDao.existsByMid(invalidMid)).thenReturn(false);
-
-        // Act & Assert
-        MerchantException exception = assertThrows(MerchantException.class, () -> {
-            adminService.getAllUser(invalidMid, pageable);
-        });
-
-        assertEquals(ErrorConstants.INVALID_ERROR_CODE, exception.getErrorCode());
-        assertTrue(exception.getMessage().contains("mid"));
-
-        verify(adminDao, times(1)).existsByMid(invalidMid);
-        verify(adminDao, never()).findByMid(any(), any());
-        verify(objectMapper, never()).convertValue(any(), any());
-    }
-
-    @Test
-    void getAllUser_WhenNoUsersFound_ReturnsEmptyResponse() {
-        // Arrange
-        String mid = "validMid";
-        Pageable pageable = Pageable.unpaged();
-
-        Page<MerchantUser> emptyPage = new PageImpl<>(Collections.emptyList());
-
-        when(adminDao.existsByMid(mid)).thenReturn(true);
-        when(adminDao.findByMid(eq(mid), any(Pageable.class))).thenReturn(emptyPage);
-
-        // Act
-        ResponseDto<MerchantUserResponse> response = adminService.getAllUser(mid, pageable);
-
-        // Assert
-        assertNotNull(response);
-        assertEquals(RESPONSE_SUCCESS, response.getStatus());
-        assertEquals(0, response.getData().size());
-        assertEquals(0, response.getCount());
-        assertEquals(0, response.getTotal());
-
-        verify(adminDao, times(1)).existsByMid(mid);
-        verify(adminDao, times(1)).findByMid(eq(mid), any(Pageable.class));
-        verify(objectMapper, never()).convertValue(any(), any());
-    }
-}
-
+and use orikamapper for mapping don't use objectMapper
