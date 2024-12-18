@@ -1,120 +1,100 @@
-Error starting at line : 1 in command -
-INSERT INTO MERCHANT_USER (
-    MID, PARENT_USERID, USER_ID, FIRST_NAME, MIDDLE_NAME, LAST_NAME, EMAIL,
-    PRIMARY_PHONE, SECONDARY_PHONE, MOBILE_PHONE, OFFICE_PHONE, COUNTRY_CODE,
-    STATE_CODE, PIN_CODE, CITY, ROLE, STATUS, PASSWORD, LAST_PASSWORD_CHANGE,
-    PASSWORD_EXPIRY_TIME, LOGIN_FAIL_ATTEMPT, LAST_SUCCESS_LOGIN, LAST_FAIL_LOGIN, CREATED_DATE
-) VALUES (
-    'MID12345',
-    'PARENT123',
-    'USER123',
-    'John',
-    'Michael',
-    'Doe',
-    'john.doe@example.com',
-    '1234567890',
-    '0987654321',
-    '9876543210',
-    '123-456-7890',
-    'IN',
-    'MH',
-    '400001',
-    'Mumbai',
-    'Admin',
-    'Active',
-    'Password@123',
-    1715563200,
-    1718155200,
-    0,
-    1715563200,
-    1715563200,
-    CURRENT_TIMESTAMP
-)
-Error at Command Line : 2 Column : 1
-Error report -
-SQL Error: ORA-00911: invalid character
-00911. 00000 -  "invalid character"
-*Cause:    The identifier name started with an ASCII character other than a
-           letter or a number. After the first character of the identifier
-           name, ASCII characters are allowed including "$", "#" and "_".
-           Identifiers enclosed in double quotation marks may contain any
-           character other than a double quotation. Alternate quotation
-           marks (q'#...#') cannot use spaces, tabs, or carriage returns as
-           delimiters. For all other contexts, consult the SQL Language
-           Reference Manual.
-*Action:   Check the Oracle identifier naming convention. If you are
-           attempting to provide a password in the IDENTIFIED BY clause of
-           a CREATE USER or ALTER USER statement, then it is recommended to
-           always enclose the password in double quotation marks because
-           characters other than the double quotation are then allowed.
+{
+    "timestamp": "2024-12-18T11:11:06.497+00:00",
+    "status": 500,
+    "error": "Internal Server Error",
+    "trace": "org.springframework.dao.InvalidDataAccessResourceUsageException: JDBC exception executing SQL [select mu1_0.id,mu1_0.mid,mu1_0.password_expiry_time,mu1_0.city,mu1_0.country_code,mu1_0.created_date,mu1_0.email,mu1_0.first_name,mu1_0.last_fail_login,mu1_0.last_name,mu1_0.last_password_change,mu1_0.login_fail_attempt,mu1_0.middle_name,mu1_0.mobile_phone,mu1_0.office_phone,mu1_0.parent_user_id,mu1_0.password,mu1_0.pin_code,mu1_0.primary_phone,mu1_0.role,mu1_0.secondary_phone,mu1_0.state_code,mu1_0.status,mu1_0.user_id from merchant_user mu1_0 where mu1_0.mid=? fetch first ? rows only] [ORA-00904: \"MU1_0\".\"PARENT_USER_ID\": invalid identifier\n\r\nhttps://docs.oracle.com/error-help/db/ora-00904/] [n/a]; SQL [n/a]\r\n\tat org.springframework.orm.jpa.vendor.HibernateJpaDialect.convertHibernateAccessException(HibernateJpaDialect.java:277)\r\n\tat org.springframework.orm.jpa.vendor.HibernateJpaDialect.translateExceptionIfPossible(HibernateJpaDialect.java:241)\r\n\tat org.springframework.orm.jpa.AbstractEntityManagerFactoryBean.translateExceptionIfPossible(AbstractEntityManagerFactoryBean.java:550)\r\n\tat org.springframework.dao.support.ChainedPersistenceExceptionTranslator.translateExceptionIfPossible(ChainedPersistenceExceptionTranslator.java:61)\r\n\tat org.springframework.dao.support.DataAccessUtils.translateIfNecessary(DataAccessUtils.java:335)\r\n\tat org.springframework.dao.support.PersistenceExceptionTranslationInterceptor.invoke(PersistenceExceptionTranslationInterceptor.java:160)\r\n\tat org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)\r\n\tat org.springframework.data.jpa.repository.support.CrudMethodMetadataPostProcessor$CrudMethodMetadataPopulatingMethodInterceptor.invoke(CrudMethodMetadataPostProcessor.java:136)\r\n\tat org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)\r\n\tat org.springframework.aop.interceptor.ExposeInvocationInterceptor.invoke(ExposeInvocationInterceptor.java:97)\r\n\tat org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)\r\n\tat org.springframework.aop.framework.JdkDynamicAopProxy.invoke(JdkDynamicAopProxy.java:223)\r\n\tat jdk.proxy4/jdk.proxy4.$Proxy158.findByMID(Unknown Source)\r\n\tat com.epay.merchant.dao.AdminDao.findByMid(AdminDao.java:20)\r\n\tat java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)\r\n\tat java.base/java.lang.reflect.Method.invoke(Method.java:580)\r\n\tat org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:355)\r\n\tat org.springframework.aop.framework.ReflectiveMethodInvocation.invokeJoinpoint(ReflectiveMethodInvocation.java:196)\r\n\tat org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:163)\r\n\tat org.springframework.aop.framework.CglibAopProxy$CglibMethodInvocation.proceed(CglibAopProxy.java:768)\r\n\tat org.springframework.dao.support.PersistenceExceptionTranslationInterceptor.invoke(PersistenceExceptionTranslationInterceptor.java:138)\r\n\tat org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)\r\n\tat org.springframework.aop.framework.CglibAopProxy$CglibMethodInvocation.proceed(CglibAopProxy.java:768)\r\n\tat org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:720)\r\n\tat com.epay.merchant.dao.AdminDao$$SpringCGLIB$$0.findByMid(<generated>)\r\n\tat com.epay.merchant.service.AdminService.getAllUser(AdminService.java:37)\r\n\tat com.epay.merchant.controller.AdminController.getAllUser(AdminController.java:27)\r\n\tat java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)\r\n\tat java.base/java.lang.reflect.Method.invoke(Method.java:580)\r\n\tat org.springframework.web.method.support.InvocableHandlerMethod.doInvoke(InvocableHandlerMethod.java:255)\r\n\tat org.springframework.web.method.support.InvocableHandlerMethod.invokeForRequest(InvocableHandlerMethod.java:188)\r\n\tat org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHandlerMethod.invokeAndHandle(ServletInvocableHandlerMethod.java:118)\r\n\tat org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.invokeHandlerMethod(RequestMappingHandlerAdapter.java:926)\r\n\tat org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.handleInternal(RequestMappingHandlerAdapter.java:831)\r\n\tat org.springframework.web.servlet.mvc.method.AbstractHandlerMethodAdapter.handle(AbstractHandlerMethodAdapter.java:87)\r\n\tat org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:1089)\r\n\tat org.springframework.web.servlet.DispatcherServlet.doService(DispatcherServlet.java:979)\r\n\tat org.springframework.web.servlet.FrameworkServlet.processRequest(FrameworkServlet.java:1014)\r\n\tat org.springframework.web.servlet.FrameworkServlet.doGet(FrameworkServlet.java:903)\r\n\tat jakarta.servlet.http.HttpServlet.service(HttpServlet.java:564)\r\n\tat org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:885)\r\n\tat jakarta.servlet.http.HttpServlet.service(HttpServlet.java:658)\r\n\tat org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:195)\r\n\tat org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:140)\r\n\tat org.apache.tomcat.websocket.server.WsFilter.doFilter(WsFilter.java:51)\r\n\tat org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:164)\r\n\tat org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:140)\r\n\tat org.springframework.web.filter.RequestContextFilter.doFilterInternal(RequestContextFilter.java:100)\r\n\tat org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)\r\n\tat org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:164)\r\n\tat org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:140)\r\n\tat org.springframework.web.filter.FormContentFilter.doFilterInternal(FormContentFilter.java:93)\r\n\tat org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)\r\n\tat org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:164)\r\n\tat org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:140)\r\n\tat org.springframework.web.filter.ServerHttpObservationFilter.doFilterInternal(ServerHttpObservationFilter.java:113)\r\n\tat org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)\r\n\tat org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:164)\r\n\tat org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:140)\r\n\tat org.springframework.web.filter.CharacterEncodingFilter.doFilterInternal(CharacterEncodingFilter.java:201)\r\n\tat org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)\r\n\tat org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:164)\r\n\tat org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:140)\r\n\tat org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:167)\r\n\tat org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:90)\r\n\tat org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:483)\r\n\tat org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:115)\r\n\tat org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:93)\r\n\tat org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:74)\r\n\tat org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:344)\r\n\tat org.apache.coyote.http11.Http11Processor.service(Http11Processor.java:384)\r\n\tat org.apache.coyote.AbstractProcessorLight.process(AbstractProcessorLight.java:63)\r\n\tat org.apache.coyote.AbstractProtocol$ConnectionHandler.process(AbstractProtocol.java:904)\r\n\tat org.apache.tomcat.util.net.NioEndpoint$SocketProcessor.doRun(NioEndpoint.java:1741)\r\n\tat org.apache.tomcat.util.net.SocketProcessorBase.run(SocketProcessorBase.java:52)\r\n\tat org.apache.tomcat.util.threads.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1190)\r\n\tat org.apache.tomcat.util.threads.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:659)\r\n\tat org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:63)\r\n\tat java.base/java.lang.Thread.run(Thread.java:1583)\r\nCaused by: org.hibernate.exception.SQLGrammarException: JDBC exception executing SQL [select mu1_0.id,mu1_0.mid,mu1_0.password_expiry_time,mu1_0.city,mu1_0.country_code,mu1_0.created_date,mu1_0.email,mu1_0.first_name,mu1_0.last_fail_login,mu1_0.last_name,mu1_0.last_password_change,mu1_0.login_fail_attempt,mu1_0.middle_name,mu1_0.mobile_phone,mu1_0.office_phone,mu1_0.parent_user_id,mu1_0.password,mu1_0.pin_code,mu1_0.primary_phone,mu1_0.role,mu1_0.secondary_phone,mu1_0.state_code,mu1_0.status,mu1_0.user_id from merchant_user mu1_0 where mu1_0.mid=? fetch first ? rows only] [ORA-00904: \"MU1_0\".\"PARENT_USER_ID\": invalid identifier\n\r\nhttps://docs.oracle.com/error-help/db/ora-00904/] [n/a]\r\n\tat org.hibernate.exception.internal.SQLExceptionTypeDelegate.convert(SQLExceptionTypeDelegate.java:66)\r\n\tat org.hibernate.exception.internal.StandardSQLExceptionConverter.convert(StandardSQLExceptionConverter.java:58)\r\n\tat org.hibernate.engine.jdbc.spi.SqlExceptionHelper.convert(SqlExceptionHelper.java:108)\r\n\tat org.hibernate.engine.jdbc.spi.SqlExceptionHelper.convert(SqlExceptionHelper.java:94)\r\n\tat org.hibernate.sql.results.jdbc.internal.DeferredResultSetAccess.executeQuery(DeferredResultSetAccess.java:264)\r\n\tat org.hibernate.sql.results.jdbc.internal.DeferredResultSetAccess.getResultSet(DeferredResultSetAccess.java:167)\r\n\tat org.hibernate.sql.results.jdbc.internal.JdbcValuesResultSetImpl.advanceNext(JdbcValuesResultSetImpl.java:265)\r\n\tat org.hibernate.sql.results.jdbc.internal.JdbcValuesResultSetImpl.processNext(JdbcValuesResultSetImpl.java:145)\r\n\tat org.hibernate.sql.results.jdbc.internal.AbstractJdbcValues.next(AbstractJdbcValues.java:19)\r\n\tat org.hibernate.sql.results.internal.RowProcessingStateStandardImpl.next(RowProcessingStateStandardImpl.java:67)\r\n\tat org.hibernate.sql.results.spi.ListResultsConsumer.consume(ListResultsConsumer.java:204)\r\n\tat org.hibernate.sql.results.spi.ListResultsConsumer.consume(ListResultsConsumer.java:33)\r\n\tat org.hibernate.sql.exec.internal.JdbcSelectExecutorStandardImpl.doExecuteQuery(JdbcSelectExecutorStandardImpl.java:211)\r\n\tat org.hibernate.sql.exec.internal.JdbcSelectExecutorStandardImpl.executeQuery(JdbcSelectExecutorStandardImpl.java:83)\r\n\tat org.hibernate.sql.exec.spi.JdbcSelectExecutor.list(JdbcSelectExecutor.java:76)\r\n\tat org.hibernate.sql.exec.spi.JdbcSelectExecutor.list(JdbcSelectExecutor.java:65)\r\n\tat org.hibernate.query.sqm.internal.ConcreteSqmSelectQueryPlan.lambda$new$2(ConcreteSqmSelectQueryPlan.java:139)\r\n\tat org.hibernate.query.sqm.internal.ConcreteSqmSelectQueryPlan.withCacheableSqmInterpretation(ConcreteSqmSelectQueryPlan.java:382)\r\n\tat org.hibernate.query.sqm.internal.ConcreteSqmSelectQueryPlan.performList(ConcreteSqmSelectQueryPlan.java:302)\r\n\tat org.hibernate.query.sqm.internal.QuerySqmImpl.doList(QuerySqmImpl.java:526)\r\n\tat org.hibernate.query.spi.AbstractSelectionQuery.list(AbstractSelectionQuery.java:423)\r\n\tat org.hibernate.query.Query.getResultList(Query.java:120)\r\n\tat org.springframework.data.jpa.repository.query.JpaQueryExecution$PagedExecution.doExecute(JpaQueryExecution.java:204)\r\n\tat org.springframework.data.jpa.repository.query.JpaQueryExecution.execute(JpaQueryExecution.java:92)\r\n\tat org.springframework.data.jpa.repository.query.AbstractJpaQuery.doExecute(AbstractJpaQuery.java:152)\r\n\tat org.springframework.data.jpa.repository.query.AbstractJpaQuery.execute(AbstractJpaQuery.java:140)\r\n\tat org.springframework.data.repository.core.support.RepositoryMethodInvoker.doInvoke(RepositoryMethodInvoker.java:170)\r\n\tat org.springframework.data.repository.core.support.RepositoryMethodInvoker.invoke(RepositoryMethodInvoker.java:158)\r\n\tat org.springframework.data.repository.core.support.QueryExecutorMethodInterceptor.doInvoke(QueryExecutorMethodInterceptor.java:169)\r\n\tat org.springframework.data.repository.core.support.QueryExecutorMethodInterceptor.invoke(QueryExecutorMethodInterceptor.java:148)\r\n\tat org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)\r\n\tat org.springframework.data.projection.DefaultMethodInvokingMethodInterceptor.invoke(DefaultMethodInvokingMethodInterceptor.java:70)\r\n\tat org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)\r\n\tat org.springframework.transaction.interceptor.TransactionAspectSupport.invokeWithinTransaction(TransactionAspectSupport.java:379)\r\n\tat org.springframework.transaction.interceptor.TransactionInterceptor.invoke(TransactionInterceptor.java:119)\r\n\tat org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)\r\n\tat org.springframework.dao.support.PersistenceExceptionTranslationInterceptor.invoke(PersistenceExceptionTranslationInterceptor.java:138)\r\n\t... 73 more\r\nCaused by: java.sql.SQLSyntaxErrorException: ORA-00904: \"MU1_0\".\"PARENT_USER_ID\": invalid identifier\n\r\nhttps://docs.oracle.com/error-help/db/ora-00904/\r\n\tat oracle.jdbc.driver.T4CTTIoer11.processError(T4CTTIoer11.java:709)\r\n\tat oracle.jdbc.driver.T4CTTIoer11.processError(T4CTTIoer11.java:609)\r\n\tat oracle.jdbc.driver.T4C8Oall.processError(T4C8Oall.java:1347)\r\n\tat oracle.jdbc.driver.T4CTTIfun.receive(T4CTTIfun.java:1100)\r\n\tat oracle.jdbc.driver.T4CTTIfun.doRPC(T4CTTIfun.java:408)\r\n\tat oracle.jdbc.driver.T4C8Oall.doOALL(T4C8Oall.java:499)\r\n\tat oracle.jdbc.driver.T4CPreparedStatement.doOall8(T4CPreparedStatement.java:274)\r\n\tat oracle.jdbc.driver.T4CPreparedStatement.executeForDescribe(T4CPreparedStatement.java:1231)\r\n\tat oracle.jdbc.driver.OracleStatement.prepareDefineBufferAndExecute(OracleStatement.java:1412)\r\n\tat oracle.jdbc.driver.OracleStatement.executeMaybeDescribe(OracleStatement.java:1286)\r\n\tat oracle.jdbc.driver.OracleStatement.executeSQLSelect(OracleStatement.java:1843)\r\n\tat oracle.jdbc.driver.OracleStatement.doExecuteWithTimeout(OracleStatement.java:1619)\r\n\tat oracle.jdbc.driver.OraclePreparedStatement.executeInternal(OraclePreparedStatement.java:3955)\r\n\tat oracle.jdbc.driver.OraclePreparedStatement.executeQuery(OraclePreparedStatement.java:4142)\r\n\tat oracle.jdbc.driver.OraclePreparedStatementWrapper.executeQuery(OraclePreparedStatementWrapper.java:1103)\r\n\tat com.zaxxer.hikari.pool.ProxyPreparedStatement.executeQuery(ProxyPreparedStatement.java:52)\r\n\tat com.zaxxer.hikari.pool.HikariProxyPreparedStatement.executeQuery(HikariProxyPreparedStatement.java)\r\n\tat org.hibernate.sql.results.jdbc.internal.DeferredResultSetAccess.executeQuery(DeferredResultSetAccess.java:246)\r\n\t... 105 more\r\nCaused by: Error : 904, Position : 277, SQL = select mu1_0.id,mu1_0.mid,mu1_0.password_expiry_time,mu1_0.city,mu1_0.country_code,mu1_0.created_date,mu1_0.email,mu1_0.first_name,mu1_0.last_fail_login,mu1_0.last_name,mu1_0.last_password_change,mu1_0.login_fail_attempt,mu1_0.middle_name,mu1_0.mobile_phone,mu1_0.office_phone,mu1_0.parent_user_id,mu1_0.password,mu1_0.pin_code,mu1_0.primary_phone,mu1_0.role,mu1_0.secondary_phone,mu1_0.state_code,mu1_0.status,mu1_0.user_id from merchant_user mu1_0 where mu1_0.mid=:1 fetch first :2 rows only, Original SQL = select mu1_0.id,mu1_0.mid,mu1_0.password_expiry_time,mu1_0.city,mu1_0.country_code,mu1_0.created_date,mu1_0.email,mu1_0.first_name,mu1_0.last_fail_login,mu1_0.last_name,mu1_0.last_password_change,mu1_0.login_fail_attempt,mu1_0.middle_name,mu1_0.mobile_phone,mu1_0.office_phone,mu1_0.parent_user_id,mu1_0.password,mu1_0.pin_code,mu1_0.primary_phone,mu1_0.role,mu1_0.secondary_phone,mu1_0.state_code,mu1_0.status,mu1_0.user_id from merchant_user mu1_0 where mu1_0.mid=? fetch first ? rows only, Error Message = ORA-00904: \"MU1_0\".\"PARENT_USER_ID\": invalid identifier\n\r\n\tat oracle.jdbc.driver.T4CTTIoer11.processError(T4CTTIoer11.java:717)\r\n\t... 122 more\r\n",
+    "message": "JDBC exception executing SQL [select mu1_0.id,mu1_0.mid,mu1_0.password_expiry_time,mu1_0.city,mu1_0.country_code,mu1_0.created_date,mu1_0.email,mu1_0.first_name,mu1_0.last_fail_login,mu1_0.last_name,mu1_0.last_password_change,mu1_0.login_fail_attempt,mu1_0.middle_name,mu1_0.mobile_phone,mu1_0.office_phone,mu1_0.parent_user_id,mu1_0.password,mu1_0.pin_code,mu1_0.primary_phone,mu1_0.role,mu1_0.secondary_phone,mu1_0.state_code,mu1_0.status,mu1_0.user_id from merchant_user mu1_0 where mu1_0.mid=? fetch first ? rows only] [ORA-00904: \"MU1_0\".\"PARENT_USER_ID\": invalid identifier\n\r\nhttps://docs.oracle.com/error-help/db/ora-00904/] [n/a]; SQL [n/a]",
+    "path": "/merchant/v1/admin/users/TCS"
+}
+
+    public Page<MerchantUser> findByMid(String mid, Pageable pageable){
+        return adminRepository.findByMID(mid, pageable);
+    }
+
+public interface AdminRepository extends JpaRepository<MerchantUser, UUID> {
+    boolean existsByMID(String MID);
+
+    Page<MerchantUser> findByMID(String mId, Pageable pageable);
+}
+
+package com.epay.merchant.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+import org.hibernate.annotations.GenericGenerator;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+
+import java.util.Date;
+import java.util.UUID;
+
+@Getter
+@Setter
+@Entity
+@Builder
+@AllArgsConstructor
+@Table(name = "MERCHANT_USER")
+@NoArgsConstructor
+public class MerchantUser {
+    @Id
+    @GeneratedValue(generator = "uuid")
+    @GenericGenerator(name = "uuid", strategy = "uuid2")
+    private UUID id;
+    private String MID;
+    private String parentUserId;
+    private String userId;
+    private String firstName;
+    private String middleName;
+    private String lastName;
+    private String email;
+    private String primaryPhone;
+    private String secondaryPhone;
+    private String mobilePhone;
+    private String officePhone;
+    private String countryCode;
+    private String stateCode;
+    private String pinCode;
+    private String city;
+    private String role;
+    private String status;
+    private String password;
+    private String lastPasswordChange;
+    private String PasswordExpiryTime;
+    private String loginFailAttempt;
+    private String lastFailLogin;
+    @CreatedDate
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date createdDate;
+
+}
 
 
-..........
-
-
-ID	RAW
-MID	VARCHAR2(255 BYTE)
-PARENT_USERID	VARCHAR2(255 BYTE)
-USER_ID	VARCHAR2(255 BYTE)
-FIRST_NAME	VARCHAR2(255 BYTE)
-MIDDLE_NAME	VARCHAR2(255 BYTE)
-LAST_NAME	VARCHAR2(255 BYTE)
-EMAIL	VARCHAR2(255 BYTE)
-PRIMARY_PHONE	VARCHAR2(255 BYTE)
-SECONDARY_PHONE	VARCHAR2(255 BYTE)
-MOBILE_PHONE	VARCHAR2(255 BYTE)
-OFFICE_PHONE	VARCHAR2(255 BYTE)
-COUNTRY_CODE	VARCHAR2(255 BYTE)
-STATE_CODE	VARCHAR2(255 BYTE)
-PIN_CODE	VARCHAR2(255 BYTE)
-CITY	VARCHAR2(255 BYTE)
-ROLE	VARCHAR2(255 BYTE)
-STATUS	VARCHAR2(255 BYTE)
-PASSWORD	VARCHAR2(255 BYTE)
-LAST_PASSWORD_CHANGE	NUMBER
-PASSWORD_EXPIRY_TIME	NUMBER
-LOGIN_FAIL_ATTEMPT	NUMBER
-LAST_SUCCESS_LOGIN	NUMBER
-LAST_FAIL_LOGIN	NUMBER
-CREATED_DATE	TIMESTAMP(6)
-
-
-
-
-
-...........
-
-
-
-
-INSERT INTO MERCHANT_USER (
-    MID, PARENT_USERID, USER_ID, FIRST_NAME, MIDDLE_NAME, LAST_NAME, EMAIL,
-    PRIMARY_PHONE, SECONDARY_PHONE, MOBILE_PHONE, OFFICE_PHONE, COUNTRY_CODE,
-    STATE_CODE, PIN_CODE, CITY, ROLE, STATUS, PASSWORD, LAST_PASSWORD_CHANGE,
-    PASSWORD_EXPIRY_TIME, LOGIN_FAIL_ATTEMPT, LAST_SUCCESS_LOGIN, LAST_FAIL_LOGIN, CREATED_DATE
-) VALUES (
-    'MID12345',
-    'PARENT123',
-    'USER123',
-    'John',
-    'Michael',
-    'Doe',
-    'john.doe@example.com',
-    '1234567890',
-    '0987654321',
-    '9876543210',
-    '123-456-7890',
-    'IN',
-    'MH',
-    '400001',
-    'Mumbai',
-    'Admin',
-    'Active',
-    'Password@123',
-    1715563200,
-    1718155200,
-    0,
-    1715563200,
-    1715563200,
-    CURRENT_TIMESTAMP
+-- liquibase formatted sql
+-- changeset subhra:1
+CREATE TABLE MERCHANT_USER (
+    ID RAW(16) DEFAULT SYS_GUID() PRIMARY KEY NOT NULL,
+    MID VARCHAR2(255) NOT NULL,
+    PARENT_USERID VARCHAR2(255) NOT NULL,
+    USER_ID VARCHAR2(255) UNIQUE NOT NULL,
+    FIRST_NAME VARCHAR2(255) NOT NULL,
+    MIDDLE_NAME VARCHAR2(255),
+    LAST_NAME VARCHAR2(255) NOT NULL,
+    EMAIL VARCHAR2(255) UNIQUE,
+    PRIMARY_PHONE VARCHAR2(255) UNIQUE,
+    SECONDARY_PHONE VARCHAR2(255),
+    MOBILE_PHONE VARCHAR2(255) UNIQUE NOT NULL,
+    OFFICE_PHONE VARCHAR2(255) NOT NULL,
+    COUNTRY_CODE VARCHAR2(255) NOT NULL,
+    STATE_CODE VARCHAR2(255) NOT NULL,
+    PIN_CODE VARCHAR2(255) NOT NULL,
+    CITY VARCHAR2(255) NOT NULL,
+    ROLE VARCHAR2(255) NOT NULL,
+    STATUS VARCHAR2(255) NOT NULL,
+    PASSWORD VARCHAR2(255) NOT NULL,
+    LAST_PASSWORD_CHANGE NUMBER NOT NULL,
+    PASSWORD_EXPIRY_TIME NUMBER NOT NULL,
+    LOGIN_FAIL_ATTEMPT NUMBER NOT NULL,
+    LAST_SUCCESS_LOGIN NUMBER NOT NULL,
+    LAST_FAIL_LOGIN NUMBER NOT NULL,
+    CREATED_DATE TIMESTAMP NOT NULL
 );
