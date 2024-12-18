@@ -75,3 +75,42 @@ public class CaptchaService {
     }
 
 }
+
+
+........
+
+
+
+
+INSERT INTO MERCHANT_USER (
+    MID, PARENT_USERID, USER_ID, FIRST_NAME, MIDDLE_NAME, LAST_NAME, EMAIL,
+    PRIMARY_PHONE, SECONDARY_PHONE, MOBILE_PHONE, OFFICE_PHONE, COUNTRY_CODE,
+    STATE_CODE, PIN_CODE, CITY, ROLE, STATUS, PASSWORD, LAST_PASSWORD_CHANGE,
+    PASSWORD_EXPIRY_TIME, LOGIN_FAIL_ATTEMPT, LAST_SUCCESS_LOGIN, LAST_FAIL_LOGIN, CREATED_DATE
+) VALUES (
+    'MID12345',
+    'PARENT123',
+    'USER123',
+    'John',
+    'Michael',
+    'Doe',
+    'john.doe@example.com',
+    '1234567890',
+    '0987654321',
+    '9876543210',
+    '123-456-7890',
+    'IN',
+    'MH',
+    '400001',
+    'Mumbai',
+    'Admin',
+    'Active',
+    'Password@123',
+    1715563200,
+    1718155200,
+    0,
+    1715563200,
+    1715563200,
+    CURRENT_TIMESTAMP
+);
+
