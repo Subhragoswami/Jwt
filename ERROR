@@ -1,48 +1,42 @@
-{
-    "timestamp": "2024-12-18T13:29:53.435+00:00",
-    "status": 500,
-    "error": "Internal Server Error",
-    "trace": "org.springframework.dao.InvalidDataAccessResourceUsageException: JDBC exception executing SQL [select mu1_0.id,mu1_0.password_expiry_time,mu1_0.city,mu1_0.country_code,mu1_0.created_date,mu1_0.email,mu1_0.first_name,mu1_0.last_fail_login,mu1_0.last_name,mu1_0.last_password_change,mu1_0.login_fail_attempt,mu1_0.mid,mu1_0.middle_name,mu1_0.mobile_phone,mu1_0.office_phone,mu1_0.parent_userid,mu1_0.password,mu1_0.pin_code,mu1_0.primary_phone,mu1_0.remarks,mu1_0.role_id,mu1_0.secondary_phone,mu1_0.state_code,mu1_0.status,mu1_0.updated_date,mu1_0.user_name from merchant_user mu1_0 where mu1_0.mid=? fetch first ? rows only] [ORA-00904: \"MU1_0\".\"USER_NAME\": invalid identifier\n\r\nhttps://docs.oracle.com/error-help/db/ora-00904/] [n/a]; SQL [n/a]\r\n\tat org.springframework.orm.jpa.vendor.HibernateJpaDialect.convertHibernateAccessException(HibernateJpaDialect.java:277)\r\n\tat org.springframework.orm.jpa.vendor.HibernateJpaDialect.translateExceptionIfPossible(HibernateJpaDialect.java:241)\r\n\tat org.springframework.orm.jpa.AbstractEntityManagerFactoryBean.translateExceptionIfPossible(AbstractEntityManagerFactoryBean.java:550)\r\n\tat org.springframework.dao.support.ChainedPersistenceExceptionTranslator.translateExceptionIfPossible(ChainedPersistenceExceptionTranslator.java:61)\r\n\tat org.springframework.dao.support.DataAccessUtils.translateIfNecessary(DataAccessUtils.java:335)\r\n\tat org.springframework.dao.support.PersistenceExceptionTranslationInterceptor.invoke(PersistenceExceptionTranslationInterceptor.java:160)\r\n\tat org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)\r\n\tat org.springframework.data.jpa.repository.support.CrudMethodMetadataPostProcessor$CrudMethodMetadataPopulatingMethodInterceptor.invoke(CrudMethodMetadataPostProcessor.java:136)\r\n\tat org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)\r\n\tat org.springframework.aop.interceptor.ExposeInvocationInterceptor.invoke(ExposeInvocationInterceptor.java:97)\r\n\tat org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)\r\n\tat org.springframework.aop.framework.JdkDynamicAopProxy.invoke(JdkDynamicAopProxy.java:223)\r\n\tat jdk.proxy4/jdk.proxy4.$Proxy159.findByMid(Unknown Source)\r\n\tat com.epay.merchant.dao.AdminDao.findByMid(AdminDao.java:20)\r\n\tat java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)\r\n\tat java.base/java.lang.reflect.Method.invoke(Method.java:580)\r\n\tat org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:355)\r\n\tat org.springframework.aop.framework.ReflectiveMethodInvocation.invokeJoinpoint(ReflectiveMethodInvocation.java:196)\r\n\tat org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:163)\r\n\tat org.springframework.aop.framework.CglibAopProxy$CglibMethodInvocation.proceed(CglibAopProxy.java:768)\r\n\tat org.springframework.dao.support.PersistenceExceptionTranslationInterceptor.invoke(PersistenceExceptionTranslationInterceptor.java:138)\r\n\tat org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)\r\n\tat org.springframework.aop.framework.CglibAopProxy$CglibMethodInvocation.proceed(CglibAopProxy.java:768)\r\n\tat org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:720)\r\n\tat com.epay.merchant.dao.AdminDao$$SpringCGLIB$$0.findByMid(<generated>)\r\n\tat com.epay.merchant.service.AdminService.getAllUser(AdminService.java:37)\r\n\tat com.epay.merchant.controller.AdminController.getAllUser(AdminController.java:27)\r\n\tat java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)\r\n\tat java.base/java.lang.reflect.Method.invoke(Method.java:580)\r\n\tat org.springframework.web.method.support.InvocableHandlerMethod.doInvoke(InvocableHandlerMethod.java:255)\r\n\tat org.springframework.web.method.support.InvocableHandlerMethod.invokeForRequest(InvocableHandlerMethod.java:188)\r\n\tat org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHandlerMethod.invokeAndHandle(ServletInvocableHandlerMethod.java:118)\r\n\tat org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.invokeHandlerMethod(RequestMappingHandlerAdapter.java:926)\r\n\tat org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.handleInternal(RequestMappingHandlerAdapter.java:831)\r\n\tat org.springframework.web.servlet.mvc.method.AbstractHandlerMethodAdapter.handle(AbstractHandlerMethodAdapter.java:87)\r\n\tat org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:1089)\r\n\tat org.springframework.web.servlet.DispatcherServlet.doService(DispatcherServlet.java:979)\r\n\tat org.springframework.web.servlet.FrameworkServlet.processRequest(FrameworkServlet.java:1014)\r\n\tat org.springframework.web.servlet.FrameworkServlet.doGet(FrameworkServlet.java:903)\r\n\tat jakarta.servlet.http.HttpServlet.service(HttpServlet.java:564)\r\n\tat org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:885)\r\n\tat jakarta.servlet.http.HttpServlet.service(HttpServlet.java:658)\r\n\tat org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:195)\r\n\tat org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:140)\r\n\tat org.apache.tomcat.websocket.server.WsFilter.doFilter(WsFilter.java:51)\r\n\tat org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:164)\r\n\tat org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:140)\r\n\tat org.springframework.web.filter.RequestContextFilter.doFilterInternal(RequestContextFilter.java:100)\r\n\tat org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)\r\n\tat org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:164)\r\n\tat org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:140)\r\n\tat org.springframework.web.filter.FormContentFilter.doFilterInternal(FormContentFilter.java:93)\r\n\tat org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)\r\n\tat org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:164)\r\n\tat org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:140)\r\n\tat org.springframework.web.filter.ServerHttpObservationFilter.doFilterInternal(ServerHttpObservationFilter.java:113)\r\n\tat org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)\r\n\tat org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:164)\r\n\tat org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:140)\r\n\tat org.springframework.web.filter.CharacterEncodingFilter.doFilterInternal(CharacterEncodingFilter.java:201)\r\n\tat org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)\r\n\tat org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:164)\r\n\tat org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:140)\r\n\tat org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:167)\r\n\tat org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:90)\r\n\tat org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:483)\r\n\tat org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:115)\r\n\tat org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:93)\r\n\tat org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:74)\r\n\tat org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:344)\r\n\tat org.apache.coyote.http11.Http11Processor.service(Http11Processor.java:384)\r\n\tat org.apache.coyote.AbstractProcessorLight.process(AbstractProcessorLight.java:63)\r\n\tat org.apache.coyote.AbstractProtocol$ConnectionHandler.process(AbstractProtocol.java:904)\r\n\tat org.apache.tomcat.util.net.NioEndpoint$SocketProcessor.doRun(NioEndpoint.java:1741)\r\n\tat org.apache.tomcat.util.net.SocketProcessorBase.run(SocketProcessorBase.java:52)\r\n\tat org.apache.tomcat.util.threads.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1190)\r\n\tat org.apache.tomcat.util.threads.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:659)\r\n\tat org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:63)\r\n\tat java.base/java.lang.Thread.run(Thread.java:1583)\r\nCaused by: org.hibernate.exception.SQLGrammarException: JDBC exception executing SQL [select mu1_0.id,mu1_0.password_expiry_time,mu1_0.city,mu1_0.country_code,mu1_0.created_date,mu1_0.email,mu1_0.first_name,mu1_0.last_fail_login,mu1_0.last_name,mu1_0.last_password_change,mu1_0.login_fail_attempt,mu1_0.mid,mu1_0.middle_name,mu1_0.mobile_phone,mu1_0.office_phone,mu1_0.parent_userid,mu1_0.password,mu1_0.pin_code,mu1_0.primary_phone,mu1_0.remarks,mu1_0.role_id,mu1_0.secondary_phone,mu1_0.state_code,mu1_0.status,mu1_0.updated_date,mu1_0.user_name from merchant_user mu1_0 where mu1_0.mid=? fetch first ? rows only] [ORA-00904: \"MU1_0\".\"USER_NAME\": invalid identifier\n\r\nhttps://docs.oracle.com/error-help/db/ora-00904/] [n/a]\r\n\tat org.hibernate.exception.internal.SQLExceptionTypeDelegate.convert(SQLExceptionTypeDelegate.java:66)\r\n\tat org.hibernate.exception.internal.StandardSQLExceptionConverter.convert(StandardSQLExceptionConverter.java:58)\r\n\tat org.hibernate.engine.jdbc.spi.SqlExceptionHelper.convert(SqlExceptionHelper.java:108)\r\n\tat org.hibernate.engine.jdbc.spi.SqlExceptionHelper.convert(SqlExceptionHelper.java:94)\r\n\tat org.hibernate.sql.results.jdbc.internal.DeferredResultSetAccess.executeQuery(DeferredResultSetAccess.java:264)\r\n\tat org.hibernate.sql.results.jdbc.internal.DeferredResultSetAccess.getResultSet(DeferredResultSetAccess.java:167)\r\n\tat org.hibernate.sql.results.jdbc.internal.JdbcValuesResultSetImpl.advanceNext(JdbcValuesResultSetImpl.java:265)\r\n\tat org.hibernate.sql.results.jdbc.internal.JdbcValuesResultSetImpl.processNext(JdbcValuesResultSetImpl.java:145)\r\n\tat org.hibernate.sql.results.jdbc.internal.AbstractJdbcValues.next(AbstractJdbcValues.java:19)\r\n\tat org.hibernate.sql.results.internal.RowProcessingStateStandardImpl.next(RowProcessingStateStandardImpl.java:67)\r\n\tat org.hibernate.sql.results.spi.ListResultsConsumer.consume(ListResultsConsumer.java:204)\r\n\tat org.hibernate.sql.results.spi.ListResultsConsumer.consume(ListResultsConsumer.java:33)\r\n\tat org.hibernate.sql.exec.internal.JdbcSelectExecutorStandardImpl.doExecuteQuery(JdbcSelectExecutorStandardImpl.java:211)\r\n\tat org.hibernate.sql.exec.internal.JdbcSelectExecutorStandardImpl.executeQuery(JdbcSelectExecutorStandardImpl.java:83)\r\n\tat org.hibernate.sql.exec.spi.JdbcSelectExecutor.list(JdbcSelectExecutor.java:76)\r\n\tat org.hibernate.sql.exec.spi.JdbcSelectExecutor.list(JdbcSelectExecutor.java:65)\r\n\tat org.hibernate.query.sqm.internal.ConcreteSqmSelectQueryPlan.lambda$new$2(ConcreteSqmSelectQueryPlan.java:139)\r\n\tat org.hibernate.query.sqm.internal.ConcreteSqmSelectQueryPlan.withCacheableSqmInterpretation(ConcreteSqmSelectQueryPlan.java:382)\r\n\tat org.hibernate.query.sqm.internal.ConcreteSqmSelectQueryPlan.performList(ConcreteSqmSelectQueryPlan.java:302)\r\n\tat org.hibernate.query.sqm.internal.QuerySqmImpl.doList(QuerySqmImpl.java:526)\r\n\tat org.hibernate.query.spi.AbstractSelectionQuery.list(AbstractSelectionQuery.java:423)\r\n\tat org.hibernate.query.Query.getResultList(Query.java:120)\r\n\tat org.springframework.data.jpa.repository.query.JpaQueryExecution$PagedExecution.doExecute(JpaQueryExecution.java:204)\r\n\tat org.springframework.data.jpa.repository.query.JpaQueryExecution.execute(JpaQueryExecution.java:92)\r\n\tat org.springframework.data.jpa.repository.query.AbstractJpaQuery.doExecute(AbstractJpaQuery.java:152)\r\n\tat org.springframework.data.jpa.repository.query.AbstractJpaQuery.execute(AbstractJpaQuery.java:140)\r\n\tat org.springframework.data.repository.core.support.RepositoryMethodInvoker.doInvoke(RepositoryMethodInvoker.java:170)\r\n\tat org.springframework.data.repository.core.support.RepositoryMethodInvoker.invoke(RepositoryMethodInvoker.java:158)\r\n\tat org.springframework.data.repository.core.support.QueryExecutorMethodInterceptor.doInvoke(QueryExecutorMethodInterceptor.java:169)\r\n\tat org.springframework.data.repository.core.support.QueryExecutorMethodInterceptor.invoke(QueryExecutorMethodInterceptor.java:148)\r\n\tat org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)\r\n\tat org.springframework.data.projection.DefaultMethodInvokingMethodInterceptor.invoke(DefaultMethodInvokingMethodInterceptor.java:70)\r\n\tat org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)\r\n\tat org.springframework.transaction.interceptor.TransactionAspectSupport.invokeWithinTransaction(TransactionAspectSupport.java:379)\r\n\tat org.springframework.transaction.interceptor.TransactionInterceptor.invoke(TransactionInterceptor.java:119)\r\n\tat org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)\r\n\tat org.springframework.dao.support.PersistenceExceptionTranslationInterceptor.invoke(PersistenceExceptionTranslationInterceptor.java:138)\r\n\t... 73 more\r\nCaused by: java.sql.SQLSyntaxErrorException: ORA-00904: \"MU1_0\".\"USER_NAME\": invalid identifier\n\r\nhttps://docs.oracle.com/error-help/db/ora-00904/\r\n\tat oracle.jdbc.driver.T4CTTIoer11.processError(T4CTTIoer11.java:709)\r\n\tat oracle.jdbc.driver.T4CTTIoer11.processError(T4CTTIoer11.java:609)\r\n\tat oracle.jdbc.driver.T4C8Oall.processError(T4C8Oall.java:1347)\r\n\tat oracle.jdbc.driver.T4CTTIfun.receive(T4CTTIfun.java:1100)\r\n\tat oracle.jdbc.driver.T4CTTIfun.doRPC(T4CTTIfun.java:408)\r\n\tat oracle.jdbc.driver.T4C8Oall.doOALL(T4C8Oall.java:499)\r\n\tat oracle.jdbc.driver.T4CPreparedStatement.doOall8(T4CPreparedStatement.java:274)\r\n\tat oracle.jdbc.driver.T4CPreparedStatement.executeForDescribe(T4CPreparedStatement.java:1231)\r\n\tat oracle.jdbc.driver.OracleStatement.prepareDefineBufferAndExecute(OracleStatement.java:1412)\r\n\tat oracle.jdbc.driver.OracleStatement.executeMaybeDescribe(OracleStatement.java:1286)\r\n\tat oracle.jdbc.driver.OracleStatement.executeSQLSelect(OracleStatement.java:1843)\r\n\tat oracle.jdbc.driver.OracleStatement.doExecuteWithTimeout(OracleStatement.java:1619)\r\n\tat oracle.jdbc.driver.OraclePreparedStatement.executeInternal(OraclePreparedStatement.java:3955)\r\n\tat oracle.jdbc.driver.OraclePreparedStatement.executeQuery(OraclePreparedStatement.java:4142)\r\n\tat oracle.jdbc.driver.OraclePreparedStatementWrapper.executeQuery(OraclePreparedStatementWrapper.java:1103)\r\n\tat com.zaxxer.hikari.pool.ProxyPreparedStatement.executeQuery(ProxyPreparedStatement.java:52)\r\n\tat com.zaxxer.hikari.pool.HikariProxyPreparedStatement.executeQuery(HikariProxyPreparedStatement.java)\r\n\tat org.hibernate.sql.results.jdbc.internal.DeferredResultSetAccess.executeQuery(DeferredResultSetAccess.java:246)\r\n\t... 105 more\r\nCaused by: Error : 904, Position : 446, SQL = select mu1_0.id,mu1_0.password_expiry_time,mu1_0.city,mu1_0.country_code,mu1_0.created_date,mu1_0.email,mu1_0.first_name,mu1_0.last_fail_login,mu1_0.last_name,mu1_0.last_password_change,mu1_0.login_fail_attempt,mu1_0.mid,mu1_0.middle_name,mu1_0.mobile_phone,mu1_0.office_phone,mu1_0.parent_userid,mu1_0.password,mu1_0.pin_code,mu1_0.primary_phone,mu1_0.remarks,mu1_0.role_id,mu1_0.secondary_phone,mu1_0.state_code,mu1_0.status,mu1_0.updated_date,mu1_0.user_name from merchant_user mu1_0 where mu1_0.mid=:1 fetch first :2 rows only, Original SQL = select mu1_0.id,mu1_0.password_expiry_time,mu1_0.city,mu1_0.country_code,mu1_0.created_date,mu1_0.email,mu1_0.first_name,mu1_0.last_fail_login,mu1_0.last_name,mu1_0.last_password_change,mu1_0.login_fail_attempt,mu1_0.mid,mu1_0.middle_name,mu1_0.mobile_phone,mu1_0.office_phone,mu1_0.parent_userid,mu1_0.password,mu1_0.pin_code,mu1_0.primary_phone,mu1_0.remarks,mu1_0.role_id,mu1_0.secondary_phone,mu1_0.state_code,mu1_0.status,mu1_0.updated_date,mu1_0.user_name from merchant_user mu1_0 where mu1_0.mid=? fetch first ? rows only, Error Message = ORA-00904: \"MU1_0\".\"USER_NAME\": invalid identifier\n\r\n\tat oracle.jdbc.driver.T4CTTIoer11.processError(T4CTTIoer11.java:717)\r\n\t... 122 more\r\n",
-    "message": "JDBC exception executing SQL [select mu1_0.id,mu1_0.password_expiry_time,mu1_0.city,mu1_0.country_code,mu1_0.created_date,mu1_0.email,mu1_0.first_name,mu1_0.last_fail_login,mu1_0.last_name,mu1_0.last_password_change,mu1_0.login_fail_attempt,mu1_0.mid,mu1_0.middle_name,mu1_0.mobile_phone,mu1_0.office_phone,mu1_0.parent_userid,mu1_0.password,mu1_0.pin_code,mu1_0.primary_phone,mu1_0.remarks,mu1_0.role_id,mu1_0.secondary_phone,mu1_0.state_code,mu1_0.status,mu1_0.updated_date,mu1_0.user_name from merchant_user mu1_0 where mu1_0.mid=? fetch first ? rows only] [ORA-00904: \"MU1_0\".\"USER_NAME\": invalid identifier\n\r\nhttps://docs.oracle.com/error-help/db/ora-00904/] [n/a]; SQL [n/a]",
-    "path": "/merchant/v1/admin/users/TCS"
-}
-
-    public Page<MerchantUser> findByMid(String mid, Pageable pageable){
-        return adminRepository.findByMID(mid, pageable);
-    }
-
-public interface AdminRepository extends JpaRepository<MerchantUser, UUID> {
-    boolean existsByMID(String MID);
-
-    Page<MerchantUser> findByMID(String mId, Pageable pageable);
-}
+Hibernate: select mu1_0.id,mu1_0.city,mu1_0.country_code,mu1_0.created_at,mu1_0.created_by,mu1_0.email,mu1_0.first_name,mu1_0.last_fail_login,mu1_0.last_name,mu1_0.last_password_change,mu1_0.last_success_login,mu1_0.login_fail_attempt,mu1_0.mid,mu1_0.middle_name,mu1_0.mobile_phone,mu1_0.office_phone,mu1_0.parent_userid,mu1_0.password,mu1_0.password_expiry_time,mu1_0.pin_code,mu1_0.primary_phone,mu1_0.role,mu1_0.secondary_phone,mu1_0.state_code,mu1_0.status,mu1_0.updated_at,mu1_0.updated_by,mu1_0.user_name from merchant_user mu1_0 where mu1_0.mid=? fetch first ? rows only
+2024-12-19 15:30:09 [http-nio-9093-exec-4] ERROR c.e.m.e.MerchantExceptionHandler  - userId= - correlationId= - Error in handleGenericException 
+org.springframework.dao.InvalidDataAccessApiUsageException: Expecting 8 byte values to construct a long     
 
 package com.epay.merchant.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
-import lombok.*;
-import org.hibernate.annotations.GenericGenerator;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 
-import java.util.Date;
 import java.util.UUID;
-
-@Getter
-@Setter
+/**
+ * Class Name: MerchantUser
+ * *
+ * Description:
+ * *
+ * Author: Bhoopendra Rajput
+ * <p>
+ * Copyright (c) 2024 [State Bank of India]
+ * All rights reserved
+ * *
+ * Version:1.0
+ */
+@EqualsAndHashCode(callSuper = true)
+@Data
 @Entity
-@Builder
-@AllArgsConstructor
 @Table(name = "MERCHANT_USER")
-@NoArgsConstructor
-public class MerchantUser {
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class MerchantUser extends AuditEntity {
     @Id
-    @GeneratedValue(generator = "uuid")
-    @GenericGenerator(name = "uuid", strategy = "uuid2")
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(nullable = false, updatable = false, unique = true)
     private UUID id;
-    private String MID;
+    @Column(name = "MID")
+    private String mId;
+    @Column(name = "PARENT_USERID")
     private String parentUserId;
-    private String userId;
+    private String userName;
     private String firstName;
     private String middleName;
     private String lastName;
@@ -55,46 +49,76 @@ public class MerchantUser {
     private String stateCode;
     private String pinCode;
     private String city;
-    private String role;
+    private UUID role;
     private String status;
     private String password;
-    private String lastPasswordChange;
-    private String PasswordExpiryTime;
-    private String loginFailAttempt;
-    private String lastFailLogin;
-    @CreatedDate
-    @Temporal(TemporalType.TIMESTAMP)
-    private Date createdDate;
-
+    private Long lastPasswordChange;
+    private Long passwordExpiryTime;
+    private Long loginFailAttempt;
+    private Long lastSuccessLogin;
+    private Long lastFailLogin;
 }
 
+package com.epay.merchant.entity;
 
--- liquibase formatted sql
--- changeset subhra:1
-CREATE TABLE MERCHANT_USER (
-    ID RAW(16) DEFAULT SYS_GUID() PRIMARY KEY NOT NULL,
-    MID VARCHAR2(255) NOT NULL,
-    PARENT_USERID VARCHAR2(255) NOT NULL,
-    USER_ID VARCHAR2(255) UNIQUE NOT NULL,
-    FIRST_NAME VARCHAR2(255) NOT NULL,
-    MIDDLE_NAME VARCHAR2(255),
-    LAST_NAME VARCHAR2(255) NOT NULL,
-    EMAIL VARCHAR2(255) UNIQUE,
-    PRIMARY_PHONE VARCHAR2(255) UNIQUE,
-    SECONDARY_PHONE VARCHAR2(255),
-    MOBILE_PHONE VARCHAR2(255) UNIQUE NOT NULL,
-    OFFICE_PHONE VARCHAR2(255) NOT NULL,
-    COUNTRY_CODE VARCHAR2(255) NOT NULL,
-    STATE_CODE VARCHAR2(255) NOT NULL,
-    PIN_CODE VARCHAR2(255) NOT NULL,
-    CITY VARCHAR2(255) NOT NULL,
-    ROLE VARCHAR2(255) NOT NULL,
-    STATUS VARCHAR2(255) NOT NULL,
-    PASSWORD VARCHAR2(255) NOT NULL,
-    LAST_PASSWORD_CHANGE NUMBER NOT NULL,
-    PASSWORD_EXPIRY_TIME NUMBER NOT NULL,
-    LOGIN_FAIL_ATTEMPT NUMBER NOT NULL,
-    LAST_SUCCESS_LOGIN NUMBER NOT NULL,
-    LAST_FAIL_LOGIN NUMBER NOT NULL,
-    CREATED_DATE TIMESTAMP NOT NULL
+import jakarta.persistence.EntityListeners;
+import jakarta.persistence.MappedSuperclass;
+import lombok.Getter;
+import lombok.Setter;
+import org.springframework.data.annotation.CreatedBy;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedBy;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import java.io.Serializable;
+
+@Getter
+@Setter
+@MappedSuperclass
+@EntityListeners(AuditingEntityListener.class)
+public class AuditEntity implements Serializable {
+
+    @CreatedBy
+    private String createdBy;
+
+    @CreatedDate
+    private Long createdAt;
+
+    @LastModifiedBy
+    private String updatedBy;
+
+    @LastModifiedDate
+    private Long updatedAt;
+}
+
+REATE TABLE MERCHANT_USER (
+    ID	RAW(16) DEFAULT SYS_GUID() PRIMARY KEY NOT NULL,
+    MID	VARCHAR2(50),
+    PARENT_USERID	VARCHAR2(50),
+    USER_NAME	VARCHAR2(200) ,
+    FIRST_NAME	VARCHAR2(100),
+    MIDDLE_NAME	VARCHAR2(50),
+    LAST_NAME	VARCHAR2(100),
+    EMAIL	VARCHAR2(100),
+    PRIMARY_PHONE	VARCHAR2(20),
+    SECONDARY_PHONE	VARCHAR2(20),
+    MOBILE_PHONE	VARCHAR2(20),
+    OFFICE_PHONE	VARCHAR2(20),
+    COUNTRY_CODE	VARCHAR2(10),
+    STATE_CODE	VARCHAR2(10),
+    PIN_CODE	VARCHAR2(10),
+    CITY	VARCHAR2(50),
+    ROLE	VARCHAR2(50),
+    STATUS	VARCHAR2(10),
+    PASSWORD	VARCHAR2(128),
+    LAST_PASSWORD_CHANGE	NUMBER,
+    PASSWORD_EXPIRY_TIME	NUMBER,
+    LOGIN_FAIL_ATTEMPT	NUMBER,
+    LAST_SUCCESS_LOGIN	NUMBER,
+    LAST_FAIL_LOGIN	NUMBER,
+    CREATED_BY	VARCHAR2(50),
+    CREATED_AT	NUMBER,
+    UPDATED_BY	VARCHAR2(50),
+    UPDATED_AT	NUMBER
 );
