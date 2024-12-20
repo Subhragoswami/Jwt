@@ -1,342 +1,199 @@
- package com.epay.merchant.service;
+package com.epay.merchant.controller;
 
-import static com.epay.merchant.util.AppConstants.RESPONSE_SUCCESS;
-import static org.junit.jupiter.api.Assertions.*;
+import com.epay.merchant.model.response.MerchantInfoResponse;
+import com.epay.merchant.model.response.MerchantResponse;
+import com.epay.merchant.service.MerchantInfoService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-import com.epay.merchant.entity.Captcha;
-import com.epay.merchant.model.request.CaptchaRequest;
-import com.epay.merchant.model.response.CaptchaResponse;
-import com.epay.merchant.model.response.ResponseDto;
-import com.epay.merchant.repository.CaptchaRepository;
-import com.epay.merchant.util.enums.RequestType;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.code.kaptcha.impl.DefaultKaptcha;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.Mockito;
-import org.mockito.junit.jupiter.MockitoExtension;
+@RestController
+@RequestMapping("/merchant")
+@RequiredArgsConstructor
+public class MerchantController {
 
-import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.util.Base64;
-import java.util.Optional;
-import java.util.List;
-import java.util.UUID;
+    private final MerchantInfoService merchantInfoService;
 
-import javax.imageio.ImageIO;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
-
-@ExtendWith(MockitoExtension.class)
-class CaptchaServiceTest {
-
-    @Mock
-    private DefaultKaptcha captchaProducer;
-
-    @Mock
-    private ObjectMapper objectMapper;
-
-    @Mock
-    private CaptchaRepository captchaRepository;
-
-    @InjectMocks
-    private CaptchaService captchaService;
-
-    private CaptchaRequest captchaRequest;
-    private Captcha captcha;
-    private CaptchaResponse captchaResponse;
-    private BufferedImage bufferedImage;
-    private ByteArrayOutputStream outputStream;
-
-    @BeforeEach
-    void setUp() throws Exception {
-        // Prepare test data
-        captchaRequest = new CaptchaRequest();
-        captchaRequest.setRequestId(UUID.randomUUID());
-        captchaRequest.setRequestType(RequestType.LOGIN);
-
-        captcha = new Captcha();
-        captcha.setCaptchaImage("BASE64_IMAGE");
-        captcha.setRequestId(UUID.randomUUID());
-        captcha.setRequestType(RequestType.LOGIN);
-        captcha.setExpiryTime(LocalDateTime.now().plusMinutes(5).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
-
-        captchaResponse = new CaptchaResponse();
-        captchaResponse.setCaptchaImage("BASE64_IMAGE");
-        //captchaResponse.setCaptchaText("12345");
-        // captchaResponse.se(RequestType.USER_REGISTRATION);
-        captchaResponse.setExpiryTime(LocalDateTime.now().plusMinutes(5));
-
-        // Simulated image and base64
-        bufferedImage = new BufferedImage(200, 50, BufferedImage.TYPE_INT_RGB);
-        outputStream = new ByteArrayOutputStream();
-        ImageIO.write(bufferedImage, "jpg", outputStream);
-    }
-
-    @Test
-    void testCreateCaptcha()  {
-        // Mock behavior
-        when(captchaProducer.createText()).thenReturn("ABCD12");
-        when(captchaProducer.createImage(anyString())).thenReturn(bufferedImage);
-        when(captchaRepository.save(any(Captcha.class))).thenReturn(captcha);
-        when(objectMapper.convertValue(any(Captcha.class), eq(CaptchaResponse.class))).thenReturn(captchaResponse);
-
-        // Execute the method
-        ResponseDto<CaptchaResponse> response = captchaService.createCaptcha(captchaRequest);
-
-        // Verify response
-        assertNotNull(response);
-        assertEquals(RESPONSE_SUCCESS, response.getStatus());
-        assertEquals(1, response.getData().size());
-        assertEquals("BASE64_IMAGE", response.getData().get(0).getCaptchaImage());
-        //assertEquals("12345", response.getData().get(0).getId());
-        // assertEquals(RequestType., response.getData().get(0).getRequestType());
-
-        // Verify interactions
-        verify(captchaProducer, times(1)).createText();
-        verify(captchaProducer, times(1)).createImage("ABCD12");
-        verify(captchaRepository, times(1)).save(any(Captcha.class));
-        verify(objectMapper, times(1)).convertValue(any(Captcha.class), eq(CaptchaResponse.class));
+    @GetMapping("/info/mids")
+    public MerchantResponse<MerchantInfoResponse> getAllMerchantInfo( @PageableDefault(size = 50, page = 0) Pageable pageable){
+        return merchantInfoService.getAllMerchantInfo(pageable);
     }
 }
-
-
-
-
-
-
-
-............
-
-
 
 
 package com.epay.merchant.service;
 
-import static com.epay.merchant.util.AppConstants.RESPONSE_SUCCESS;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import com.epay.merchant.dao.MerchantInfoDao;
+import com.epay.merchant.dto.MerchantInfoDto;
+import com.epay.merchant.mapper.MerchantMapper;
+import com.epay.merchant.model.response.MerchantInfoResponse;
+import com.epay.merchant.model.response.MerchantResponse;
+import com.epay.merchant.util.MerchantConstant;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
 
-import com.epay.merchant.dao.CaptchaDao;
-import com.epay.merchant.entity.Captcha;
-import com.epay.merchant.exception.MerchantException;
-import com.epay.merchant.model.request.CaptchaRequest;
-import com.epay.merchant.model.response.CaptchaResponse;
-import com.epay.merchant.model.response.ResponseDto;
-import com.epay.merchant.util.enums.RequestType;
-import com.epay.merchant.validator.CaptchaValidator;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.code.kaptcha.impl.DefaultKaptcha;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.util.Base64;
 import java.util.List;
-import java.util.UUID;
 
-import javax.imageio.ImageIO;
+@Service
+@RequiredArgsConstructor
+public class MerchantInfoService {
 
-@ExtendWith(MockitoExtension.class)
-class CaptchaServiceTest {
+    private final MerchantInfoDao merchantInfoDao;
+    private final MerchantMapper merchantMapper;
 
-    @Mock
-    private DefaultKaptcha captchaProducer;
+    public MerchantResponse<MerchantInfoResponse> getAllMerchantInfo(Pageable pageable) {
+        Page<MerchantInfoDto> merchantInfo = merchantInfoDao.getALl(pageable);
+        List<MerchantInfoResponse> merchantInfoResponseList = merchantMapper.mapMerchantInfoDTOListToResponseList(merchantInfo.getContent());
+        return MerchantResponse.<MerchantInfoResponse>builder().status(MerchantConstant.RESPONSE_SUCCESS).data(merchantInfoResponseList).count(merchantInfo.stream().count()).total(merchantInfo.getTotalElements()).build();
+    }
+}
+package com.epay.merchant.mapper;
 
-    @Mock
-    private ObjectMapper objectMapper;
+import com.epay.merchant.dto.MerchantDto;
+import com.epay.merchant.dto.MerchantInfoDto;
+import com.epay.merchant.dto.MerchantUserDto;
+import com.epay.merchant.entity.MerchantInfo;
+import com.epay.merchant.entity.MerchantUser;
+import com.epay.merchant.model.response.MerchantInfoResponse;
+import com.epay.merchant.model.response.MerchantUserResponse;
+import org.mapstruct.AfterMapping;
+import org.mapstruct.Builder;
+import org.mapstruct.Mapper;
+import org.mapstruct.MappingTarget;
 
-    @Mock
-    private CaptchaDao captchaDao;
+import java.util.List;
 
-    @Mock
-    private CaptchaValidator captchaValidator;
-
-    @InjectMocks
-    private CaptchaService captchaService;
-
-    private CaptchaRequest captchaRequest;
-    private Captcha captcha;
-    private CaptchaResponse captchaResponse;
-    private BufferedImage bufferedImage;
-    private ByteArrayOutputStream outputStream;
-
-    @BeforeEach
-    void setUp() throws Exception {
-        // Prepare test data
-        captchaRequest = new CaptchaRequest();
-        captchaRequest.setRequestId(UUID.randomUUID());
-        captchaRequest.setRequestType(RequestType.LOGIN);
-
-        captcha = new Captcha();
-        captcha.setCaptchaImage("BASE64_IMAGE");
-        captcha.setRequestId(UUID.randomUUID());
-        captcha.setRequestType(RequestType.LOGIN);
-        captcha.setExpiryTime(LocalDateTime.now().plusMinutes(5).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
-
-        captchaResponse = new CaptchaResponse();
-        captchaResponse.setCaptchaImage("BASE64_IMAGE");
-        captchaResponse.setExpiryTime(LocalDateTime.now().plusMinutes(5));
-
-        // Simulated image and base64
-        bufferedImage = new BufferedImage(200, 50, BufferedImage.TYPE_INT_RGB);
-        outputStream = new ByteArrayOutputStream();
-        ImageIO.write(bufferedImage, "jpg", outputStream);
+@Mapper(builder = @Builder(disableBuilder = true), componentModel = "spring")
+public interface MerchantMapper {
+    MerchantUser mapMerchantUserDtoToEntity(MerchantUserDto merchantUserDto);
+    @AfterMapping
+    default void afterMapMerchantUserDtoToEntity(MerchantUserDto merchantUserDto, @MappingTarget MerchantUser merchantUser) {
+        merchantUser.setMId(merchantUserDto.getMId());
     }
 
-    @Test
-    void testCreateCaptcha_Success() throws Exception {
-        // Mock behavior
-        when(captchaProducer.createText()).thenReturn("ABCD12");
-        when(captchaProducer.createImage(anyString())).thenReturn(bufferedImage);
-        when(captchaDao.save(any(Captcha.class))).thenReturn(captcha);
-        when(objectMapper.convertValue(any(Captcha.class), eq(CaptchaResponse.class))).thenReturn(captchaResponse);
-
-        // Execute the method
-        ResponseDto<CaptchaResponse> response = captchaService.createCaptcha(captchaRequest);
-
-        // Verify response
-        assertNotNull(response);
-        assertEquals(RESPONSE_SUCCESS, response.getStatus());
-        assertEquals(1, response.getData().size());
-        assertEquals("BASE64_IMAGE", response.getData().get(0).getCaptchaImage());
-
-        // Verify interactions
-        verify(captchaValidator, times(1)).requestValidator(captchaRequest);
-        verify(captchaProducer, times(1)).createText();
-        verify(captchaProducer, times(1)).createImage("ABCD12");
-        verify(captchaDao, times(1)).save(any(Captcha.class));
-        verify(objectMapper, times(1)).convertValue(any(Captcha.class), eq(CaptchaResponse.class));
+    MerchantUserDto mapMerchantUserEntityToDto(MerchantUser merchantUser);
+    @AfterMapping
+    default void afterMapMerchantUserEntityToDto(MerchantUser merchantUser, @MappingTarget MerchantUserDto merchantUserDto) {
+        merchantUserDto.setMId(merchantUser.getMId());
     }
 
-    @Test
-    void testCreateCaptcha_Exception() {
-        // Mock validator to throw exception
-        doThrow(new MerchantException("726", "Captcha generation failed"))
-                .when(captchaValidator).requestValidator(any(CaptchaRequest.class));
+    List<MerchantUserResponse> mapMerchantUserDTOListToResponseList(List<MerchantUserDto> merchantUserDtos);
 
-        // Execute and assert exception
-        MerchantException exception = assertThrows(MerchantException.class, () -> {
-            captchaService.createCaptcha(captchaRequest);
-        });
+    MerchantInfo mapMerchantDtoToEntity(MerchantDto merchant);
+    @AfterMapping
+    default void afterMapMerchantDtoToEntity(MerchantDto merchantDto, @MappingTarget MerchantInfo merchantInfo) {
+        merchantInfo.setMId(merchantDto.getMId());
+        merchantInfo.setChargebackAllowed(merchantDto.isChargebackAllowed());
+    }
 
-        assertEquals("726", exception.getErrorCode());
-        assertEquals("Captcha generation failed", exception.getMessage());
+    MerchantDto mapMerchantInfoEntityToDto(MerchantInfo merchantInfo);
+    @AfterMapping
+    default void afterMapMerchantInfoEntityToDto(MerchantInfo merchantInfo, @MappingTarget MerchantDto merchantDto) {
+        merchantDto.setMId(merchantInfo.getMId());
+        merchantDto.setChargebackAllowed(merchantInfo.isChargebackAllowed());
+    }
 
-        // Verify interactions
-        verify(captchaValidator, times(1)).requestValidator(captchaRequest);
-        verifyNoInteractions(captchaProducer, captchaDao, objectMapper);
+    MerchantInfoDto mapMerchantInfoEntityToMerchantInfoDto(MerchantInfo merchantInfo);
+
+    List<MerchantInfoResponse> mapMerchantInfoDTOListToResponseList(List<MerchantInfoDto> MerchantInfoDtos);
+}
+
+package com.epay.merchant.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+public class MerchantInfoDto {
+    private String mId;
+    private String merchantName;
+    private String status;
+}
+package com.epay.merchant.dao;
+
+import com.epay.merchant.dto.MerchantInfoDto;
+import com.epay.merchant.entity.MerchantInfo;
+import com.epay.merchant.mapper.MerchantMapper;
+import com.epay.merchant.repository.MerchantInfoRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Repository;
+
+@Repository
+@RequiredArgsConstructor
+public class MerchantInfoDao {
+    private final MerchantInfoRepository merchantInfoRepository;
+    private final MerchantMapper mapper;
+
+    public Page<MerchantInfoDto> getALl(Pageable pageable){
+       return merchantInfoRepository.findAll(pageable).map(this::convertEntityToDTO);
+    }
+
+    private MerchantInfoDto convertEntityToDTO(MerchantInfo merchantInfo) {
+        return mapper.mapMerchantInfoEntityToMerchantInfoDto(merchantInfo);
     }
 }
 
 
 
+package com.epay.merchant.mapper;
 
+import com.epay.merchant.dto.MerchantDto;
+import com.epay.merchant.dto.MerchantInfoDto;
+import com.epay.merchant.dto.MerchantUserDto;
+import com.epay.merchant.entity.MerchantInfo;
+import com.epay.merchant.entity.MerchantUser;
+import com.epay.merchant.model.response.MerchantInfoResponse;
+import com.epay.merchant.model.response.MerchantUserResponse;
+import org.mapstruct.AfterMapping;
+import org.mapstruct.Builder;
+import org.mapstruct.Mapper;
+import org.mapstruct.MappingTarget;
 
-...........
+import java.util.List;
 
-
-
-
-package com.epay.merchant.dao;
-
-import com.epay.merchant.entity.Captcha;
-import com.epay.merchant.repository.CaptchaRepository;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
-
-@ExtendWith(MockitoExtension.class)
-class CaptchaDaoTest {
-
-    @Mock
-    private CaptchaRepository captchaRepository;
-
-    @InjectMocks
-    private CaptchaDao captchaDao;
-
-    private Captcha captcha;
-    private UUID requestId;
-
-    @BeforeEach
-    void setUp() {
-        // Initialize test data
-        requestId = UUID.randomUUID();
-
-        captcha = new Captcha();
-        captcha.setRequestId(requestId);
-        captcha.setCaptchaImage("BASE64_IMAGE");
-        captcha.setExpiryTime(LocalDateTime.now().plusMinutes(5).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
+@Mapper(builder = @Builder(disableBuilder = true), componentModel = "spring")
+public interface MerchantMapper {
+    MerchantUser mapMerchantUserDtoToEntity(MerchantUserDto merchantUserDto);
+    @AfterMapping
+    default void afterMapMerchantUserDtoToEntity(MerchantUserDto merchantUserDto, @MappingTarget MerchantUser merchantUser) {
+        merchantUser.setMId(merchantUserDto.getMId());
     }
 
-    @Test
-    void testExistsByRequestId_WhenExists() {
-        // Mock repository behavior
-        when(captchaRepository.existsByRequestId(requestId)).thenReturn(true);
-
-        // Execute the DAO method
-        boolean result = captchaDao.existsByRequestId(requestId);
-
-        // Assertions
-        assertTrue(result, "The requestId should exist in the repository");
-
-        // Verify repository interaction
-        verify(captchaRepository, times(1)).existsByRequestId(requestId);
+    MerchantUserDto mapMerchantUserEntityToDto(MerchantUser merchantUser);
+    @AfterMapping
+    default void afterMapMerchantUserEntityToDto(MerchantUser merchantUser, @MappingTarget MerchantUserDto merchantUserDto) {
+        merchantUserDto.setMId(merchantUser.getMId());
     }
 
-    @Test
-    void testExistsByRequestId_WhenDoesNotExist() {
-        // Mock repository behavior
-        when(captchaRepository.existsByRequestId(requestId)).thenReturn(false);
+    List<MerchantUserResponse> mapMerchantUserDTOListToResponseList(List<MerchantUserDto> merchantUserDtos);
 
-        // Execute the DAO method
-        boolean result = captchaDao.existsByRequestId(requestId);
-
-        // Assertions
-        assertFalse(result, "The requestId should not exist in the repository");
-
-        // Verify repository interaction
-        verify(captchaRepository, times(1)).existsByRequestId(requestId);
+    MerchantInfo mapMerchantDtoToEntity(MerchantDto merchant);
+    @AfterMapping
+    default void afterMapMerchantDtoToEntity(MerchantDto merchantDto, @MappingTarget MerchantInfo merchantInfo) {
+        merchantInfo.setMId(merchantDto.getMId());
+        merchantInfo.setChargebackAllowed(merchantDto.isChargebackAllowed());
     }
 
-    @Test
-    void testSave() {
-        // Mock repository behavior
-        when(captchaRepository.save(any(Captcha.class))).thenReturn(captcha);
-
-        // Execute the DAO method
-        Captcha savedCaptcha = captchaDao.save(captcha);
-
-        // Assertions
-        assertNotNull(savedCaptcha, "Saved Captcha should not be null");
-        assertEquals(requestId, savedCaptcha.getRequestId(), "RequestId should match");
-        assertEquals("BASE64_IMAGE", savedCaptcha.getCaptchaImage(), "Captcha image should match");
-
-        // Verify repository interaction
-        verify(captchaRepository, times(1)).save(captcha);
+    MerchantDto mapMerchantInfoEntityToDto(MerchantInfo merchantInfo);
+    @AfterMapping
+    default void afterMapMerchantInfoEntityToDto(MerchantInfo merchantInfo, @MappingTarget MerchantDto merchantDto) {
+        merchantDto.setMId(merchantInfo.getMId());
+        merchantDto.setChargebackAllowed(merchantInfo.isChargebackAllowed());
     }
+
+    MerchantInfoDto mapMerchantInfoEntityToMerchantInfoDto(MerchantInfo merchantInfo);
+
+    List<MerchantInfoResponse> mapMerchantInfoDTOListToResponseList(List<MerchantInfoDto> MerchantInfoDtos);
 }
