@@ -1,18 +1,36 @@
-    @GetMapping("/users/{mid}")
-    @Operation(summary = "share the all users info for that merchant.", description = "share the all users info for that merchant.")
-    public MerchantResponse<MerchantUserResponse> getAllUser(@PathVariable String mid,
-                                                             @PageableDefault Pageable pageable) {
-        log.info("Received request to get userList based on mid: {}", mid);
-        return adminService.getAllUser(mid, pageable);
-
-
-Query Parameters
-
-
-        
-      
-page: (Integer) Optional. The page number for pagination. Defaults to 0 if not provided. 
-
-        
-      
-size: (Integer) Optional. The size of the page. Default value is 50, with a minimum value of 50 and a maximum value of 100 (configured in application properties). 
+CREATE TABLE MERCHANT_INFO (
+    MERCHANT_ID RAW(16)	DEFAULT SYS_GUID() PRIMARY KEY NOT NULL,
+    MID	VARCHAR2(50) UNIQUE,
+    MERCHANT_NAME	VARCHAR2(100) NOT NULL,
+    BUSINESS_NAME	VARCHAR2(100) NOT NULL,
+    BRAND_NAME	VARCHAR2(100),
+    BUSINESS_CATEGORY	VARCHAR2(50),
+    CATEGORY_CODE	VARCHAR2(10),
+    ADDRESS_LINE1	VARCHAR2(200) NOT NULL,
+    ADDRESS_LINE2	VARCHAR2(200),
+    STATE	VARCHAR2(50) NOT NULL,
+    CITY	VARCHAR2(50) NOT NULL,
+    COUNTRY	VARCHAR2(50) NOT NULL,
+    PINCODE	VARCHAR2(10) NOT NULL,
+    MOBILE_NUMBER	VARCHAR2(15) NOT NULL,
+    PHONE_NUMBER	VARCHAR2(15),
+    PRIMARY_EMAIL	VARCHAR2(100) NOT NULL,
+    SECONDARY_EMAIL	VARCHAR2(100),
+    MERCHANT_URL	VARCHAR2(255),
+    STATUS	VARCHAR2(20) NOT NULL,
+    VALIDITY_START_TIME	NUMBER NOT NULL,
+    VALIDITY_END_TIME	NUMBER,
+    ONBOARDING_TIME	NUMBER NOT NULL,
+    ENCRYPTED_ALGO	VARCHAR2(50) NOT NULL,
+    RM_NAME	VARCHAR2(100) NOT NULL,
+    BANK_CODE	VARCHAR2(20),
+    BRANCH_CODE	VARCHAR2(20),
+    GST_NUMBER	VARCHAR2(20),
+    IS_CHARGEBACK_ALLOWED	CHAR(1),
+    AGGREGATOR_ID	VARCHAR2(50) NOT NULL,
+    NOTIFICATION	VARCHAR2(255),
+    CREATED_BY	VARCHAR2(50) NOT NULL,
+    CREATED_AT	NUMBER NOT NULL,
+    UPDATED_BY	VARCHAR2(50) NOT NULL,
+    UPDATED_AT	NUMBER NOT NULL
+);
