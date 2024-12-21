@@ -238,3 +238,7 @@ Minimum and maximum length (e.g., 8 to 20 characters). 
 
         
       At least one special character (e.g., @, #, $, %, etc.).
+..........
+
+// Password regex for validation
+String passwordRegex = "^(?=.*[A-Z])(?=.*[a-z])(?=.*\\d)(?=.*[@#$%^&+=]).{8,20}$";
