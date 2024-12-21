@@ -218,3 +218,23 @@ VALUE	VARCHAR2(1000)	Text
 STATUS	VARCHAR2(100)	PENDING/COMPLETED
 CREATED_AT	LONG	Timestamp of record creation.
 CREATED_BY	VARCHAR2(50)	User who created the record.
+
+
+
+
+
+......................
+
+Minimum and maximum length (e.g., 8 to 20 characters). 
+
+        
+      At least one uppercase letter. 
+
+        
+      At least one lowercase letter. 
+
+        
+      At least one digit. 
+
+        
+      At least one special character (e.g., @, #, $, %, etc.).
