@@ -68,3 +68,16 @@ CREATE TABLE MERCHANT_INFO (
     UPDATED_BY	VARCHAR2(50) NOT NULL,
     UPDATED_AT	NUMBER NOT NULL
 );
+
+-- liquibase formatted sql
+-- changeset Subhra:0
+CREATE TABLE password_management (
+    id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY NOT NULL,
+    user_id RAW(16) NOT NULL,
+    request_type VARCHAR2(255) NOT NULL,
+    status VARCHAR2(255) NOT NULL,
+    previous_password VARCHAR2(255) NOT NULL,
+    created_at NUMBER NOT NULL,
+    updated_at NUMBER NOT NULL,
+    CONSTRAINT FK_CAPTCHA FOREIGN KEY (user_id) REFERENCES MERCHANT_USER(id)
+);
