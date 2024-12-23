@@ -1,140 +1,81 @@
- CREATE TABLE MERCHANT_USER (
-    ID	RAW(16) DEFAULT SYS_GUID() PRIMARY KEY NOT NULL,
-    MID	VARCHAR2(50) NOT NULL,
-    PARENT_USERID	VARCHAR2(50),
-    USER_NAME	VARCHAR2(200) NOT NULL,
-    FIRST_NAME	VARCHAR2(100) NOT NULL,
-    MIDDLE_NAME	VARCHAR2(50),
-    LAST_NAME	VARCHAR2(100) NOT NULL,
-    EMAIL	VARCHAR2(100) NOT NULL,
-    PRIMARY_PHONE	VARCHAR2(20) NOT NULL,
-    SECONDARY_PHONE	VARCHAR2(20),
-    MOBILE_PHONE	VARCHAR2(20) NOT NULL,
-    OFFICE_PHONE	VARCHAR2(20),
-    COUNTRY_CODE	VARCHAR2(10),
-    STATE_CODE	VARCHAR2(10),
-    PIN_CODE	VARCHAR2(10),
-    CITY	VARCHAR2(50),
-    ROLE	RAW(16) NOT NULL,
-    STATUS	VARCHAR2(10) NOT NULL,
-    PASSWORD	VARCHAR2(128) NOT NULL,
-    LAST_PASSWORD_CHANGE	NUMBER,
-    PASSWORD_EXPIRY_TIME	NUMBER NOT NULL,
-    LOGIN_FAIL_ATTEMPT	NUMBER,
-    LAST_SUCCESS_LOGIN	NUMBER,
-    LAST_FAIL_LOGIN	NUMBER,
-    CREATED_BY	VARCHAR2(50)NOT NULL,
-    CREATED_AT	NUMBER NOT NULL,
-    UPDATED_BY	VARCHAR2(50) NOT NULL,
-    UPDATED_AT	NUMBER NOT NULL,
-    CONSTRAINT FK_MERCHANT FOREIGN KEY (MID) REFERENCES MERCHANT_INFO(MID) -- Foreign Key to `merchant_info` table
-);
+package com.epay.merchant.dao;
 
+import com.epay.merchant.config.MerchantConfig;
+import com.epay.merchant.dto.MerchantInfoDto;
+import com.epay.merchant.entity.MerchantInfo;
+import com.epay.merchant.entity.MerchantUser;
+import com.epay.merchant.entity.PasswordManagement;
+import com.epay.merchant.mapper.MerchantMapper;
+import com.epay.merchant.model.request.PasswordChangeRequest;
+import com.epay.merchant.repository.MerchantInfoRepository;
+import com.epay.merchant.repository.MerchantUserRepository;
+import com.epay.merchant.repository.PasswordManagementRepository;
+import com.epay.merchant.util.DateTimeUtils;
+import com.epay.merchant.util.EncryptionDecryptionUtil;
+import com.epay.merchant.util.enums.PasswordManagementType;
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Repository;
 
+import java.util.List;
 
-CREATE TABLE MERCHANT_INFO (
-    MERCHANT_ID RAW(16)	DEFAULT SYS_GUID() PRIMARY KEY NOT NULL,
-    MID	VARCHAR2(50) UNIQUE,
-    MERCHANT_NAME	VARCHAR2(100) NOT NULL,
-    BUSINESS_NAME	VARCHAR2(100) NOT NULL,
-    BRAND_NAME	VARCHAR2(100),
-    BUSINESS_CATEGORY	VARCHAR2(50),
-    CATEGORY_CODE	VARCHAR2(10),
-    ADDRESS_LINE1	VARCHAR2(200) NOT NULL,
-    ADDRESS_LINE2	VARCHAR2(200),
-    STATE	VARCHAR2(50) NOT NULL,
-    CITY	VARCHAR2(50) NOT NULL,
-    COUNTRY	VARCHAR2(50) NOT NULL,
-    PINCODE	VARCHAR2(10) NOT NULL,
-    MOBILE_NUMBER	VARCHAR2(15) NOT NULL,
-    PHONE_NUMBER	VARCHAR2(15),
-    PRIMARY_EMAIL	VARCHAR2(100) NOT NULL,
-    SECONDARY_EMAIL	VARCHAR2(100),
-    MERCHANT_URL	VARCHAR2(255),
-    STATUS	VARCHAR2(20) NOT NULL,
-    VALIDITY_START_TIME	NUMBER NOT NULL,
-    VALIDITY_END_TIME	NUMBER,
-    ONBOARDING_TIME	NUMBER NOT NULL,
-    ENCRYPTED_ALGO	VARCHAR2(50) NOT NULL,
-    RM_NAME	VARCHAR2(100) NOT NULL,
-    BANK_CODE	VARCHAR2(20),
-    BRANCH_CODE	VARCHAR2(20),
-    GST_NUMBER	VARCHAR2(20),
-    IS_CHARGEBACK_ALLOWED	CHAR(1),
-    AGGREGATOR_ID	VARCHAR2(50) NOT NULL,
-    NOTIFICATION	VARCHAR2(255),
-    CREATED_BY	VARCHAR2(50) NOT NULL,
-    CREATED_AT	NUMBER NOT NULL,
-    UPDATED_BY	VARCHAR2(50) NOT NULL,
-    UPDATED_AT	NUMBER NOT NULL
-);
+/**
+ * Class Name: MerchantInfoDao
+ * *
+ * Description:
+ * *
+ * Author: Subhra Goswami
+ * <p>
+ * Copyright (c) 2024 [State Bank of India]
+ * All rights reserved
+ * *
+ * Version:1.0
+ */
+@Repository
+@RequiredArgsConstructor
+public class MerchantInfoDao {
+    private final MerchantInfoRepository merchantInfoRepository;
+    private final MerchantUserRepository merchantUserRepository;
+    private final PasswordManagementRepository passwordManagementRepository;
+    private final MerchantConfig merchantConfig;
+    private final MerchantMapper mapper;
 
--- liquibase formatted sql
--- changeset Subhra:0
-CREATE TABLE password_management (
-    id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY NOT NULL,
-    user_id RAW(16) NOT NULL,
-    request_type VARCHAR2(255) NOT NULL,
-    status VARCHAR2(255) NOT NULL,
-    previous_password VARCHAR2(255) NOT NULL,
-    created_at NUMBER NOT NULL,
-    updated_at NUMBER NOT NULL,
-    CONSTRAINT FK_CAPTCHA FOREIGN KEY (user_id) REFERENCES MERCHANT_USER(id)
-);
+    public Page<MerchantInfoDto> getALl(Pageable pageable){
+       return merchantInfoRepository.findAll(pageable).map(this::convertEntityToDTO);
+    }
 
+    public MerchantUser saveUser(MerchantUser merchantUser) {
+        return merchantUserRepository.save(merchantUser);
+    }
 
-................
+    public MerchantUser getUser(String userName) {
+        return merchantUserRepository.findByUserNameOrEmailOrMobilePhone(userName, userName, userName);
+    }
 
+    public PasswordManagement savePasswordDetails(PasswordManagement passwordManagement) {
+        return passwordManagementRepository.save(passwordManagement);
+    }
 
-INSERT INTO MERCHANT_INFO (
-    MERCHANT_ID, MID, MERCHANT_NAME, BUSINESS_NAME, BRAND_NAME, BUSINESS_CATEGORY, 
-    CATEGORY_CODE, ADDRESS_LINE1, ADDRESS_LINE2, STATE, CITY, COUNTRY, PINCODE, 
-    MOBILE_NUMBER, PHONE_NUMBER, PRIMARY_EMAIL, SECONDARY_EMAIL, MERCHANT_URL, 
-    STATUS, VALIDITY_START_TIME, VALIDITY_END_TIME, ONBOARDING_TIME, ENCRYPTED_ALGO, 
-    RM_NAME, BANK_CODE, BRANCH_CODE, GST_NUMBER, IS_CHARGEBACK_ALLOWED, AGGREGATOR_ID, 
-    NOTIFICATION, CREATED_BY, CREATED_AT, UPDATED_BY, UPDATED_AT
-) VALUES (
-    SYS_GUID(), 'MID001', 'Merchant A', 'Business A', 'Brand A', 'Retail', 
-    '123', '123 Main Street', 'Suite 4', 'State A', 'City A', 'Country A', '123456', 
-    '9876543210', '0123456789', 'merchant@example.com', 'secondary@example.com', 'http://merchant-a.com', 
-    'Active', 1672531200, 1704067200, 1672531200, 'AES256', 
-    'John Doe', '001', 'BR001', '22AAAAA0000A1Z5', 'Y', 'AGG001', 
-    'SMS_ENABLED', 'admin', 1672531200, 'admin', 1672531200
-);
+    @Transactional
+    public void updatePasswordDetails(PasswordChangeRequest passwordChangeRequest){
+        MerchantUser merchantUser = getUser(passwordChangeRequest.getUserName());
+        merchantUser.setPassword(EncryptionDecryptionUtil.hashValue(passwordChangeRequest.getNewPassword()));
+        merchantUser.setLastPasswordChange(DateTimeUtils.getCurrentTimeInMills());
+        merchantUser.setPasswordExpiryTime(DateTimeUtils.getFutureDateByMonth(merchantConfig.getPasswordExpiryMonths()));
+        merchantUser = saveUser(merchantUser);
+        List<PasswordManagement> passwordManagementList =  passwordManagementRepository.findLastPasswordsByUserId(merchantUser.getId(), PageRequest.of(0, 5));
+        passwordManagementList.getFirst().setStatus(PasswordManagementType.EXPIRED);
+        savePasswordDetails(PasswordManagement.builder().userId(merchantUser.getId()).status(PasswordManagementType.COMPLETED).previousPassword(merchantUser.getPassword()).requestType(PasswordManagementType.CHANGE_PASSWORD).build());
+    }
+    
+    private MerchantInfoDto convertEntityToDTO(MerchantInfo merchantInfo) {
+        return mapper.mapMerchantInfoEntityToMerchantInfoDto(merchantInfo);
+    }
 
-
-
-
-
-
-INSERT INTO MERCHANT_USER (
-    ID, MID, PARENT_USERID, USER_NAME, FIRST_NAME, MIDDLE_NAME, LAST_NAME, EMAIL, 
-    PRIMARY_PHONE, SECONDARY_PHONE, MOBILE_PHONE, OFFICE_PHONE, COUNTRY_CODE, 
-    STATE_CODE, PIN_CODE, CITY, ROLE, STATUS, PASSWORD, LAST_PASSWORD_CHANGE, 
-    PASSWORD_EXPIRY_TIME, LOGIN_FAIL_ATTEMPT, LAST_SUCCESS_LOGIN, LAST_FAIL_LOGIN, 
-    CREATED_BY, CREATED_AT, UPDATED_BY, UPDATED_AT
-) VALUES (
-    SYS_GUID(), 'MID001', NULL, 'user_01', 'John', NULL, 'Doe', 'user01@example.com', 
-    '9876543210', NULL, '9876543210', NULL, '+1', 
-    'CA', '123456', 'City A', SYS_GUID(), 'Active', 'hashed_password', NULL, 
-    1704067200, 0, NULL, NULL, 
-    'admin', 1672531200, 'admin', 1672531200
-);
-
-
-
-
-
-
-
-INSERT INTO PASSWORD_MANAGEMENT (
-    ID, USER_ID, REQUEST_TYPE, STATUS, PREVIOUS_PASSWORD, CREATED_AT, UPDATED_AT
-) VALUES (
-    SYS_GUID(), 
-    (SELECT ID FROM MERCHANT_USER WHERE USER_NAME = 'user_01'), 
-    'CHANGE_PASSWORD', 
-    'Pending', 
-    'hashed_previous_password', 
-    1672531200, 
-    1672531200
-);
+    public Page<MerchantInfoDto> getAllAccessMerchantInfoForMerchantUser(String userName, Pageable pageable) {
+        return merchantInfoRepository.findAccessMerchantInfoForMerchantUser(userName, pageable).map(this::convertEntityToDTO);
+    }
+}
