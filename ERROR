@@ -1,124 +1,66 @@
-Hibernate: select mu1_0.id,mu1_0.city,mu1_0.country_code,mu1_0.created_at,mu1_0.created_by,mu1_0.email,mu1_0.first_name,mu1_0.last_fail_login,mu1_0.last_name,mu1_0.last_password_change,mu1_0.last_success_login,mu1_0.login_fail_attempt,mu1_0.mid,mu1_0.middle_name,mu1_0.mobile_phone,mu1_0.office_phone,mu1_0.parent_userid,mu1_0.password,mu1_0.password_expiry_time,mu1_0.pin_code,mu1_0.primary_phone,mu1_0.role,mu1_0.secondary_phone,mu1_0.state_code,mu1_0.status,mu1_0.updated_at,mu1_0.updated_by,mu1_0.user_name from merchant_user mu1_0 where mu1_0.mid=? fetch first ? rows only
-2024-12-19 15:30:09 [http-nio-9093-exec-4] ERROR c.e.m.e.MerchantExceptionHandler  - userId= - correlationId= - Error in handleGenericException 
-org.springframework.dao.InvalidDataAccessApiUsageException: Expecting 8 byte values to construct a long     
+Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'merchantService' defined in file [C:\Users\v1014352\E-Pay\epay_merchant_service\build\classes\java\main\com\epay\merchant\service\MerchantService.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'merchantInfoDao' defined in file [C:\Users\v1014352\E-Pay\epay_merchant_service\build\classes\java\main\com\epay\merchant\dao\MerchantInfoDao.class]: Unsatisfied dependency expressed through constructor parameter 2: Error creating bean with name 'passwordManagementRepository' defined in com.epay.merchant.repository.PasswordManagementRepository defined in @EnableJpaRepositories declared on EpayMerchantServiceApplication: Could not create query for public abstract java.util.List com.epay.merchant.repository.PasswordManagementRepository.findLastPasswordsByUserId(java.util.UUID,org.springframework.data.domain.Pageable); Reason: Validation failed for query for method public abstract java.util.List com.epay.merchant.repository.PasswordManagementRepository.findLastPasswordsByUserId(java.util.UUID,org.springframework.data.domain.Pageable)
 
-package com.epay.merchant.entity;
+package com.epay.merchant.repository;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import jakarta.persistence.*;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
+import com.epay.merchant.entity.PasswordManagement;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.UUID;
-/**
- * Class Name: MerchantUser
- * *
- * Description:
- * *
- * Author: Bhoopendra Rajput
- * <p>
- * Copyright (c) 2024 [State Bank of India]
- * All rights reserved
- * *
- * Version:1.0
- */
-@EqualsAndHashCode(callSuper = true)
-@Data
-@Entity
-@Table(name = "MERCHANT_USER")
-@JsonIgnoreProperties(ignoreUnknown = true)
-public class MerchantUser extends AuditEntity {
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(nullable = false, updatable = false, unique = true)
-    private UUID id;
-    @Column(name = "MID")
-    private String mId;
-    @Column(name = "PARENT_USERID")
-    private String parentUserId;
-    private String userName;
-    private String firstName;
-    private String middleName;
-    private String lastName;
-    private String email;
-    private String primaryPhone;
-    private String secondaryPhone;
-    private String mobilePhone;
-    private String officePhone;
-    private String countryCode;
-    private String stateCode;
-    private String pinCode;
-    private String city;
-    private UUID role;
-    private String status;
-    private String password;
-    private Long lastPasswordChange;
-    private Long passwordExpiryTime;
-    private Long loginFailAttempt;
-    private Long lastSuccessLogin;
-    private Long lastFailLogin;
+
+public interface PasswordManagementRepository extends JpaRepository<PasswordManagement, UUID> {
+    @Query("SELECT p FROM PasswordManagement p WHERE p.userId = :userId ORDER BY p.createdDate DESC")
+    List<PasswordManagement> findLastPasswordsByUserId(@Param("userId") UUID userId, Pageable pageable);
 }
 
+
 package com.epay.merchant.entity;
 
-import jakarta.persistence.EntityListeners;
-import jakarta.persistence.MappedSuperclass;
-import lombok.Getter;
-import lombok.Setter;
-import org.springframework.data.annotation.CreatedBy;
+import com.epay.merchant.util.enums.PasswordChangeType;
+import jakarta.persistence.*;
+import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedBy;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.io.Serializable;
+import java.util.UUID;
 
+@Entity
 @Getter
 @Setter
-@MappedSuperclass
+@Builder
+@Table(name = "password_management")
+@AllArgsConstructor
+@NoArgsConstructor
 @EntityListeners(AuditingEntityListener.class)
-public class AuditEntity implements Serializable {
-
-    @CreatedBy
-    private String createdBy;
-
+public class PasswordManagement {
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+    @Enumerated(EnumType.STRING)
+    private PasswordChangeType requestType;
+    private UUID userId;
+    private String status;
+    private String previousPassword;
     @CreatedDate
     private Long createdAt;
-
-    @LastModifiedBy
-    private String updatedBy;
-
     @LastModifiedDate
     private Long updatedAt;
 }
 
-REATE TABLE MERCHANT_USER (
-    ID	RAW(16) DEFAULT SYS_GUID() PRIMARY KEY NOT NULL,
-    MID	VARCHAR2(50),
-    PARENT_USERID	VARCHAR2(50),
-    USER_NAME	VARCHAR2(200) ,
-    FIRST_NAME	VARCHAR2(100),
-    MIDDLE_NAME	VARCHAR2(50),
-    LAST_NAME	VARCHAR2(100),
-    EMAIL	VARCHAR2(100),
-    PRIMARY_PHONE	VARCHAR2(20),
-    SECONDARY_PHONE	VARCHAR2(20),
-    MOBILE_PHONE	VARCHAR2(20),
-    OFFICE_PHONE	VARCHAR2(20),
-    COUNTRY_CODE	VARCHAR2(10),
-    STATE_CODE	VARCHAR2(10),
-    PIN_CODE	VARCHAR2(10),
-    CITY	VARCHAR2(50),
-    ROLE	VARCHAR2(50),
-    STATUS	VARCHAR2(10),
-    PASSWORD	VARCHAR2(128),
-    LAST_PASSWORD_CHANGE	NUMBER,
-    PASSWORD_EXPIRY_TIME	NUMBER,
-    LOGIN_FAIL_ATTEMPT	NUMBER,
-    LAST_SUCCESS_LOGIN	NUMBER,
-    LAST_FAIL_LOGIN	NUMBER,
-    CREATED_BY	VARCHAR2(50),
-    CREATED_AT	NUMBER,
-    UPDATED_BY	VARCHAR2(50),
-    UPDATED_AT	NUMBER
+
+-- liquibase formatted sql
+-- changeset Subhra:0
+CREATE TABLE password_management (
+    id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY NOT NULL,
+    user_id RAW(16) NOT NULL,
+    request_type VARCHAR2(255) NOT NULL,
+    status VARCHAR2(255) NOT NULL,
+    previous_password VARCHAR2(255) NOT NULL,
+    created_at NUMBER NOT NULL,
+    updated_at NUMBER NOT NULL,
+    CONSTRAINT FK_CAPTCHA FOREIGN KEY (user_id) REFERENCES MERCHANT_USER(id)
 );
