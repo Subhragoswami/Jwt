@@ -1,1 +1,79 @@
+package com.epay.merchant.service;
 
+import com.epay.merchant.dao.PasswordManagementDao;
+import com.epay.merchant.model.request.PasswordChangeRequest;
+import com.epay.merchant.util.MerchantConstant;
+import com.epay.merchant.validator.PasswordValidator;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.*;
+
+class PasswordServiceTest {
+
+    @InjectMocks
+    private PasswordService passwordService; // The service class to test
+
+    @Mock
+    private PasswordValidator passwordValidator;
+
+    @Mock
+    private PasswordManagementDao passwordManagementDao;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+    }
+
+    @Test
+    void testChangePassword_Success() {
+        // Arrange
+        PasswordChangeRequest passwordChangeRequest = PasswordChangeRequest.builder()
+                .userName("testUser")
+                .oldPassword("oldPassword123")
+                .newPassword("newPassword123")
+                .confirmPassword("newPassword123")
+                .build();
+
+        // Act
+        var response = passwordService.changePassword(passwordChangeRequest);
+
+        // Assert
+        assertEquals(MerchantConstant.RESPONSE_SUCCESS, response.getStatus());
+        assertEquals(1L, response.getCount());
+        assertEquals(1L, response.getTotal());
+        assertEquals("Password Changed Successfully", response.getData().get(0));
+
+        // Verify the interactions
+        verify(passwordValidator, times(1)).validatePasswordChangeRequest(passwordChangeRequest);
+        verify(passwordManagementDao, times(1)).updatePasswordDetails(passwordChangeRequest);
+    }
+
+    @Test
+    void testChangePassword_ValidationFailure() {
+        // Arrange
+        PasswordChangeRequest passwordChangeRequest = PasswordChangeRequest.builder()
+                .userName("testUser")
+                .oldPassword("oldPassword123")
+                .newPassword("newPassword123")
+                .confirmPassword("newPassword123")
+                .build();
+
+        doThrow(new IllegalArgumentException("Validation failed")).when(passwordValidator).validatePasswordChangeRequest(passwordChangeRequest);
+
+        // Act & Assert
+        Exception exception = assertThrows(IllegalArgumentException.class, () -> 
+            passwordService.changePassword(passwordChangeRequest)
+        );
+
+        assertEquals("Validation failed", exception.getMessage());
+
+        // Verify the interactions
+        verify(passwordValidator, times(1)).validatePasswordChangeRequest(passwordChangeRequest);
+        verify(passwordManagementDao, never()).updatePasswordDetails(any());
+    }
+}
