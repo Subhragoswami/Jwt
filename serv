@@ -1,112 +1,195 @@
-package com.epay.merchant.service;
+public MerchantResponse<String> changePassword(PasswordChangeRequest passwordChangeRequest) {
+        log.info("Starting password change process for user: {}", passwordChangeRequest.getUserName());
 
-import com.epay.merchant.dao.CaptchaDao;
-import com.epay.merchant.entity.Captcha;
-import com.epay.merchant.exception.MerchantException;
-import com.epay.merchant.model.request.CaptchaRequest;
-import com.epay.merchant.model.response.CaptchaResponse;
-import com.epay.merchant.model.response.ResponseDto;
-import com.epay.merchant.util.ErrorConstants;
-import com.epay.merchant.util.enums.RequestType;
-import com.epay.merchant.validator.CaptchaValidator;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.code.kaptcha.impl.DefaultKaptcha;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
+        // Step 1: Validate the password change request
+        passwordValidator.validatePasswordChangeRequest(passwordChangeRequest);
+        log.info("Password change request validated successfully");
 
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.text.MessageFormat;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.util.Base64;
-import java.util.List;
-import java.util.UUID;
+        // Step 2:
+        //TODO: DECRYPTION and ENCRYPTION of passwords
 
-import static com.epay.merchant.util.AppConstants.RESPONSE_SUCCESS;
+        // Step 3: Update the password details in the database
+        passwordManagementDao.updatePasswordDetails(passwordChangeRequest);
 
-@Service
-@RequiredArgsConstructor
-@Slf4j
-public class CaptchaService {
+        // Step 4:
+        //TODO: Send sms and email for password change
 
-    private final CaptchaDao captchaDao;
-
-    private final ObjectMapper mapper;
-
-    private final DefaultKaptcha captchaProducer;
-
-    private  final CaptchaValidator captchaValidator;
-
-    public ResponseDto<CaptchaResponse> createCaptcha(CaptchaRequest captchaRequest) {
-        log.info("Starting captcha generation for requestId: {}", captchaRequest.getRequestId());
-        try {
-            captchaValidator.requestValidator(captchaRequest);
-            String captchaText = captchaProducer.createText();
-            log.info("generated captcha text: {}", captchaText);
-            BufferedImage image = captchaProducer.createImage(captchaText);
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            ImageIO.write(image, "jpg", outputStream);
-            String base64Image = Base64.getEncoder().encodeToString(outputStream.toByteArray());
-            Captcha captcha = buildCaptcha(base64Image, captchaRequest.getRequestId(), captchaRequest.getRequestType());
-            captcha = captchaDao.save(captcha);
-            CaptchaResponse captchaResponse = mapper.convertValue(captcha, CaptchaResponse.class);
-            return ResponseDto.<CaptchaResponse>builder()
-                    .data(List.of(captchaResponse))
-                    .status(RESPONSE_SUCCESS)
-                    .build();
-        }catch (Exception e){
-                throw new MerchantException(ErrorConstants.GENERATION_ERROR_CODE, MessageFormat.format(ErrorConstants.GENERATION_ERROR_MESSAGE, "Captcha"));
-        }
+        // Step 5: Build and return the success response
+        return MerchantResponse.<String>builder().status(MerchantConstant.RESPONSE_SUCCESS).data(List.of("Password Changed Successfully")).count(1L).total(1L).build();
     }
 
-    private Captcha buildCaptcha(String captchaText, UUID requestId, RequestType requestType) {
-        Captcha captcha = new Captcha();
-        captcha.setCaptchaImage(captchaText);
-        captcha.setRequestId(requestId);
-        captcha.setRequestType(requestType);
-        captcha.setExpiryTime(LocalDateTime.now().plusMinutes(5).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
-        return captcha;
-    }
+package com.epay.merchant.model.request;
 
+import lombok.*;
+
+@AllArgsConstructor
+@Getter
+@Setter
+@ToString
+@Builder
+@NoArgsConstructor
+public class PasswordChangeRequest {
+    private String userName;
+    private String oldPassword;
+    private String newPassword;
+    private String confirmPassword;
 }
 
+package com.epay.merchant.validator;
 
-..............................
+import com.epay.merchant.controller.ValidationController;
+import com.epay.merchant.dao.MerchantDao;
+import com.epay.merchant.dto.ErrorDto;
+import com.epay.merchant.entity.MerchantUser;
+import com.epay.merchant.entity.PasswordManagement;
+import com.epay.merchant.model.request.PasswordChangeRequest;
+import com.epay.merchant.util.ErrorConstants;
+import com.epay.merchant.util.MerchantConstant;
+import com.epay.merchant.util.enums.MerchantStatus;
+import com.sbi.epay.logging.utility.LoggerFactoryUtility;
+import com.sbi.epay.logging.utility.LoggerUtility;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
+import java.text.MessageFormat;
+import java.util.ArrayList;
+import java.util.List;
 
+@Component
+@RequiredArgsConstructor
+public class PasswordValidator extends BaseValidator {
 
+    private final MerchantDao merchantDao;
+    LoggerUtility log = LoggerFactoryUtility.getLogger(ValidationController.class);
 
+    public void validatePasswordChangeRequest(PasswordChangeRequest passwordChangeRequest){
+        log.info("Validating password change request");
+        errorDtoList = new ArrayList<>();
+        validateMandatoryFields(passwordChangeRequest);
+        validUserCheck(passwordChangeRequest.getUserName());
+        MerchantUser merchantUser = merchantDao.findByUserNameOrEmailOrMobilePhone(passwordChangeRequest.getUserName());
+        List<PasswordManagement> lastFiveRecords = merchantDao.findLastPasswordsByUserId(merchantUser.getId());
+        validStatusCheck(merchantUser.getStatus());
+        validPasswordRequestCheck(merchantUser.getPassword(), passwordChangeRequest, lastFiveRecords);
+    }
 
+    private void validateMandatoryFields(PasswordChangeRequest passwordChangeRequest){
+        log.info("Validating mandatory fields");
+        checkMandatoryField(passwordChangeRequest.getUserName(), "user name");
+        checkMandatoryField(passwordChangeRequest.getOldPassword(), "old password");
+        checkMandatoryField(passwordChangeRequest.getNewPassword(), "new password");
+        checkMandatoryField(passwordChangeRequest.getConfirmPassword(), "confirm password");
+        throwIfErrors();
+    }
 
+    private void validUserCheck(String userName){
+        log.info("Validating user existence");
+        if(!merchantDao.isExitsByUserNameOrEmailOrMobilePhone(userName)){
+            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "User Name", "Reason : User Name is invalid")).build());
+        }
+        throwIfErrors();
+    }
+
+    private void validStatusCheck(String status){
+        log.info("Validating status");
+        if(!status.equals(String.valueOf(MerchantStatus.EXPIRED))){
+            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Status", "Reason : status is not valid for changing password")).build());
+        }
+        throwIfErrors();
+    }
+
+    private void validPasswordRequestCheck(String password, PasswordChangeRequest passwordChangeRequest, List<PasswordManagement> lastFiveRecords){
+        if(!passwordChangeRequest.getOldPassword().equals(password)){
+            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Old password", "Reason : old password is not same as current password")).build());
+        }
+        if(passwordChangeRequest.getNewPassword().equals(passwordChangeRequest.getOldPassword())){
+            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "new password", "Reason : new password can not be same as old password")).build());
+        }
+        for(PasswordManagement previousPassword : lastFiveRecords){
+            if(previousPassword.getPreviousPassword().equals(passwordChangeRequest.getNewPassword())){
+                errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "new password", "Reason : new password can not be same as last 5 passwords")).build());
+            }
+        }
+        if(!passwordChangeRequest.getNewPassword().matches(MerchantConstant.PASSWORD_REGEX)){
+            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "New password", "Reason : New password does not meet the acceptance criteria")).build());
+        }
+        if(!passwordChangeRequest.getNewPassword().equals(passwordChangeRequest.getConfirmPassword())){
+            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "password", "Reason : new password and confirm password both are different")).build());
+        }
+        throwIfErrors();
+    }
+}
 
 
 package com.epay.merchant.dao;
 
-import com.epay.merchant.entity.Captcha;
-import com.epay.merchant.repository.CaptchaRepository;
+import com.epay.merchant.config.MerchantConfig;
+import com.epay.merchant.entity.MerchantUser;
+import com.epay.merchant.entity.PasswordManagement;
+import com.epay.merchant.model.request.PasswordChangeRequest;
+import com.epay.merchant.repository.MerchantUserRepository;
+import com.epay.merchant.repository.PasswordManagementRepository;
+import com.epay.merchant.util.DateTimeUtils;
+import com.epay.merchant.util.EncryptionDecryptionUtil;
+import com.epay.merchant.util.enums.PasswordManagementType;
+import com.epay.merchant.util.enums.PasswordStatusType;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
-import java.util.UUID;
+import java.util.List;
 
+/**
+ * Class Name: PasswordManagementDao
+ * *
+ * Description:
+ * *
+ * Author: Subhra Goswami
+ * <p>
+ * Copyright (c) 2024 [State Bank of India]
+ * All rights reserved
+ * *
+ * Version:1.0
+ */
 @Repository
-@Slf4j
 @RequiredArgsConstructor
-public class CaptchaDao {
-    private final CaptchaRepository captchaRepository;
+public class PasswordManagementDao {
+    private final MerchantUserRepository merchantUserRepository;
+    private final PasswordManagementRepository passwordManagementRepository;
+    private final MerchantConfig merchantConfig;
 
-    public boolean existsByRequestId(UUID requestId){
-        return captchaRepository.existsByRequestId(requestId);
-    };
+    @Transactional
+    public void updatePasswordDetails(PasswordChangeRequest passwordChangeRequest){
+        MerchantUser merchantUser = merchantUserRepository.findByUserNameOrEmailOrMobilePhone(passwordChangeRequest.getUserName(), passwordChangeRequest.getUserName(), passwordChangeRequest.getUserName());
+        updateMerchantUserPassword(merchantUser, passwordChangeRequest.getNewPassword());
+        List<PasswordManagement> passwordManagementList =  passwordManagementRepository.findLastPasswordsByUserId(merchantUser.getId(), PageRequest.of(0, 5));
+        passwordManagementList.getFirst().setStatus(PasswordStatusType.EXPIRED);
+        passwordManagementRepository.save(PasswordManagement.builder().userId(merchantUser.getId()).status(PasswordStatusType.COMPLETED).previousPassword(merchantUser.getPassword()).requestType(PasswordManagementType.CHANGE_PASSWORD).build());
+    }
 
-    public Captcha save(Captcha captcha){
-        return captchaRepository.save(captcha);
+    private void updateMerchantUserPassword(MerchantUser merchantUser, String password){
+        merchantUser.setPassword(EncryptionDecryptionUtil.hashValue(password));
+        merchantUser.setLastPasswordChange(DateTimeUtils.getCurrentTimeInMills());
+        merchantUser.setPasswordExpiryTime(DateTimeUtils.getFutureDateByMonth(merchantConfig.getPasswordExpiryMonths()));
+        merchantUserRepository.save(merchantUser);
     }
 }
 
+...................
+
+
+
+
+
+@AllArgsConstructor
+@Getter
+@Setter
+@ToString
+@Builder
+@NoArgsConstructor
+public class PasswordResetRequest {
+    private String userName;
+    private String newPassword;
+    private String confirmPassword;
+}
