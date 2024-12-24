@@ -1,4 +1,4 @@
-public MerchantResponse<String> changePassword(PasswordChangeRequest passwordChangeRequest) {
+#public MerchantResponse<String> changePassword(PasswordChangeRequest passwordChangeRequest) {
         log.info("Starting password change process for user: {}", passwordChangeRequest.getUserName());
 
         // Step 1: Validate the password change request
@@ -192,4 +192,142 @@ public class PasswordResetRequest {
     private String userName;
     private String newPassword;
     private String confirmPassword;
+}
+
+
+
+
+...........
+
+
+
+
+@Component
+@RequiredArgsConstructor
+public class PasswordValidator {
+
+    private final MerchantDao merchantDao;
+    LoggerUtility log = LoggerFactoryUtility.getLogger(ValidationController.class);
+
+    public void validatePasswordChangeRequest(PasswordChangeRequest passwordChangeRequest) {
+        log.info("Validating PasswordChangeRequest");
+        errorDtoList = new ArrayList<>();
+
+        // Step 1: Validate mandatory fields
+        validateMandatoryFields(passwordChangeRequest);
+
+        // Step 2: Validate user existence
+        MerchantUser merchantUser = validateUserExists(passwordChangeRequest.getUserName());
+
+        // Step 3: Validate user status
+        validateUserStatusForChange(merchantUser.getStatus());
+
+        // Step 4: Validate old password
+        validateOldPassword(passwordChangeRequest.getOldPassword(), merchantUser.getPassword());
+
+        // Step 5: Validate new password
+        validateNewPassword(passwordChangeRequest.getNewPassword(), passwordChangeRequest.getConfirmPassword(), merchantUser.getId());
+
+        throwIfErrors();
+    }
+
+    public void validatePasswordResetRequest(PasswordResetRequest passwordResetRequest) {
+        log.info("Validating PasswordResetRequest");
+        errorDtoList = new ArrayList<>();
+
+        // Step 1: Validate mandatory fields
+        validateMandatoryFields(passwordResetRequest);
+
+        // Step 2: Validate user existence
+        MerchantUser merchantUser = validateUserExists(passwordResetRequest.getUserName());
+
+        // Step 3: Validate user status (Active or Expired)
+        validateUserStatusForReset(merchantUser.getStatus());
+
+        // Step 4: Validate new password
+        validateNewPassword(passwordResetRequest.getNewPassword(), passwordResetRequest.getConfirmPassword(), merchantUser.getId());
+
+        throwIfErrors();
+    }
+
+    private void validateMandatoryFields(Object request) {
+        log.info("Validating mandatory fields");
+        if (request instanceof PasswordChangeRequest changeRequest) {
+            checkMandatoryField(changeRequest.getUserName(), "user name");
+            checkMandatoryField(changeRequest.getOldPassword(), "old password");
+            checkMandatoryField(changeRequest.getNewPassword(), "new password");
+            checkMandatoryField(changeRequest.getConfirmPassword(), "confirm password");
+        } else if (request instanceof PasswordResetRequest resetRequest) {
+            checkMandatoryField(resetRequest.getUserName(), "user name");
+            checkMandatoryField(resetRequest.getNewPassword(), "new password");
+            checkMandatoryField(resetRequest.getConfirmPassword(), "confirm password");
+        }
+    }
+
+    private MerchantUser validateUserExists(String userName) {
+        log.info("Validating user existence");
+        if (!merchantDao.isExitsByUserNameOrEmailOrMobilePhone(userName)) {
+            errorDtoList.add(ErrorDto.builder()
+                    .errorCode(ErrorConstants.INVALID_ERROR_CODE)
+                    .errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "User Name", "Reason : User Name is invalid"))
+                    .build());
+            throwIfErrors();
+        }
+        return merchantDao.findByUserNameOrEmailOrMobilePhone(userName);
+    }
+
+    private void validateUserStatusForChange(String status) {
+        log.info("Validating user status for password change");
+        if (!MerchantStatus.ACTIVE.name().equals(status)) {
+            errorDtoList.add(ErrorDto.builder()
+                    .errorCode(ErrorConstants.INVALID_ERROR_CODE)
+                    .errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Status", "Reason : User is not active"))
+                    .build());
+        }
+    }
+
+    private void validateUserStatusForReset(String status) {
+        log.info("Validating user status for password reset");
+        if (!MerchantStatus.ACTIVE.name().equals(status) && !MerchantStatus.EXPIRED.name().equals(status)) {
+            errorDtoList.add(ErrorDto.builder()
+                    .errorCode(ErrorConstants.INVALID_ERROR_CODE)
+                    .errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Status", "Reason : User status must be active or expired"))
+                    .build());
+        }
+    }
+
+    private void validateOldPassword(String oldPassword, String currentPassword) {
+        log.info("Validating old password");
+        if (!oldPassword.equals(currentPassword)) {
+            errorDtoList.add(ErrorDto.builder()
+                    .errorCode(ErrorConstants.INVALID_ERROR_CODE)
+                    .errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Old password", "Reason : Old password does not match current password"))
+                    .build());
+        }
+    }
+
+    private void validateNewPassword(String newPassword, String confirmPassword, Long userId) {
+        log.info("Validating new password");
+        if (!newPassword.matches(MerchantConstant.PASSWORD_REGEX)) {
+            errorDtoList.add(ErrorDto.builder()
+                    .errorCode(ErrorConstants.INVALID_ERROR_CODE)
+                    .errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "New password", "Reason : Password does not meet criteria"))
+                    .build());
+        }
+        if (!newPassword.equals(confirmPassword)) {
+            errorDtoList.add(ErrorDto.builder()
+                    .errorCode(ErrorConstants.INVALID_ERROR_CODE)
+                    .errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Confirm password", "Reason : New password and confirm password do not match"))
+                    .build());
+        }
+        List<PasswordManagement> lastFiveRecords = merchantDao.findLastPasswordsByUserId(userId);
+        for (PasswordManagement previousPassword : lastFiveRecords) {
+            if (previousPassword.getPreviousPassword().equals(newPassword)) {
+                errorDtoList.add(ErrorDto.builder()
+                        .errorCode(ErrorConstants.INVALID_ERROR_CODE)
+                        .errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "New password", "Reason : New password cannot be same as the last 5 passwords"))
+                        .build());
+            }
+        }
+    }
 }
