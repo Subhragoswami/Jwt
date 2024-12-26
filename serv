@@ -1,3 +1,8 @@
+//in requestbody either userId or userName is mandatory and entityId
+
+now I have to check if user exists or not by that username or userId if present by user name then find userId based on that then I have to check it's status should be active in merchant_user table and if entityId is valid in MERCHANT_ENTITY_GROUP if user's role is already super admin in merchant_user table then update the entity Id in MERCHANT_ENTITY_USER but if it's role is admin then make him super admin and remove all records from MERCHANT_ENTITY_USER and insert it with new entityId and and get mid from   MERCHANT_ENTITY_GROUP and insert it in MERCHANT_ENTITY_USER
+
+
 @PostMapping("/entity/mapping")
 public MerchantResponse<String> mapEntity(@RequestBody UserEntityMappingRequest userEntityMappingRequest) {
     // Validate the request
