@@ -1,37 +1,26 @@
-package com.epay.merchant.entity;
+CREATE TABLE MERCHANT_ENTITY_USER (
+    ID RAW(16) DEFAULT SYS_GUID() PRIMARY KEY NOT NULL,
+    USER_ID RAW(16)  NOT NULL,
+    ENTITY_ID VARCHAR2(50),
+    MID VARCHAR2(50),
+    CREATED_BY	VARCHAR2(50)NOT NULL,
+    CREATED_AT	NUMBER NOT NULL,
+    UPDATED_BY	VARCHAR2(50) NOT NULL,
+    UPDATED_AT	NUMBER NOT NULL,
+    CONSTRAINT FK_MERCHANT_ENTITY_USER_ID  FOREIGN KEY (USER_ID) REFERENCES MERCHANT_USER(ID), -- Foreign Key to `MERCHANT USER` table
+    CONSTRAINT FK_MERCHANT_ENTITY_USER_MID  FOREIGN KEY (MID) REFERENCES MERCHANT_INFO(MID) -- Foreign Key to `MERCHANT Info` table
+);
 
-import jakarta.persistence.*;
-import lombok.*;
 
-import java.util.UUID;
+CREATE TABLE MERCHANT_ENTITY_GROUP (
+    ID RAW(16)  DEFAULT SYS_GUID() PRIMARY KEY,
+    MID VARCHAR2(50) NOT NULL,
+    ENTITY_ID VARCHAR2(50) NOT NULL,
+    CREATED_BY	VARCHAR2(50) NOT NULL,
+    CREATED_AT	NUMBER NOT NULL,
+    UPDATED_BY	VARCHAR2(50) NOT NULL,
+    UPDATED_AT	NUMBER NOT NULL,
+    CONSTRAINT UK_MERCHANT_ENTITY_GROUP UNIQUE (MID, ENTITY_ID), -- Unique KEY
+    CONSTRAINT FK_MERCHANT_ENTITY_GROUP FOREIGN KEY (MID) REFERENCES MERCHANT_INFO(MID) -- Foreign Key to `merchant_info` table
+);
 
-/**
- * Class Name: UserMenuPermission
- * *
- * Description:
- * *
- * Author: Bhoopendra Rajput
- * <p>
- * Copyright (c) 2024 [State Bank of India]
- * All rights reserved
- * *
- * Version:1.0
- */
-@EqualsAndHashCode(callSuper = true)
-@Data
-@Builder
-@AllArgsConstructor
-@NoArgsConstructor
-@Entity
-@Table(name = "USER_MENU_PERMISSION")
-public class UserMenuPermission extends AuditEntityByDate {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(nullable = false, updatable = false, unique = true)
-    private UUID id;
-    private UUID permissionId;
-    private UUID userId;
-    private UUID menuId;
-
-}
