@@ -1,66 +1,44 @@
-Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'merchantService' defined in file [C:\Users\v1014352\E-Pay\epay_merchant_service\build\classes\java\main\com\epay\merchant\service\MerchantService.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'merchantInfoDao' defined in file [C:\Users\v1014352\E-Pay\epay_merchant_service\build\classes\java\main\com\epay\merchant\dao\MerchantInfoDao.class]: Unsatisfied dependency expressed through constructor parameter 2: Error creating bean with name 'passwordManagementRepository' defined in com.epay.merchant.repository.PasswordManagementRepository defined in @EnableJpaRepositories declared on EpayMerchantServiceApplication: Could not create query for public abstract java.util.List com.epay.merchant.repository.PasswordManagementRepository.findLastPasswordsByUserId(java.util.UUID,org.springframework.data.domain.Pageable); Reason: Validation failed for query for method public abstract java.util.List com.epay.merchant.repository.PasswordManagementRepository.findLastPasswordsByUserId(java.util.UUID,org.springframework.data.domain.Pageable)
-
-package com.epay.merchant.repository;
-
-import com.epay.merchant.entity.PasswordManagement;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
-
-import java.util.List;
-import java.util.UUID;
-
-public interface PasswordManagementRepository extends JpaRepository<PasswordManagement, UUID> {
-    @Query("SELECT p FROM PasswordManagement p WHERE p.userId = :userId ORDER BY p.createdDate DESC")
-    List<PasswordManagement> findLastPasswordsByUserId(@Param("userId") UUID userId, Pageable pageable);
-}
-
+  @Modifying
+    @Query("UPDATE MerchantEntityUser u SET u.entityId = :entityId WHERE u.userId = :userId")
+    void updateEntityIdForUser(@Param("userId") UUID userId, @Param("entityId") String entityId);
 
 package com.epay.merchant.entity;
 
-import com.epay.merchant.util.enums.PasswordChangeType;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.util.UUID;
 
-@Entity
+@EqualsAndHashCode(callSuper = true)
 @Getter
 @Setter
 @Builder
-@Table(name = "password_management")
-@AllArgsConstructor
+@Entity
+@Table(name = "MERCHANT_ENTITY_USER")
 @NoArgsConstructor
-@EntityListeners(AuditingEntityListener.class)
-public class PasswordManagement {
+@AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class MerchantEntityUser extends AuditEntity{
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(nullable = false, updatable = false, unique = true)
     private UUID id;
-    @Enumerated(EnumType.STRING)
-    private PasswordChangeType requestType;
+
     private UUID userId;
-    private String status;
-    private String previousPassword;
-    @CreatedDate
-    private Long createdAt;
-    @LastModifiedDate
-    private Long updatedAt;
+    private String entityId;
+    @Column(name = "MID")
+    private String mId;
 }
 
 
--- liquibase formatted sql
--- changeset Subhra:0
-CREATE TABLE password_management (
-    id RAW(16) DEFAULT SYS_GUID() PRIMARY KEY NOT NULL,
-    user_id RAW(16) NOT NULL,
-    request_type VARCHAR2(255) NOT NULL,
-    status VARCHAR2(255) NOT NULL,
-    previous_password VARCHAR2(255) NOT NULL,
-    created_at NUMBER NOT NULL,
-    updated_at NUMBER NOT NULL,
-    CONSTRAINT FK_CAPTCHA FOREIGN KEY (user_id) REFERENCES MERCHANT_USER(id)
-);
+{
+    "status": 0,
+    "errors": [
+        {
+            "errorCode": "500",
+            "errorMessage": "Executing an update/delete query"
+        }
+    ]
+}
