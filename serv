@@ -1,333 +1,88 @@
-#public MerchantResponse<String> changePassword(PasswordChangeRequest passwordChangeRequest) {
-        log.info("Starting password change process for user: {}", passwordChangeRequest.getUserName());
-
-        // Step 1: Validate the password change request
-        passwordValidator.validatePasswordChangeRequest(passwordChangeRequest);
-        log.info("Password change request validated successfully");
-
-        // Step 2:
-        //TODO: DECRYPTION and ENCRYPTION of passwords
-
-        // Step 3: Update the password details in the database
-        passwordManagementDao.updatePasswordDetails(passwordChangeRequest);
-
-        // Step 4:
-        //TODO: Send sms and email for password change
-
-        // Step 5: Build and return the success response
-        return MerchantResponse.<String>builder().status(MerchantConstant.RESPONSE_SUCCESS).data(List.of("Password Changed Successfully")).count(1L).total(1L).build();
+@PostMapping("/entity/mapping")
+public MerchantResponse<String> mapEntity(@RequestBody UserEntityMappingRequest userEntityMappingRequest) {
+    // Validate the request
+    if (userEntityMappingRequest.getUserId() == null && userEntityMappingRequest.getUserName() == null) {
+        throw new ValidationException("Either userId or userName must be provided.");
+    }
+    if (userEntityMappingRequest.getEntityId() == null) {
+        throw new ValidationException("EntityId must be provided.");
     }
 
-package com.epay.merchant.model.request;
+    // Fetch user details based on userId or userName
+    MerchantUser user = userEntityMappingRequest.getUserId() != null
+            ? merchantUserRepository.findById(userEntityMappingRequest.getUserId())
+                    .orElseThrow(() -> new ValidationException("User not found with given userId."))
+            : merchantUserRepository.findByUserName(userEntityMappingRequest.getUserName())
+                    .orElseThrow(() -> new ValidationException("User not found with given userName."));
 
-import lombok.*;
-
-@AllArgsConstructor
-@Getter
-@Setter
-@ToString
-@Builder
-@NoArgsConstructor
-public class PasswordChangeRequest {
-    private String userName;
-    private String oldPassword;
-    private String newPassword;
-    private String confirmPassword;
-}
-
-package com.epay.merchant.validator;
-
-import com.epay.merchant.controller.ValidationController;
-import com.epay.merchant.dao.MerchantDao;
-import com.epay.merchant.dto.ErrorDto;
-import com.epay.merchant.entity.MerchantUser;
-import com.epay.merchant.entity.PasswordManagement;
-import com.epay.merchant.model.request.PasswordChangeRequest;
-import com.epay.merchant.util.ErrorConstants;
-import com.epay.merchant.util.MerchantConstant;
-import com.epay.merchant.util.enums.MerchantStatus;
-import com.sbi.epay.logging.utility.LoggerFactoryUtility;
-import com.sbi.epay.logging.utility.LoggerUtility;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
-
-import java.text.MessageFormat;
-import java.util.ArrayList;
-import java.util.List;
-
-@Component
-@RequiredArgsConstructor
-public class PasswordValidator extends BaseValidator {
-
-    private final MerchantDao merchantDao;
-    LoggerUtility log = LoggerFactoryUtility.getLogger(ValidationController.class);
-
-    public void validatePasswordChangeRequest(PasswordChangeRequest passwordChangeRequest){
-        log.info("Validating password change request");
-        errorDtoList = new ArrayList<>();
-        validateMandatoryFields(passwordChangeRequest);
-        validUserCheck(passwordChangeRequest.getUserName());
-        MerchantUser merchantUser = merchantDao.findByUserNameOrEmailOrMobilePhone(passwordChangeRequest.getUserName());
-        List<PasswordManagement> lastFiveRecords = merchantDao.findLastPasswordsByUserId(merchantUser.getId());
-        validStatusCheck(merchantUser.getStatus());
-        validPasswordRequestCheck(merchantUser.getPassword(), passwordChangeRequest, lastFiveRecords);
+    // Validate the user status
+    if (!"ACTIVE".equalsIgnoreCase(user.getStatus())) {
+        throw new ValidationException("User is not active.");
     }
 
-    private void validateMandatoryFields(PasswordChangeRequest passwordChangeRequest){
-        log.info("Validating mandatory fields");
-        checkMandatoryField(passwordChangeRequest.getUserName(), "user name");
-        checkMandatoryField(passwordChangeRequest.getOldPassword(), "old password");
-        checkMandatoryField(passwordChangeRequest.getNewPassword(), "new password");
-        checkMandatoryField(passwordChangeRequest.getConfirmPassword(), "confirm password");
-        throwIfErrors();
+    // Fetch the role of the user using a join query
+    String userRole = merchantUserRepository.findUserRoleByUserId(user.getId())
+            .orElseThrow(() -> new ValidationException("Role not found for the user."));
+
+    // Validate if the entityId is valid
+    MerchantEntityGroup entityGroup = merchantEntityGroupRepository.findByMidAndEntityId(user.getMid(), userEntityMappingRequest.getEntityId())
+            .orElseThrow(() -> new ValidationException("Invalid EntityId."));
+
+    // If the user is a super admin, update the entityId
+    if ("SUPER_ADMIN".equalsIgnoreCase(userRole)) {
+        merchantEntityUserRepository.updateEntityIdForUser(user.getId(), userEntityMappingRequest.getEntityId());
+    } else if ("ADMIN".equalsIgnoreCase(userRole)) {
+        // Make the user a super admin
+        user.setRoleId(userRoleRepository.findRoleIdByRoleName("SUPER_ADMIN")
+                .orElseThrow(() -> new ValidationException("Super Admin role not found.")));
+        merchantUserRepository.save(user);
+
+        // Remove all existing records from MerchantEntityUser
+        merchantEntityUserRepository.deleteByUserId(user.getId());
+
+        // Insert a new record with the updated entityId and MID
+        MerchantEntityUser newEntityUser = MerchantEntityUser.builder()
+                .userId(user.getId())
+                .entityId(userEntityMappingRequest.getEntityId())
+                .mid(entityGroup.getMid())
+                .createdBy("SYSTEM") // Replace with the current user
+                .createdAt(System.currentTimeMillis())
+                .updatedBy("SYSTEM") // Replace with the current user
+                .updatedAt(System.currentTimeMillis())
+                .build();
+        merchantEntityUserRepository.save(newEntityUser);
     }
 
-    private void validUserCheck(String userName){
-        log.info("Validating user existence");
-        if(!merchantDao.isExitsByUserNameOrEmailOrMobilePhone(userName)){
-            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "User Name", "Reason : User Name is invalid")).build());
-        }
-        throwIfErrors();
-    }
-
-    private void validStatusCheck(String status){
-        log.info("Validating status");
-        if(!status.equals(String.valueOf(MerchantStatus.EXPIRED))){
-            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Status", "Reason : status is not valid for changing password")).build());
-        }
-        throwIfErrors();
-    }
-
-    private void validPasswordRequestCheck(String password, PasswordChangeRequest passwordChangeRequest, List<PasswordManagement> lastFiveRecords){
-        if(!passwordChangeRequest.getOldPassword().equals(password)){
-            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Old password", "Reason : old password is not same as current password")).build());
-        }
-        if(passwordChangeRequest.getNewPassword().equals(passwordChangeRequest.getOldPassword())){
-            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "new password", "Reason : new password can not be same as old password")).build());
-        }
-        for(PasswordManagement previousPassword : lastFiveRecords){
-            if(previousPassword.getPreviousPassword().equals(passwordChangeRequest.getNewPassword())){
-                errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "new password", "Reason : new password can not be same as last 5 passwords")).build());
-            }
-        }
-        if(!passwordChangeRequest.getNewPassword().matches(MerchantConstant.PASSWORD_REGEX)){
-            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "New password", "Reason : New password does not meet the acceptance criteria")).build());
-        }
-        if(!passwordChangeRequest.getNewPassword().equals(passwordChangeRequest.getConfirmPassword())){
-            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "password", "Reason : new password and confirm password both are different")).build());
-        }
-        throwIfErrors();
-    }
-}
-
-
-package com.epay.merchant.dao;
-
-import com.epay.merchant.config.MerchantConfig;
-import com.epay.merchant.entity.MerchantUser;
-import com.epay.merchant.entity.PasswordManagement;
-import com.epay.merchant.model.request.PasswordChangeRequest;
-import com.epay.merchant.repository.MerchantUserRepository;
-import com.epay.merchant.repository.PasswordManagementRepository;
-import com.epay.merchant.util.DateTimeUtils;
-import com.epay.merchant.util.EncryptionDecryptionUtil;
-import com.epay.merchant.util.enums.PasswordManagementType;
-import com.epay.merchant.util.enums.PasswordStatusType;
-import jakarta.transaction.Transactional;
-import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.stereotype.Repository;
-
-import java.util.List;
-
-/**
- * Class Name: PasswordManagementDao
- * *
- * Description:
- * *
- * Author: Subhra Goswami
- * <p>
- * Copyright (c) 2024 [State Bank of India]
- * All rights reserved
- * *
- * Version:1.0
- */
-@Repository
-@RequiredArgsConstructor
-public class PasswordManagementDao {
-    private final MerchantUserRepository merchantUserRepository;
-    private final PasswordManagementRepository passwordManagementRepository;
-    private final MerchantConfig merchantConfig;
-
-    @Transactional
-    public void updatePasswordDetails(PasswordChangeRequest passwordChangeRequest){
-        MerchantUser merchantUser = merchantUserRepository.findByUserNameOrEmailOrMobilePhone(passwordChangeRequest.getUserName(), passwordChangeRequest.getUserName(), passwordChangeRequest.getUserName());
-        updateMerchantUserPassword(merchantUser, passwordChangeRequest.getNewPassword());
-        List<PasswordManagement> passwordManagementList =  passwordManagementRepository.findLastPasswordsByUserId(merchantUser.getId(), PageRequest.of(0, 5));
-        passwordManagementList.getFirst().setStatus(PasswordStatusType.EXPIRED);
-        passwordManagementRepository.save(PasswordManagement.builder().userId(merchantUser.getId()).status(PasswordStatusType.COMPLETED).previousPassword(merchantUser.getPassword()).requestType(PasswordManagementType.CHANGE_PASSWORD).build());
-    }
-
-    private void updateMerchantUserPassword(MerchantUser merchantUser, String password){
-        merchantUser.setPassword(EncryptionDecryptionUtil.hashValue(password));
-        merchantUser.setLastPasswordChange(DateTimeUtils.getCurrentTimeInMills());
-        merchantUser.setPasswordExpiryTime(DateTimeUtils.getFutureDateByMonth(merchantConfig.getPasswordExpiryMonths()));
-        merchantUserRepository.save(merchantUser);
-    }
-}
-
-...................
-
-
-
-
-
-@AllArgsConstructor
-@Getter
-@Setter
-@ToString
-@Builder
-@NoArgsConstructor
-public class PasswordResetRequest {
-    private String userName;
-    private String newPassword;
-    private String confirmPassword;
+    return new MerchantResponse<>("Entity mapping updated successfully.");
 }
 
 
 
-
-...........
-
+.............
 
 
 
-@Component
-@RequiredArgsConstructor
-public class PasswordValidator {
+@Query("SELECT r.role FROM MerchantUser u JOIN UserRole r ON u.roleId = r.id WHERE u.id = :userId")
+Optional<String> findUserRoleByUserId(@Param("userId") UUID userId);
 
-    private final MerchantDao merchantDao;
-    LoggerUtility log = LoggerFactoryUtility.getLogger(ValidationController.class);
 
-    public void validatePasswordChangeRequest(PasswordChangeRequest passwordChangeRequest) {
-        log.info("Validating PasswordChangeRequest");
-        errorDtoList = new ArrayList<>();
 
-        // Step 1: Validate mandatory fields
-        validateMandatoryFields(passwordChangeRequest);
+Optional<MerchantUser> findByUserName(String userName);
 
-        // Step 2: Validate user existence
-        MerchantUser merchantUser = validateUserExists(passwordChangeRequest.getUserName());
 
-        // Step 3: Validate user status
-        validateUserStatusForChange(merchantUser.getStatus());
+@Query("SELECT r.id FROM UserRole r WHERE r.role = :roleName")
+Optional<UUID> findRoleIdByRoleName(@Param("roleName") String roleName);
 
-        // Step 4: Validate old password
-        validateOldPassword(passwordChangeRequest.getOldPassword(), merchantUser.getPassword());
+@Modifying
+@Query("UPDATE MerchantEntityUser u SET u.entityId = :entityId WHERE u.userId = :userId")
+void updateEntityIdForUser(@Param("userId") UUID userId, @Param("entityId") String entityId);
 
-        // Step 5: Validate new password
-        validateNewPassword(passwordChangeRequest.getNewPassword(), passwordChangeRequest.getConfirmPassword(), merchantUser.getId());
 
-        throwIfErrors();
-    }
 
-    public void validatePasswordResetRequest(PasswordResetRequest passwordResetRequest) {
-        log.info("Validating PasswordResetRequest");
-        errorDtoList = new ArrayList<>();
 
-        // Step 1: Validate mandatory fields
-        validateMandatoryFields(passwordResetRequest);
+@Modifying
+@Query("DELETE FROM MerchantEntityUser u WHERE u.userId = :userId")
+void deleteByUserId(@Param("userId") UUID userId);
 
-        // Step 2: Validate user existence
-        MerchantUser merchantUser = validateUserExists(passwordResetRequest.getUserName());
 
-        // Step 3: Validate user status (Active or Expired)
-        validateUserStatusForReset(merchantUser.getStatus());
-
-        // Step 4: Validate new password
-        validateNewPassword(passwordResetRequest.getNewPassword(), passwordResetRequest.getConfirmPassword(), merchantUser.getId());
-
-        throwIfErrors();
-    }
-
-    private void validateMandatoryFields(Object request) {
-        log.info("Validating mandatory fields");
-        if (request instanceof PasswordChangeRequest changeRequest) {
-            checkMandatoryField(changeRequest.getUserName(), "user name");
-            checkMandatoryField(changeRequest.getOldPassword(), "old password");
-            checkMandatoryField(changeRequest.getNewPassword(), "new password");
-            checkMandatoryField(changeRequest.getConfirmPassword(), "confirm password");
-        } else if (request instanceof PasswordResetRequest resetRequest) {
-            checkMandatoryField(resetRequest.getUserName(), "user name");
-            checkMandatoryField(resetRequest.getNewPassword(), "new password");
-            checkMandatoryField(resetRequest.getConfirmPassword(), "confirm password");
-        }
-    }
-
-    private MerchantUser validateUserExists(String userName) {
-        log.info("Validating user existence");
-        if (!merchantDao.isExitsByUserNameOrEmailOrMobilePhone(userName)) {
-            errorDtoList.add(ErrorDto.builder()
-                    .errorCode(ErrorConstants.INVALID_ERROR_CODE)
-                    .errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "User Name", "Reason : User Name is invalid"))
-                    .build());
-            throwIfErrors();
-        }
-        return merchantDao.findByUserNameOrEmailOrMobilePhone(userName);
-    }
-
-    private void validateUserStatusForChange(String status) {
-        log.info("Validating user status for password change");
-        if (!MerchantStatus.ACTIVE.name().equals(status)) {
-            errorDtoList.add(ErrorDto.builder()
-                    .errorCode(ErrorConstants.INVALID_ERROR_CODE)
-                    .errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Status", "Reason : User is not active"))
-                    .build());
-        }
-    }
-
-    private void validateUserStatusForReset(String status) {
-        log.info("Validating user status for password reset");
-        if (!MerchantStatus.ACTIVE.name().equals(status) && !MerchantStatus.EXPIRED.name().equals(status)) {
-            errorDtoList.add(ErrorDto.builder()
-                    .errorCode(ErrorConstants.INVALID_ERROR_CODE)
-                    .errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Status", "Reason : User status must be active or expired"))
-                    .build());
-        }
-    }
-
-    private void validateOldPassword(String oldPassword, String currentPassword) {
-        log.info("Validating old password");
-        if (!oldPassword.equals(currentPassword)) {
-            errorDtoList.add(ErrorDto.builder()
-                    .errorCode(ErrorConstants.INVALID_ERROR_CODE)
-                    .errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Old password", "Reason : Old password does not match current password"))
-                    .build());
-        }
-    }
-
-    private void validateNewPassword(String newPassword, String confirmPassword, Long userId) {
-        log.info("Validating new password");
-        if (!newPassword.matches(MerchantConstant.PASSWORD_REGEX)) {
-            errorDtoList.add(ErrorDto.builder()
-                    .errorCode(ErrorConstants.INVALID_ERROR_CODE)
-                    .errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "New password", "Reason : Password does not meet criteria"))
-                    .build());
-        }
-        if (!newPassword.equals(confirmPassword)) {
-            errorDtoList.add(ErrorDto.builder()
-                    .errorCode(ErrorConstants.INVALID_ERROR_CODE)
-                    .errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Confirm password", "Reason : New password and confirm password do not match"))
-                    .build());
-        }
-        List<PasswordManagement> lastFiveRecords = merchantDao.findLastPasswordsByUserId(userId);
-        for (PasswordManagement previousPassword : lastFiveRecords) {
-            if (previousPassword.getPreviousPassword().equals(newPassword)) {
-                errorDtoList.add(ErrorDto.builder()
-                        .errorCode(ErrorConstants.INVALID_ERROR_CODE)
-                        .errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "New password", "Reason : New password cannot be same as the last 5 passwords"))
-                        .build());
-            }
-        }
-    }
-}
+Optional<MerchantEntityGroup> findByMidAndEntityId(String mid, String entityId);
