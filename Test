@@ -171,4 +171,72 @@ public class UserMapperTest {
     }
 }
 
+public class UserEntityMappingRequest {
+    private UUID userId;
+    private String userName;
+    private String entityId;
+}
+package com.epay.merchant.dto;
 
+import com.epay.merchant.util.enums.UserStatus;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.io.Serializable;
+import java.util.UUID;
+
+/**
+ * Class Name: MerchantUserDto
+ * *
+ * Description:
+ * *
+ * Author: Bhoopendra Rajput
+ * <p>
+ * Copyright (c) 2024 [State Bank of India]
+ * All rights reserved
+ * *
+ * Version:1.0
+ */
+@Data
+@Builder
+@JsonInclude(JsonInclude.Include.NON_NULL)
+@AllArgsConstructor
+@NoArgsConstructor
+public class MerchantUserDto implements Serializable {
+    @JsonIgnore
+    private UUID id;
+    private String parentUserId;
+    private String userName;
+    private String firstName;
+    private String middleName;
+    private String lastName;
+    private String email;
+    private String primaryPhone;
+    private String secondaryPhone;
+    private String mobilePhone;
+    private String officePhone;
+    @JsonProperty("country")
+    private String countryCode;
+    @JsonProperty("state")
+    private String stateCode;
+    @JsonProperty("pincode")
+    private String pinCode;
+    private String city;
+    private UUID role;
+    private UserStatus status;
+    private String password;
+    private Long lastPasswordChange;
+    private Long passwordExpiryTime;
+    private Long loginFailAttempt;
+    private Long lastSuccessLogin;
+    private Long lastFailLogin;
+    private String createdBy;
+    private Long createdAt;
+    private String updatedBy;
+    private Long updatedAt;
+}
