@@ -137,4 +137,38 @@ public String findUserRoleByUserId(UUID id) {
         updateUserMenuPermission(merchantUser.getId(), roleId);
     }
 
+.....................
+
+import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+
+public class UserMapperTest {
+
+    @Test
+    public void testMapToDTO_ValidEntity() {
+        // Arrange
+        UserEntity entity = new UserEntity();
+        entity.setId(1L);
+        entity.setName("John Doe");
+        entity.setEmail("john.doe@example.com");
+
+        // Act
+        UserDTO dto = UserMapper.mapToDTO(entity);
+
+        // Assert
+        assertNotNull(dto);
+        assertEquals(entity.getId(), dto.getId());
+        assertEquals(entity.getName(), dto.getName());
+    }
+
+    @Test
+    public void testMapToDTO_NullEntity() {
+        // Act
+        UserDTO dto = UserMapper.mapToDTO(null);
+
+        // Assert
+        assertNull(dto);
+    }
+}
+
 
