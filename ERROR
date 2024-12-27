@@ -109,3 +109,35 @@ public class AdminServiceTest {
         verify(adminDao, times(1)).UpdateUserRole(userDto, request.getEntityId());
     }
 }
+
+
+
+@Test
+void testMapEntity_ValidRequest() {
+    // Arrange
+    UserEntityMappingRequest request = new UserEntityMappingRequest();
+    request.setUserId(UUID.randomUUID());
+    request.setEntityId("valid-entity-id");
+
+    MerchantUserDto userDto = new MerchantUserDto();
+    userDto.setId(request.getUserId());
+    userDto.setStatus(UserStatus.ACTIVE);
+
+    // Mocking behavior
+    doNothing().when(userEntityValidator).UserEntityRequestValidator(request);
+    when(adminDao.findByUserId(request.getUserId())).thenReturn(userDto);
+    when(adminDao.isEntityIdPresent(request.getEntityId())).thenReturn(true);
+
+    // Act
+    MerchantResponse<String> response = adminService.mapUserRole(request);
+
+    // Assert
+    assertNotNull(response);
+    assertEquals("SUCCESS", response.getStatus());
+    assertEquals(1L, response.getCount());
+
+    // Verify interactions
+    verify(userEntityValidator, times(1)).UserEntityRequestValidator(request);
+    verify(adminDao, times(1)).UpdateUserRole(userDto, request.getEntityId());
+}
+
