@@ -240,3 +240,140 @@ public class MerchantUserDto implements Serializable {
     private String updatedBy;
     private Long updatedAt;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import com.epay.merchant.dto.MerchantUserDto;
+import com.epay.merchant.exception.MerchantException;
+import com.epay.merchant.model.request.UserEntityMappingRequest;
+import com.epay.merchant.response.MerchantResponse;
+import com.epay.merchant.service.AdminDao;
+import com.epay.merchant.util.ErrorConstants;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+class UserEntityMappingTest {
+
+    @InjectMocks
+    private YourServiceClass service; // Replace 'YourServiceClass' with your actual class name
+
+    @Mock
+    private AdminDao adminDao;
+
+    @Mock
+    private UserEntityValidator userEntityValidator;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+    }
+
+    @Test
+    void testMapEntity_ValidRequest() {
+        // Arrange
+        UserEntityMappingRequest request = new UserEntityMappingRequest();
+        request.setUserId(UUID.randomUUID());
+        request.setEntityId("valid-entity-id");
+
+        MerchantUserDto userDto = new MerchantUserDto();
+        userDto.setId(request.getUserId());
+        userDto.setStatus(UserStatus.ACTIVE);
+
+        when(adminDao.findByUserId(request.getUserId())).thenReturn(userDto);
+        when(adminDao.isEntityIdPresent(request.getEntityId())).thenReturn(true);
+
+        // Act
+        MerchantResponse<String> response = service.mapEntity(request);
+
+        // Assert
+        assertNotNull(response);
+        assertEquals("SUCCESS", response.getStatus());
+        assertEquals(1L, response.getCount());
+        verify(userEntityValidator, times(1)).UserEntityRequestValidator(request);
+        verify(adminDao, times(1)).UpdateUserRole(userDto, request.getEntityId());
+    }
+
+    @Test
+    void testMapEntity_InvalidEntityId() {
+        // Arrange
+        UserEntityMappingRequest request = new UserEntityMappingRequest();
+        request.setUserId(UUID.randomUUID());
+        request.setEntityId("invalid-entity-id");
+
+        when(adminDao.isEntityIdPresent(request.getEntityId())).thenReturn(false);
+
+        // Act & Assert
+        MerchantException exception = assertThrows(MerchantException.class, () -> service.mapEntity(request));
+        assertEquals(ErrorConstants.INVALID_ERROR_CODE, exception.getErrorCode());
+    }
+
+    @Test
+    void testMapEntity_InactiveUser() {
+        // Arrange
+        UserEntityMappingRequest request = new UserEntityMappingRequest();
+        request.setUserId(UUID.randomUUID());
+        request.setEntityId("valid-entity-id");
+
+        MerchantUserDto userDto = new MerchantUserDto();
+        userDto.setId(request.getUserId());
+        userDto.setStatus(UserStatus.INACTIVE);
+
+        when(adminDao.findByUserId(request.getUserId())).thenReturn(userDto);
+
+        // Act & Assert
+        MerchantException exception = assertThrows(MerchantException.class, () -> service.mapEntity(request));
+        assertEquals(ErrorConstants.INVALID_ERROR_CODE, exception.getErrorCode());
+        verify(adminDao, times(0)).UpdateUserRole(any(), any());
+    }
+
+    @Test
+    void testMapEntity_MissingMandatoryFields() {
+        // Arrange
+        UserEntityMappingRequest request = new UserEntityMappingRequest(); // Empty request
+
+        doThrow(new MerchantException(ErrorConstants.MANDATORY_FOUND_ERROR_CODE, "Missing mandatory fields"))
+                .when(userEntityValidator).UserEntityRequestValidator(request);
+
+        // Act & Assert
+        MerchantException exception = assertThrows(MerchantException.class, () -> service.mapEntity(request));
+        assertEquals(ErrorConstants.MANDATORY_FOUND_ERROR_CODE, exception.getErrorCode());
+        verify(adminDao, times(0)).UpdateUserRole(any(), any());
+    }
+}
