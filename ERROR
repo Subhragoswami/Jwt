@@ -1,20 +1,111 @@
-CREATE TABLE USER_MENU_PERMISSION (
-    ID	RAW(16) DEFAULT SYS_GUID() PRIMARY KEY NOT NULL,
-    PERMISSION_ID	RAW(16) NOT NULL,
-    USER_ID	RAW(16) NOT NULL,
-    MENU_ID	RAW(16) NOT NULL,
-    CREATED_DATE	NUMBER NOT NULL,
-    UPDATE_DATE	NUMBER NOT NULL,
-    CONSTRAINT UK_USER_MENU_PERMISSION UNIQUE (PERMISSION_ID, USER_ID, MENU_ID), -- Unique KEY
-    CONSTRAINT FK_USER_MENU_PERMISSION  FOREIGN KEY (PERMISSION_ID) REFERENCES USER_PERMISSION(ID), -- Foreign Key to `USER_PERMISSION` table
-    CONSTRAINT FK_USER_MENU_PERMISSION_USER  FOREIGN KEY (USER_ID) REFERENCES MERCHANT_USER(ID), -- Foreign Key to `MERCHANT_USER` table
-    CONSTRAINT FK_USER_MENU_PERMISSION_MENU  FOREIGN KEY (MENU_ID) REFERENCES MENU_INFO(ID) -- Foreign Key to `MENU_INFO` table
+Wanted but not invoked:
+userEntityValidator.UserEntityRequestValidator(
+    UserEntityMappingRequest(userId=76d6484f-cca1-4fb7-93fd-d09d43e1e3af, userName=null, entityId=valid-entity-id)
+);
+-> at com.epay.merchant.validator.UserEntityValidator.UserEntityRequestValidator(UserEntityValidator.java:33)
+Actually, there were zero interactions with this mock.
+
+Wanted but not invoked:
+userEntityValidator.UserEntityRequestValidator(
+    UserEntityMappingRequest(userId=76d6484f-cca1-4fb7-93fd-d09d43e1e3af, userName=null, entityId=valid-entity-id)
 );
 
-  @Modifying
-    @Query("DELETE FROM UserMenuPermission u WHERE u.userId = :userId")
-    void deleteByUserId(UUID userId);
+package com.epay.merchant.service;
 
+import com.epay.merchant.dao.AdminDao;
+import com.epay.merchant.dto.MerchantDto;
+import com.epay.merchant.dto.MerchantUserDto;
+import com.epay.merchant.dto.OnboardingDto;
+import com.epay.merchant.entity.MerchantUser;
+import com.epay.merchant.mapper.MerchantMapper;
+import com.epay.merchant.model.request.OnboardingRequest;
+import com.epay.merchant.model.request.UserEntityMappingRequest;
+import com.epay.merchant.model.response.MerchantResponse;
+import com.epay.merchant.model.response.MerchantUserResponse;
+import com.epay.merchant.model.response.OnboardingResponse;
+import com.epay.merchant.util.enums.UserStatus;
+import com.epay.merchant.validator.OnboardingValidator;
+import com.epay.merchant.validator.UserEntityValidator;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.MockitoAnnotations;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
+import java.util.UUID;
 
-Caused by: org.hibernate.exception.SQLGrammarException: JDBC exception executing SQL [select ump1_0.id,ump1_0.created_at,ump1_0.menu_id,ump1_0.permission_id,ump1_0.updated_at,ump1_0.user_id from user_menu_permission ump1_0 where ump1_0.user_id=?] [ORA-00904: "UMP1_0"."UPDATED_AT": invalid identifier
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+public class AdminServiceTest {
+    @Mock
+    private AdminDao adminDao;
+    @Mock
+    private OnboardingValidator validator;
+    private MerchantMapper mapper;
+
+    @Mock
+    private UserEntityValidator userEntityValidator;
+
+    @InjectMocks
+    private AdminService adminService;
+    private AutoCloseable closeable;
+    private OnboardingRequest onboardingRequest;
+
+    private MerchantUser merchantUser;
+    private MerchantUserResponse merchantUserResponse;
+
+    @BeforeEach
+    void setUp() {
+        closeable = MockitoAnnotations.openMocks(this);
+        onboardingRequest = OnboardingRequest.builder().merchant(MerchantDto.builder().build()).user(MerchantUserDto.builder().build()).build();
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        closeable.close();
+    }
+
+    //@Test
+    public void onboardingTest() {
+        OnboardingDto onboardingRequestDB = OnboardingDto.builder()
+                .merchant(MerchantDto.builder().mId("100011").build())
+                .build();
+        when(adminDao.onboardingMerchantAndMerchantUser(onboardingRequest)).thenReturn(onboardingRequestDB);
+        List<OnboardingResponse> onboardingRequestRes = adminService.onboardingMerchant(onboardingRequest).getData();
+        assertNotNull(onboardingRequestRes);
+        assertNotNull(onboardingRequestRes.getFirst().getMerchant().getMId());
+    }
+
+    @Test
+    void testMapEntity_ValidRequest() {
+        // Arrange
+        UserEntityMappingRequest request = new UserEntityMappingRequest();
+        request.setUserId(UUID.randomUUID());
+        request.setEntityId("valid-entity-id");
+
+        MerchantUserDto userDto = new MerchantUserDto();
+        userDto.setId(request.getUserId());
+        userDto.setStatus(UserStatus.ACTIVE);
+
+        when(adminDao.findByUserId(request.getUserId())).thenReturn(userDto);
+        when(adminDao.isEntityIdPresent(request.getEntityId())).thenReturn(true);
+
+        // Act
+        MerchantResponse<String> response = adminService.mapUserRole(request);
+
+        // Assert
+        assertNotNull(response);
+        assertEquals(1, response.getStatus());
+        assertEquals(1L, response.getCount());
+        verify(userEntityValidator, times(1)).UserEntityRequestValidator(request);
+        verify(adminDao, times(1)).UpdateUserRole(userDto, request.getEntityId());
+    }
+}
