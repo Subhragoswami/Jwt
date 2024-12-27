@@ -1,68 +1,203 @@
-CREATE TABLE MERCHANT_ENTITY_USER (
-    ID RAW(16) DEFAULT SYS_GUID() PRIMARY KEY NOT NULL,
-    USER_ID RAW(16)  NOT NULL,
-    ENTITY_ID VARCHAR2(50),
-    MID VARCHAR2(50),
-    CREATED_BY	VARCHAR2(50)NOT NULL,
-    CREATED_AT	NUMBER NOT NULL,
-    UPDATED_BY	VARCHAR2(50) NOT NULL,
-    UPDATED_AT	NUMBER NOT NULL,
-    CONSTRAINT FK_MERCHANT_ENTITY_USER_ID  FOREIGN KEY (USER_ID) REFERENCES MERCHANT_USER(ID), -- Foreign Key to `MERCHANT USER` table
-    CONSTRAINT FK_MERCHANT_ENTITY_USER_MID  FOREIGN KEY (MID) REFERENCES MERCHANT_INFO(MID) -- Foreign Key to `MERCHANT Info` table
-);
+package com.epay.merchant.validator;
+
+import com.epay.merchant.dao.AdminDao;
+import com.epay.merchant.dao.MerchantUserDao;
+import com.epay.merchant.dto.ErrorDto;
+import com.epay.merchant.dto.MerchantUserDto;
+import com.epay.merchant.entity.MerchantUser;
+import com.epay.merchant.model.request.UserEntityMappingRequest;
+import com.epay.merchant.util.ErrorConstants;
+import com.epay.merchant.util.enums.MerchantStatus;
+import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.stereotype.Component;
+
+import java.text.MessageFormat;
+import java.util.ArrayList;
+import java.util.Optional;
 
 
-CREATE TABLE MERCHANT_ENTITY_GROUP (
-    ID RAW(16)  DEFAULT SYS_GUID() PRIMARY KEY,
-    MID VARCHAR2(50) NOT NULL,
-    ENTITY_ID VARCHAR2(50) NOT NULL,
-    CREATED_BY	VARCHAR2(50) NOT NULL,
-    CREATED_AT	NUMBER NOT NULL,
-    UPDATED_BY	VARCHAR2(50) NOT NULL,
-    UPDATED_AT	NUMBER NOT NULL,
-    CONSTRAINT UK_MERCHANT_ENTITY_GROUP UNIQUE (MID, ENTITY_ID), -- Unique KEY
-    CONSTRAINT FK_MERCHANT_ENTITY_GROUP FOREIGN KEY (MID) REFERENCES MERCHANT_INFO(MID) -- Foreign Key to `merchant_info` table
-);
+@Component
+@RequiredArgsConstructor
+public class UserEntityValidator extends BaseValidator {
+
+    private final AdminDao adminDao;
+    private final MerchantUserDao merchantUserDao ;
+
+    public void UserEntityRequestValidator(UserEntityMappingRequest userEntityMappingRequest){
+        errorDtoList = new ArrayList<>();
+        validateMandatoryFields(userEntityMappingRequest);
+        boolean isUserNamePresent = StringUtils.isNotEmpty(userEntityMappingRequest.getUserName());
+        boolean isUserIdPresent = ObjectUtils.isNotEmpty(userEntityMappingRequest.getUserId());
+        validateValues(isUserNamePresent, isUserIdPresent);
+        Optional<MerchantUser> merchantUser;
+        MerchantUserDto merchantUserDto;
+        if(isUserNamePresent && adminDao.isMerchantUserExist(userEntityMappingRequest.getUserName(), userEntityMappingRequest.getUserName(), userEntityMappingRequest.getUserName())){
+            merchantUserDto = merchantUserDao.findByUserNameOrEmailOrMobilePhone(userEntityMappingRequest.getUserName(), userEntityMappingRequest.getUserName(), userEntityMappingRequest.getUserName());
+            statusCheck(merchantUserDto.getStatus().name());
+        }else{
+            merchantUser = merchantUserDao.findByUserId(userEntityMappingRequest.getUserId());
+            statusCheck(merchantUser.get().getStatus());
+        }
+        validateEntityId(userEntityMappingRequest.getEntityId());
+    }
+
+    private void validateMandatoryFields(UserEntityMappingRequest userEntityMappingRequest){
+        checkMandatoryField(userEntityMappingRequest.getEntityId(), "entity Id");
+        throwIfErrors();
+    }
+
+    private void validateValues(boolean isUserNamePresent, boolean isUserIdPresent){
+        if(isUserNamePresent == isUserIdPresent){
+            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.MANDATORY_FOUND_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.MANDATORY_ERROR_MESSAGE, "value of userName or UserId")).build());
+        }
+    }
+
+    private void statusCheck(String status){
+        if(!MerchantStatus.ACTIVE.name().equals(status)){
+            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "status", "Reason : status should be active")).build());
+        }
+    }
+
+    private void validateEntityId(String entityId){
+        if(!adminDao.isEntityIdPresent(entityId)){
+            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "entity Id", "Reason : entity Id is not present")).build());
+        }
+        throwIfErrors();
+    }
+}
 
 
+package com.epay.merchant.validator;
+
+import com.epay.merchant.dto.ErrorDto;
+import com.epay.merchant.exception.ValidationException;
+import com.epay.merchant.util.ErrorConstants;
+import com.epay.merchant.util.MerchantConstant;
+import com.epay.merchant.util.enums.RequestType;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.StringUtils;
+
+import java.text.MessageFormat;
+import java.util.*;
+import java.util.regex.Pattern;
+
+import static com.epay.merchant.util.ErrorConstants.INVALID_ERROR_CODE;
+import static com.epay.merchant.util.ErrorConstants.INVALID_ERROR_MESSAGE;
+
+/**
+ * Class Name:BaseValidator
+ * *
+ * Description:
+ * *
+ * Author: Bhoopendra Rajput
+ * <p>
+ * Copyright (c) 2024 [State Bank of India]
+ * All right reserved
+ * *
+ * Version:1.0
+ */
+
+public class BaseValidator {
+
+    List<ErrorDto> errorDtoList;
+
+    void checkMandatoryField(String value, String fieldName) {
+        if (StringUtils.isEmpty(value)) {
+            addError(fieldName, ErrorConstants.MANDATORY_FOUND_ERROR_CODE, ErrorConstants.MANDATORY_ERROR_MESSAGE);
+        }
+    }
+
+    void checkMandatoryField(UUID value, String fieldName) {
+        if (ObjectUtils.isEmpty(value)) {
+            addError(fieldName, ErrorConstants.MANDATORY_FOUND_ERROR_CODE, ErrorConstants.MANDATORY_ERROR_MESSAGE);
+        }
+    }
+
+    void checkMandatoryCollection(Collection collection, String fieldName) {
+        errorDtoList.clear();
+        if (CollectionUtils.isEmpty(collection)) {
+            addError(fieldName, ErrorConstants.MANDATORY_FOUND_ERROR_CODE, ErrorConstants.MANDATORY_ERROR_MESSAGE);
+        }
+    }
+
+    void checkMandatoryObject(Objects value, String fieldName) {
+        if (ObjectUtils.isEmpty(value)) {
+            addError(fieldName, ErrorConstants.MANDATORY_FOUND_ERROR_CODE, ErrorConstants.MANDATORY_ERROR_MESSAGE);
+        }
+    }
+
+    void checkMandatoryFields(String fieldName, String... values) {
+        boolean allEmpty = Arrays.stream(values).allMatch(StringUtils::isEmpty);
+        if (allEmpty) {
+            addError(fieldName, ErrorConstants.MANDATORY_FOUND_ERROR_CODE, ErrorConstants.MANDATORY_ERROR_MESSAGE);
+        }
+    }
+
+    void checkMandatoryDateField(Long date, String fieldName) {
+        if (ObjectUtils.isEmpty(date) || date < 0) {
+            addError(fieldName, ErrorConstants.MANDATORY_FOUND_ERROR_CODE, ErrorConstants.MANDATORY_ERROR_MESSAGE);
+        }
+    }
+
+    void validateEnumFieldValue(String value) {
+        RequestType.getRequestType(value);
+    }
+
+    void validateFieldLength(String value, int maxLength, String fieldName) {
+        if (StringUtils.isNotEmpty(value) && value.length() > maxLength) {
+            addError(fieldName, ErrorConstants.INVALID_ERROR_CODE, "Max allowed length is " + maxLength);
+        }
+    }
+
+    void validateDateFieldForPastDate(Long date, String fieldName) {
+        if (date < MerchantConstant.MIN_TIMESTAMP || System.currentTimeMillis() < date) {
+            addError(ErrorConstants.INVALID_ERROR_CODE, ErrorConstants.INVALID_ERROR_MESSAGE, fieldName, "Given date is greater then current date or not having format");
+        }
+    }
+
+    void validateDateFieldForFutureDate(Long date, String fieldName) {
+        if (date > MerchantConstant.MAX_TIMESTAMP || System.currentTimeMillis() > date) {
+            addError(ErrorConstants.INVALID_ERROR_CODE, ErrorConstants.INVALID_ERROR_MESSAGE, fieldName, "Given date is less then current date or not having format");
+        }
+    }
+
+    void validateFieldWithRegex(String value, int maxLength, String regex, String fieldName, String message) {
+        if (StringUtils.isNotEmpty(value) && (value.length() > maxLength || validate(value, regex))) {
+            addError(fieldName, ErrorConstants.INVALID_ERROR_CODE, message + " " + maxLength);
+        }
+    }
+
+    void validateFieldWithRegex(String value, String regex, String fieldName, String message) {
+        if (StringUtils.isNotEmpty(value) && validate(value, regex)) {
+            addError(fieldName, ErrorConstants.INVALID_ERROR_CODE, message);
+        }
+    }
+
+    void validateFieldValue(String value, String validValue, String fieldName) {
+        if (!validValue.equalsIgnoreCase(value)) {
+            addError(INVALID_ERROR_CODE, INVALID_ERROR_MESSAGE, fieldName, "Valid Values are " + validValue);
+        }
+    }
+
+    void addError(String fieldName, String errorCode, String errorMessage) {
+        errorDtoList.add(ErrorDto.builder().errorCode(errorCode).errorMessage(MessageFormat.format(errorMessage, fieldName)).build());
+    }
 
 
-INSERT INTO MERCHANT_ENTITY_GROUP (
-    ID, 
-    MID, 
-    ENTITY_ID, 
-    CREATED_BY, 
-    CREATED_AT, 
-    UPDATED_BY, 
-    UPDATED_AT
-) VALUES (
-    SYS_GUID(),          -- Unique ID generated by the database
-    'MID123456',         -- Replace with actual Merchant ID
-    'ENTITY001',         -- Replace with actual Entity ID
-    'AdminUser',         -- Created by (username or system user)
-    1672531200,          -- Created timestamp (UNIX epoch time)
-    'AdminUser',         -- Updated by (username or system user)
-    1672531200           -- Updated timestamp (UNIX epoch time)
-);
+    void addError(String errorCode, String errorMessage, Object... fieldNames) {
+        errorDtoList.add(ErrorDto.builder().errorCode(errorCode).errorMessage(MessageFormat.format(errorMessage, fieldNames)).build());
+    }
 
+    void throwIfErrors() {
+        if (!errorDtoList.isEmpty()) {
+            throw new ValidationException(new ArrayList<>(errorDtoList));
+        }
+    }
 
-
-INSERT INTO MERCHANT_ENTITY_USER (
-    ID, 
-    USER_ID, 
-    ENTITY_ID, 
-    MID, 
-    CREATED_BY, 
-    CREATED_AT, 
-    UPDATED_BY, 
-    UPDATED_AT
-) VALUES (
-    SYS_GUID(),          -- Unique ID generated by the database
-    '112233445566778899AABBCCDDEEFF00', -- Replace with actual User ID (RAW format)
-    'ENTITY001',         -- Replace with actual Entity ID
-    'MID123456',         -- Replace with actual Merchant ID
-    'AdminUser',         -- Created by (username or system user)
-    1672531200,          -- Created timestamp (UNIX epoch time)
-    'AdminUser',         -- Updated by (username or system user)
-    1672531200           -- Updated timestamp (UNIX epoch time)
-);
+    boolean validate(String value, String regex) {
+        return !Pattern.matches(regex, value);
+    }
+}
