@@ -238,3 +238,67 @@ public class AdminDao {
         return adminService.mapEntity(userEntityMappingRequest);
     }
 
+
+
+
+
+
+
+
+
+
+/**
+ * Maps a user to an entity based on the provided mapping request.
+ */
+public MerchantResponse<String> mapEntity(UserEntityMappingRequest userEntityMappingRequest) {
+    // Step 1: Log the incoming request
+    log.info("Step 1: Received request to map entity with details: {}", userEntityMappingRequest);
+
+    // Step 2: Validate the request
+    log.info("Step 2: Validating the UserEntityMappingRequest");
+    userEntityValidator.UserEntityRequestValidator(userEntityMappingRequest);
+
+    // Step 3: Retrieve the user
+    MerchantUserDto userDto = retrieveUser(userEntityMappingRequest);
+
+    // Step 4: Determine the user's role
+    log.info("Step 4: Fetching user role for userId: {}", userDto.getId());
+    String userRole = adminDao.findUserRoleByUserId(userDto.getId());
+
+    // Step 5: Perform action based on user role
+    handleUserRole(userRole, userDto, userEntityMappingRequest.getEntityId());
+
+    // Step 6: Build and return the response
+    return MerchantResponse.<String>builder()
+            .status(MerchantConstant.RESPONSE_SUCCESS)
+            .data(List.of("user role changed"))
+            .count(1L)
+            .total(1L)
+            .build();
+}
+
+/**
+ * Retrieves the user based on userId or userName in the request.
+ */
+private MerchantUserDto retrieveUser(UserEntityMappingRequest userEntityMappingRequest) {
+    log.info("Step 3: Retrieving user based on request details");
+    return userEntityMappingRequest.getUserId() != null
+            ? adminDao.findByUserId(userEntityMappingRequest.getUserId())
+            : adminDao.findByUserNameOrEmailOrMobilePhone(
+                  userEntityMappingRequest.getUserName(),
+                  userEntityMappingRequest.getUserName(),
+                  userEntityMappingRequest.getUserName());
+}
+
+/**
+ * Handles actions based on the user's role.
+ */
+private void handleUserRole(String userRole, MerchantUserDto userDto, String entityId) {
+    if (MerchantUserRoles.SUPER_ADMIN.name().equals(userRole)) {
+        log.info("User is a SUPER_ADMIN. Updating entityId for userId: {}", userDto.getId());
+        adminDao.updateEntityIdForUser(userDto.getId(), entityId);
+    } else if (MerchantUserRoles.ADMIN.name().equals(userRole)) {
+        log.info("User is an ADMIN. Upgrading role and saving entityId for userId: {}", userDto.getId());
+        adminDao.findOrSaveMerchantUser(userDto, entityId);
+    }
+}
