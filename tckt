@@ -181,3 +181,125 @@ here in requestbody either userId or userName is mandatory and entityId
 
 now I have to check if user exists or not by that username or userId if present by user name then find userId based on that then I have to check it's status should be active in merchant_user table and if entityId is valid in MERCHANT_ENTITY_GROUP if user's role is already super admin in merchant_user table then update the entity Id in MERCHANT_ENTITY_USER but if it's role is admin then make him super admin and remove all records from MERCHANT_ENTITY_USER and insert it with new entityId and and get mid from   MERCHANT_ENTITY_GROUP and insert it in MERCHANT_ENTITY_USER
 
+
+
+
+
+
+
+
+
+
+
+
+...................
+
+
+
+
+Title: Merchant - User Role Mapping and Entity Update
+
+Description:
+This API allows for mapping a user to a merchant entity and updating the user’s role within the merchant system. The API ensures that the user exists, is active, and that the provided entity is valid before proceeding with role updates. If the user is an Admin, the API promotes them to Super Admin and updates the associated entity details.
+
+API Details:
+	•	Method: POST
+	•	API Definition: /v1/merchant/admin/map-entity
+	•	Access Type: Merchant Access Token for Admin Access
+
+Request Details:
+
+Request Body:
+
+{
+  "userId": "UUID (Optional)",
+  "userName": "String (Optional)",
+  "entityId": "String (Mandatory)"
+}
+
+	•	Note: Either userId or userName is mandatory, along with entityId.
+
+Headers:
+	•	Authorization: Bearer token (Merchant Access Token)
+
+Success Response Body:
+
+{
+  "status": 1,
+  "data": ["user role updated"],
+  "count": 1,
+  "total": 1
+}
+
+Failure Response Body:
+
+{
+  "status": 0,
+  "error": [
+    {
+      "errorCode": "String",
+      "errorMessage": "String"
+    }
+  ]
+}
+
+Development Steps:
+
+Controller Endpoint:
+	1.	Define the endpoint POST /v1/merchant/admin/map-entity in AdminController.
+	2.	Validate the request body and the Authorization header using the AuthorizationService.
+
+Service Layer Implementation:
+	1.	Validate userId or userName and ensure at least one is present.
+	2.	Retrieve user details based on userId or userName.
+	•	Ensure the user exists in the merchant_user table.
+	•	Verify that the user status is ACTIVE.
+	3.	Validate entityId against the MERCHANT_ENTITY_GROUP table.
+	4.	Perform role-specific updates:
+	•	If the user role is Super Admin:
+	•	Update the entityId in the MERCHANT_ENTITY_USER table.
+	•	If the user role is Admin:
+	•	Promote the user to Super Admin.
+	•	Remove existing records from the MERCHANT_ENTITY_USER table.
+	•	Insert a new record with the entityId and corresponding mid from the MERCHANT_ENTITY_GROUP table.
+
+Repository Layer Implementation:
+	•	Implement query methods to:
+	1.	Retrieve user details by userId or userName.
+	2.	Validate the entityId in the MERCHANT_ENTITY_GROUP table.
+	3.	Perform updates to MERCHANT_ENTITY_USER and promote the user in merchant_user.
+
+Error Handling:
+	1.	Return descriptive error messages for invalid/missing userId, userName, or entityId.
+	2.	Handle cases where the user is inactive or the entityId is invalid.
+
+Testing Checklist:
+
+Functional Tests:
+	•	Validate correct behavior when userId is provided.
+	•	Validate correct behavior when userName is provided.
+	•	Verify the promotion of Admin to Super Admin.
+	•	Ensure entityId updates correctly for Super Admin.
+
+Negative Tests:
+	•	Test with invalid userId or userName.
+	•	Test with inactive users or invalid entityId.
+	•	Verify response for expired or invalid Merchant Access Tokens.
+
+Performance Tests:
+	•	Ensure efficient database queries and updates for large datasets.
+
+Integration Tests:
+	•	Validate integration between merchant_user and MERCHANT_ENTITY_GROUP.
+	•	Verify updates in MERCHANT_ENTITY_USER.
+
+Developer Checklist:
+	•	Achieve 90%+ unit test coverage.
+	•	Implement logging for request/response payloads, errors, and exceptions.
+	•	Validate data security by:
+	•	Securing Merchant Access Token validation.
+	•	Protecting sensitive user data in logs and responses.
+
+Priority: High
+Effort: Medium
+Owner: [Your Team/Individual Name]
