@@ -1,4 +1,79 @@
-@Test
+package com.epay.merchant.service;
+
+import com.epay.merchant.dao.AdminDao;
+import com.epay.merchant.dto.MerchantDto;
+import com.epay.merchant.dto.MerchantUserDto;
+import com.epay.merchant.dto.OnboardingDto;
+import com.epay.merchant.entity.MerchantUser;
+import com.epay.merchant.exception.MerchantException;
+import com.epay.merchant.mapper.MerchantMapper;
+import com.epay.merchant.model.request.OnboardingRequest;
+import com.epay.merchant.model.request.UserEntityMappingRequest;
+import com.epay.merchant.model.response.MerchantResponse;
+import com.epay.merchant.model.response.MerchantUserResponse;
+import com.epay.merchant.model.response.OnboardingResponse;
+import com.epay.merchant.util.ErrorConstants;
+import com.epay.merchant.util.MerchantConstant;
+import com.epay.merchant.util.enums.UserStatus;
+import com.epay.merchant.validator.OnboardingValidator;
+import com.epay.merchant.validator.UserEntityValidator;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.MockitoAnnotations;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.List;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+public class AdminServiceTest {
+    @Mock
+    private AdminDao adminDao;
+    @Mock
+    private OnboardingValidator validator;
+    private MerchantMapper mapper;
+
+    @Mock
+    private UserEntityValidator userEntityValidator;
+
+    @InjectMocks
+    private AdminService adminService;
+    private AutoCloseable closeable;
+    private OnboardingRequest onboardingRequest;
+
+    private UserEntityMappingRequest userEntityMappingRequest;
+    private MerchantUser merchantUser;
+    private MerchantUserResponse merchantUserResponse;
+
+    @BeforeEach
+    void setUp() {
+        onboardingRequest = OnboardingRequest.builder().merchant(MerchantDto.builder().build()).user(MerchantUserDto.builder().build()).build();
+        userEntityMappingRequest = UserEntityMappingRequest.builder()
+                .userId(UUID.randomUUID())
+                .entityId("test-entity-id")
+                .build();
+    }
+
+    //@Test
+    public void onboardingTest() {
+        OnboardingDto onboardingRequestDB = OnboardingDto.builder()
+                .merchant(MerchantDto.builder().mId("100011").build())
+                .build();
+        when(adminDao.onboardingMerchantAndMerchantUser(onboardingRequest)).thenReturn(onboardingRequestDB);
+        List<OnboardingResponse> onboardingRequestRes = adminService.onboardingMerchant(onboardingRequest).getData();
+        assertNotNull(onboardingRequestRes);
+        assertNotNull(onboardingRequestRes.getFirst().getMerchant().getMId());
+    }
+
+    @Test
     void testMapEntityValidRequest() {
         UserEntityMappingRequest request = new UserEntityMappingRequest();
         request.setUserId(UUID.randomUUID());
@@ -37,17 +112,209 @@
 
     @Test
     void testMapUserRole_InvalidRequest() {
-        // Simulate validation failure
         doThrow(new RuntimeException("Validation failed")).when(userEntityValidator).UserEntityRequestValidator(userEntityMappingRequest);
 
-        // Execute the method and verify exception
         try {
             adminService.mapUserRole(userEntityMappingRequest);
         } catch (RuntimeException e) {
             assertEquals("Validation failed", e.getMessage());
         }
 
-        // Verify interactions
         verify(userEntityValidator, times(1)).UserEntityRequestValidator(userEntityMappingRequest);
         verifyNoInteractions(adminDao);
     }
+}
+
+
+
+
+
+
+
+
+.............................................................
+
+
+
+
+
+
+
+
+
+
+
+
+
+package com.epay.merchant.dao;
+
+import com.epay.merchant.dto.MerchantDto;
+import com.epay.merchant.dto.MerchantUserDto;
+import com.epay.merchant.dto.OnboardingDto;
+import com.epay.merchant.entity.*;
+import com.epay.merchant.mapper.MerchantMapper;
+import com.epay.merchant.model.request.OnboardingRequest;
+import com.epay.merchant.repository.*;
+import com.epay.merchant.util.enums.MerchantUserRoles;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mapstruct.factory.Mappers;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.MockitoAnnotations;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+
+import java.util.*;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+public class AdminDaoTest {
+//    private final ObjectMapper objectMapper = new ObjectMapper();
+    @Mock
+    private MerchantRepository merchantRepo;
+    @Mock
+    private MerchantUserRepository merchantUserRepo;
+    @Mock
+    private MerchantUserRoleRepository userRoleRepo;
+    @Mock
+    private MerchantMapper mapper;
+    @Mock
+    private DefaultUserPermissionRepository defaultUserPermissionRepo;
+    @Mock
+    private MenuInfoRepository menuInfoRepo;
+    @Mock
+    private UserMenuPermissionRepository userMenuPermissionRepository;
+    @Mock
+    private MerchantUserRepository merchantUserRepository;
+    @Mock
+    private MerchantEntityUserRepository merchantEntityUserRepository;
+    @Mock
+    private MerchantUserRoleRepository merchantUserRoleRepository;
+    @Mock
+    private MerchantEntityGroupRepository merchantEntityGroupRepository;
+    @InjectMocks
+    private AdminDao adminDao;
+
+
+
+    private AutoCloseable closeable;
+    private OnboardingRequest onboardingRequest;
+    private UUID userId;
+    private MerchantUserDto userDto;
+
+    private MerchantUserRole merchantUserRole;
+
+
+    @BeforeEach
+    void setUp() {
+        closeable = MockitoAnnotations.openMocks(this);
+        mapper = Mappers.getMapper(MerchantMapper.class);
+        //objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        onboardingRequest = OnboardingRequest.builder().merchant(MerchantDto.builder().mId("100004").build()).user(MerchantUserDto.builder().build()).build();
+        userId = UUID.randomUUID();
+        userDto = MerchantUserDto.builder()
+                .id(userId)
+                .build();
+        merchantUserRole = MerchantUserRole.builder()
+                .role("abc")
+                .id(userId)
+                .build();
+    }
+
+    //@Test
+    public void onboardingTest() {
+        MerchantInfo merchantInfoEntity = mapper.mapMerchantDtoToEntity(onboardingRequest.getMerchant());
+        Mockito.when(mapper.mapMerchantDtoToEntity(onboardingRequest.getMerchant())).thenReturn(merchantInfoEntity);
+        merchantInfoEntity.setId(UUID.randomUUID());
+        Mockito.when(merchantRepo.save(Mockito.any())).thenReturn(merchantInfoEntity);
+        MerchantDto merchantDto = mapper.mapMerchantInfoEntityToDto(merchantInfoEntity);
+        Mockito.when(mapper.mapMerchantInfoEntityToDto(merchantInfoEntity)).thenReturn(merchantDto);
+
+        MerchantUser merchantUserEntity = mapper.mapMerchantUserDtoToEntity(onboardingRequest.getUser());
+        Mockito.when(mapper.mapMerchantUserDtoToEntity(onboardingRequest.getUser())).thenReturn(merchantUserEntity);
+        merchantUserEntity.setId(UUID.randomUUID());
+        MerchantUserRole role = new MerchantUserRole();
+        role.setId(UUID.randomUUID());
+        role.setRole(MerchantUserRoles.ADMIN.name());
+        Mockito.when(userRoleRepo.findByRole(MerchantUserRoles.ADMIN.name())).thenReturn(Optional.of(role));
+        Mockito.when(merchantUserRepo.save(Mockito.any())).thenReturn(merchantUserEntity);
+        MerchantUserDto merchantUserDto = mapper.mapMerchantUserEntityToDto(merchantUserEntity);
+       Mockito.when(mapper.mapMerchantUserEntityToDto(merchantUserEntity)).thenReturn(merchantUserDto);
+        MenuInfo menu = new MenuInfo();
+        menu.setId(UUID.randomUUID());
+        Mockito.when(menuInfoRepo.findAll()).thenReturn(List.of(menu));
+        DefaultUserPermission defaultUserPermission = new DefaultUserPermission();
+        defaultUserPermission.setMenuId(menu.getId());
+        Mockito.when(defaultUserPermissionRepo.findByRoleId(role.getId())).thenReturn(List.of(defaultUserPermission));
+
+        OnboardingDto onboardingRequestRes = adminDao.onboardingMerchantAndMerchantUser(onboardingRequest);
+        assertNotNull(onboardingRequestRes.getMerchant().getMId());
+    }
+
+    //@Test
+    void testFindAllMerchantUsersByMId_ReturnsPageOfMerchantUsers() {
+        String mid = "merchant123";
+        Pageable pageable = PageRequest.of(0, 10);
+
+        MerchantUserDto merchantUser = new MerchantUserDto();
+        //merchantUser.setMId(mid);
+        merchantUser.setFirstName("testUser");
+
+        Page<MerchantUser> mockPage = new PageImpl<>(Collections.singletonList(MerchantUser.builder().id(UUID.randomUUID()).firstName("testUser").build()));
+        when(merchantUserRepo.findBymId(mid, pageable)).thenReturn(mockPage);
+        Page<MerchantUserDto> result = adminDao.findAllMerchantUsersByMId(mid, pageable);
+
+        assertEquals(1, result.getTotalElements());
+        assertEquals(merchantUser, result.getContent().getFirst());
+        verify(merchantUserRepo, times(1)).findBymId(mid, pageable);
+    }
+
+    @Test
+    void testFindAllMerchantUsersByMId_ReturnsEmptyPage() {
+        String mid = "merchant123";
+        Pageable pageable = PageRequest.of(0, 10);
+
+        Page<MerchantUser> mockPage = Page.empty();
+        when(merchantUserRepo.findBymId(mid, pageable)).thenReturn(mockPage);
+        Page<MerchantUserDto> result = adminDao.findAllMerchantUsersByMId(mid, pageable);
+
+        assertEquals(0, result.getTotalElements());
+        verify(merchantUserRepo, times(1)).findBymId(mid, pageable);
+    }
+
+    @Test
+    public void testUpdateUserRoleSuperAdmin() {
+        String entityId = "test-entity-id";
+        String roleName = MerchantUserRoles.SUPER_ADMIN.name();
+
+        when(adminDao.findUserRoleByUserId(userId)).thenReturn(roleName);
+
+        adminDao.UpdateUserRole(userDto, entityId);
+
+        verify(merchantEntityUserRepository, times(1)).updateEntityIdForUser(userId, entityId);
+    }
+
+    @Test
+    public void testFindRoleIdByRoleName_Success() {
+        UUID expectedRoleId = UUID.randomUUID();
+        String roleName = MerchantUserRoles.ADMIN.name();
+
+        when(merchantUserRoleRepository.findByRole(roleName))
+                .thenReturn(Optional.of(MerchantUserRole.builder().id(expectedRoleId).build()));
+
+        UUID roleId = adminDao.findRoleIdByRoleName(roleName);
+
+        assertEquals(expectedRoleId, roleId);
+        verify(merchantUserRoleRepository, times(1)).findByRole(roleName);
+    }
+    
+}
