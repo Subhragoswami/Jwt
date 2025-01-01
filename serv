@@ -1,304 +1,119 @@
- /**
-     * Maps a user to an entity based on the provided mapping request. 
-     */
-    public MerchantResponse<String> mapEntity(UserEntityMappingRequest userEntityMappingRequest) {
-        // Step 1: Log the incoming request
-        log.info("Step 1: Received request to map entity with details: {}", userEntityMappingRequest);
+package com.epay.merchant.service;
 
-        // Step 2: Validate the request
-        log.info("Step 2: Validating the UserEntityMappingRequest");
-        userEntityValidator.UserEntityRequestValidator(userEntityMappingRequest);
-
-        // Step 3: Retrieve the user
-        MerchantUserDto userDto = userEntityMappingRequest.getUserId() != null
-                ? adminDao.findByUserId(userEntityMappingRequest.getUserId())
-                : adminDao.findByUserNameOrEmailOrMobilePhone(userEntityMappingRequest.getUserName(), userEntityMappingRequest.getUserName(), userEntityMappingRequest.getUserName());
-
-        // Step 4: Determine the user's role
-        log.info("Step 4: Fetching user role for userId: {}", userDto.getId());
-        String userRole = adminDao.findUserRoleByUserId(userDto.getId());
-
-        // Step 5: Perform action based on user role
-        if (MerchantUserRoles.SUPER_ADMIN.name().equals(userRole)) {
-            adminDao.updateEntityIdForUser(userDto.getId(), userEntityMappingRequest.getEntityId());
-        } else if (MerchantUserRoles.ADMIN.name().equals(userRole)) {
-            adminDao.findOrSaveMerchantUser(userDto, userEntityMappingRequest.getEntityId());
-        }
-
-        // Step 6: Build and return the response
-        return MerchantResponse.<String>builder().status(MerchantConstant.RESPONSE_SUCCESS).data(List.of("user role changed")).count(1L).total(1L).build();
-    }
-
-
-
-
-package com.epay.merchant.dao;
-
-import com.epay.merchant.dto.MerchantEntityGroupDto;
-import com.epay.merchant.dto.MerchantUserDto;
-import com.epay.merchant.dto.OnboardingDto;
-import com.epay.merchant.entity.*;
 import com.epay.merchant.exception.MerchantException;
-import com.epay.merchant.mapper.MerchantMapper;
-import com.epay.merchant.model.request.OnboardingRequest;
-import com.epay.merchant.repository.*;
+import com.epay.merchant.exception.ValidationException;
+import com.epay.merchant.model.request.MerchantLoginRequest;
+import com.epay.merchant.model.response.MerchantResponse;
 import com.epay.merchant.util.ErrorConstants;
-import com.epay.merchant.util.enums.MerchantUserRoles;
+import com.epay.merchant.util.MerchantConstant;
+import com.epay.merchant.validator.MerchantLoginValidator;
 import com.sbi.epay.logging.utility.LoggerFactoryUtility;
 import com.sbi.epay.logging.utility.LoggerUtility;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Component;
-import org.springframework.util.CollectionUtils;
-import org.springframework.util.ObjectUtils;
+import org.springframework.stereotype.Service;
 
 import java.text.MessageFormat;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.stream.Collectors;
 
 /**
- * Class Name: MerchantDAO
+ * Class Name: LoginService
  * *
- * Description:
+ * Description: Validate the UserName and Password to login
  * *
- * Author: V1017903(bhushan wadekar)
+ * Author: Ravi Rathore
  * <p>
  * Copyright (c) 2024 [State Bank of India]
  * All rights reserved
  * *
  * Version:1.0
  */
-@Component
+
+@Service
 @RequiredArgsConstructor
-public class AdminDao {
+public class LoginService {
 
-    private final LoggerUtility log = LoggerFactoryUtility.getLogger(AdminDao.class);
-
-    private final MerchantRepository merchantRepository;
-    private final MerchantUserRepository merchantUserRepository;
-    private final MerchantUserRoleRepository merchantUserRoleRepository;
-    private final DefaultUserPermissionRepository defaultUserPermissionRepository;
-    private final MenuInfoRepository menuInfoRepository;
-    private final UserMenuPermissionRepository userMenuPermissionRepository;
-    private final MerchantEntityGroupRepository merchantEntityGroupRepository;
-    private final MerchantEntityUserRepository merchantEntityUserRepository;
-    private final MerchantMapper mapper;
-
+    private final MerchantLoginValidator merchantLoginValidator;
+    private final TokenService tokenService;
+    LoggerUtility log = LoggerFactoryUtility.getLogger(this.getClass());
 
     /**
-     * Creating onboarding records in database.
+     * Validates the user based on the provided validation request.
      *
-     * @param onboardingRequest OnboardingDto
-     * @return OnboardingDto
+     * @param merchantLoginRequest the login validation request containing user login details with captcha.
+     * @return MerchantResponse containing success or failure details.
      */
+    public MerchantResponse<String> merchantLogin(MerchantLoginRequest merchantLoginRequest) {
+        try {
+            merchantLoginValidator.validateMerchantLoginRequest(merchantLoginRequest);
+            return MerchantResponse.<String>builder().status(MerchantConstant.RESPONSE_SUCCESS).data(List.of(MessageFormat.format(MerchantConstant.SUCCESS_MESSAGE, "Login User Found"))).build();
+        } catch (ValidationException | MerchantException e) {
+            tokenService.updateMerchantUserForLogin(merchantLoginRequest.getUserName(), false);
+            log.error("Login Validation Failed for userName {} ", merchantLoginRequest.getUserName());
+            throw e;
+        } catch (Exception e) {
+            tokenService.updateMerchantUserForLogin(merchantLoginRequest.getUserName(), false);
+            log.error("Login Validation Failed for userName {} ", merchantLoginRequest.getUserName(), e.getMessage());
+            throw new MerchantException(ErrorConstants.GENERATION_ERROR_CODE, ErrorConstants.GENERATION_ERROR_MESSAGE);
+        }
+    }
+
+}
+    */
     @Transactional
-    public OnboardingDto onboardingMerchantAndMerchantUser(OnboardingRequest onboardingRequest) {
-        MerchantInfo merchantInfo = mapper.mapMerchantDtoToEntity(onboardingRequest.getMerchant());
-        merchantInfo = merchantRepository.save(merchantInfo);
+    public MerchantResponse<String> validateOtp(OtpValidationRequest otpValidationRequest) {
+        try {
+            // Step 1 : Validate OtpValidationRequest
+            log.info("Started OTP validation for RequestId: {}", otpValidationRequest.getRequestId());
+            otpValidator.validateOtpValidationRequest(otpValidationRequest);
 
-        MerchantUser merchantUser = mapper.mapMerchantUserDtoToEntity(onboardingRequest.getUser());
-        merchantUser = merchantUserRepository.save(merchantUser);
+            // Step 2 : Update the OTP and Captcha Verification Status
+            log.info("Update OTP and Captcha validation status for RequestId: {}", otpValidationRequest.getRequestId());
+            otpManagementDao.updateOtpAndCaptchaStatus(otpValidationRequest.getRequestId());
 
-        assignMerchantToUser(merchantUser.getId(), merchantInfo.getMId());
+            // Step 3 : Call Token service to generate User Token and Save Token in DB
+            log.info("User Token Generation for RequestId: {}", otpValidationRequest.getRequestId());
+            String s = tokenService.generateUserToken(otpValidationRequest.getUserName());
 
-        createMerchantUserMenuPermissions(merchantUser.getId(), merchantUser.getRole());
-
-        return OnboardingDto.builder().merchant(mapper.mapMerchantInfoEntityToDto(merchantInfo)).user(mapper.mapMerchantUserEntityToDto(merchantUser)).build();
-    }
-
-    private void assignMerchantToUser(UUID userId, String mId) {
-        merchantEntityUserRepository.save(MerchantEntityUser.builder()
-                        .userId(userId)
-                        .mId(mId)
-                .build());
-    }
-
-    public boolean isMerchantExistByMId(String mId) {
-        return merchantRepository.existsBymId(mId);
-    }
-
-    public boolean isMerchantUserExist(String userName, String email, String mobilePhone) {
-        return merchantUserRepository.existsByUserNameOrEmailOrMobilePhone(userName, email, mobilePhone);
-    }
-
-    public MerchantUserDto findByUserNameOrEmailOrMobilePhone(String userName, String email, String phone) {
-        MerchantUser merchantUser = merchantUserRepository.findByUserNameOrEmailOrMobilePhone(userName, email, phone);
-        return mapper.mapMerchantUserEntityToDto(merchantUser);
-    }
-
-    public MerchantUserDto findByUserId(UUID id){
-        Optional<MerchantUser> merchantUser = merchantUserRepository.findById(id);
-        return mapper.mapMerchantUserEntityToDto(merchantUser.get());
-    }
-
-    public String findUserRoleByUserId(UUID id) {
-        return merchantUserRepository.findUserRoleByUserId(id);
-    }
-
-    public void updateEntityIdForUser(UUID id, String entityId){
-        merchantEntityUserRepository.updateEntityIdForUser(id, entityId);
-    }
-
-
-
-    public void findOrSaveMerchantUser(MerchantUserDto merchantUserDto, String entityId) {
-        MerchantUser merchantUser = mapper.mapMerchantUserDtoToEntity(merchantUserDto);
-        UUID roleId = findRoleIdByRoleName(MerchantUserRoles.SUPER_ADMIN.name());
-        merchantUser.setRole(roleId);
-        merchantUser = merchantUserRepository.save(merchantUser);
-        merchantEntityUserRepository.deleteByUserId(merchantUser.getId());
-        MerchantEntityUser newEntityUser = MerchantEntityUser.builder().userId(merchantUser.getId()).entityId(entityId).mId(merchantEntityGroupRepository.findByEntityId(entityId).getMId()).build();
-        merchantEntityUserRepository.save(newEntityUser);
-        updateUserMenuPermission(merchantUser.getId(), roleId);
-    }
-
-    public void updateUserMenuPermission(UUID userId, UUID roleId){
-        if(!ObjectUtils.isEmpty(userMenuPermissionRepository.findByUserId(userId))){
-            userMenuPermissionRepository.deleteByUserId(userId);
-        }
-        createMerchantUserMenuPermissions(userId, roleId);
-    }
-    /**
-     * Creating Merchant User Permission for Admin User
-     *
-     * @param userId UUID
-     */
-    private void createMerchantUserMenuPermissions(final UUID userId, final UUID roleId) {
-        List<DefaultUserPermission> defaultUserPermissions = defaultUserPermissionRepository.findByRoleId(roleId);
-        List<MenuInfo> menuInfos = menuInfoRepository.findAll();
-        List<UserMenuPermission> userMenuPermissions = new ArrayList<>();
-        if (!CollectionUtils.isEmpty(menuInfos)) {
-            menuInfos.forEach(menuInfo -> defaultUserPermissions.stream().filter(defaultUserPermission -> defaultUserPermission.getMenuId().equals(menuInfo.getId())).findFirst().ifPresent(defaultUserPermission -> userMenuPermissions.add(UserMenuPermission.builder().permissionId(defaultUserPermission.getPermissionId()).userId(userId).menuId(menuInfo.getId()).build())));
-            userMenuPermissionRepository.saveAll(userMenuPermissions);
+            // Step 4 : Build OTP success Response and send
+            return MerchantResponse.<String>builder().status(MerchantConstant.RESPONSE_SUCCESS).data(List.of(s)).build();
+        } catch (ValidationException | MerchantException e) {
+            tokenService.updateMerchantUserForLogin(otpValidationRequest.getUserName(), false);
+            log.error("Otp Validation Failed for OtpValidationRequest {} ", otpValidationRequest);
+            throw e;
+        } catch (Exception e) {
+            tokenService.updateMerchantUserForLogin(otpValidationRequest.getUserName(), false);
+            log.error("Otp Validation Failed for OtpValidationRequest {} ", otpValidationRequest, e.getMessage());
+            throw new MerchantException(ErrorConstants.GENERATION_ERROR_CODE, ErrorConstants.GENERATION_ERROR_MESSAGE);
         }
     }
 
-    public Page<MerchantUserDto> findAllMerchantUsersByMId(String mId, Pageable pageable) {
-        return merchantUserRepository.findBymId(mId, pageable).map(this::convertEntityToDTO);
-    }
-
-    private MerchantUserDto convertEntityToDTO(MerchantUser merchantUser) {
-        return mapper.mapMerchantUserEntityToDto(merchantUser);
-    }
-
-    public MerchantUserRole getAdminRoleId() {
-        return merchantUserRoleRepository.findByRole(MerchantUserRoles.ADMIN.name()).orElseThrow(() -> new MerchantException(ErrorConstants.INVALID_ERROR_CODE, MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Admin Role", "Unable to fetch ADMIN MerchantUserRole.")));
-    }
-
-    public UUID findRoleIdByRoleName(String role){
-        Optional<MerchantUserRole> merchantUserRole = merchantUserRoleRepository.findByRole(role);
-        return merchantUserRole.get().getId();
-    }
-
-    public MerchantUser saveMerchantUser(MerchantUserDto merchantUserDto){
-        MerchantUser merchantUser = mapper.mapMerchantUserDtoToEntity(merchantUserDto) ;
-        return merchantUserRepository.save(merchantUser);
-    }
-    public List<String> findMappedEntityMIds(List<String> mIds) {
-        return merchantEntityGroupRepository.findExistingMIds(mIds);
-    }
-
-    public void deleteByUserId(UUID userId){
-        merchantEntityUserRepository.deleteByUserId(userId);
-    }
-
-    public List<String> findInvalidsMIds(List<String> mIds) {
-        List<String> inActiveMIds = new ArrayList<>(mIds);
-        List<String> activeMIds = merchantRepository.findActiveMIds(mIds);
-        inActiveMIds.removeAll(activeMIds);
-        return inActiveMIds;
-    }
-
-    public boolean isEntityIdPresent(String entityId) {
-        return merchantEntityGroupRepository.existsByEntityId(entityId);
-    }
-
-    public MerchantEntityGroupDto saveMerchantEntityGroup(MerchantEntityGroupDto merchantEntityGroupDto) {
-        List<MerchantEntityGroup> merchantEntityGroups = merchantEntityGroupDto.getMIds().stream().map(mId -> MerchantEntityGroup.builder().entityId(merchantEntityGroupDto.getEntityId()).mId(mId).build()).collect(Collectors.toList());
-        merchantEntityGroupRepository.saveAll(merchantEntityGroups);
-        return merchantEntityGroupDto;
-    }
-
-}
+LOGIN_AUDIT
 
 
 
 
+ID,
 
 
-
- @PostMapping("/entity/mapping")
-    public MerchantResponse<String> mapEntity(@RequestBody UserEntityMappingRequest userEntityMappingRequest){
-        log.info("Received request for mapping with details: {}", userEntityMappingRequest);
-        return adminService.mapEntity(userEntityMappingRequest);
-    }
+USER_ID,
 
 
+REQUEST ID,
 
 
+REQUEST_TYPE -- LOGIN - OTP_VALIDATION
 
 
+STATUS
 
 
+REASON
 
 
-/**
- * Maps a user to an entity based on the provided mapping request.
- */
-public MerchantResponse<String> mapEntity(UserEntityMappingRequest userEntityMappingRequest) {
-    // Step 1: Log the incoming request
-    log.info("Step 1: Received request to map entity with details: {}", userEntityMappingRequest);
+VERSION
 
-    // Step 2: Validate the request
-    log.info("Step 2: Validating the UserEntityMappingRequest");
-    userEntityValidator.UserEntityRequestValidator(userEntityMappingRequest);
 
-    // Step 3: Retrieve the user
-    MerchantUserDto userDto = retrieveUser(userEntityMappingRequest);
+CREATED_AT
 
-    // Step 4: Determine the user's role
-    log.info("Step 4: Fetching user role for userId: {}", userDto.getId());
-    String userRole = adminDao.findUserRoleByUserId(userDto.getId());
 
-    // Step 5: Perform action based on user role
-    handleUserRole(userRole, userDto, userEntityMappingRequest.getEntityId());
-
-    // Step 6: Build and return the response
-    return MerchantResponse.<String>builder()
-            .status(MerchantConstant.RESPONSE_SUCCESS)
-            .data(List.of("user role changed"))
-            .count(1L)
-            .total(1L)
-            .build();
-}
-
-/**
- * Retrieves the user based on userId or userName in the request.
- */
-private MerchantUserDto retrieveUser(UserEntityMappingRequest userEntityMappingRequest) {
-    log.info("Step 3: Retrieving user based on request details");
-    return userEntityMappingRequest.getUserId() != null
-            ? adminDao.findByUserId(userEntityMappingRequest.getUserId())
-            : adminDao.findByUserNameOrEmailOrMobilePhone(
-                  userEntityMappingRequest.getUserName(),
-                  userEntityMappingRequest.getUserName(),
-                  userEntityMappingRequest.getUserName());
-}
-
-/**
- * Handles actions based on the user's role.
- */
-private void handleUserRole(String userRole, MerchantUserDto userDto, String entityId) {
-    if (MerchantUserRoles.SUPER_ADMIN.name().equals(userRole)) {
-        log.info("User is a SUPER_ADMIN. Updating entityId for userId: {}", userDto.getId());
-        adminDao.updateEntityIdForUser(userDto.getId(), entityId);
-    } else if (MerchantUserRoles.ADMIN.name().equals(userRole)) {
-        log.info("User is an ADMIN. Upgrading role and saving entityId for userId: {}", userDto.getId());
-        adminDao.findOrSaveMerchantUser(userDto, entityId);
-    }
-}
+CREATED_BY
