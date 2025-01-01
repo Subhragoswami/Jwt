@@ -116,4 +116,6 @@ VERSION
 CREATED_AT
 
 
-CREATED_BY
+
+
+For merchant, we need to create login audit mechanism so that for success and failed attempt can be audited.
