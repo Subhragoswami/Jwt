@@ -274,3 +274,49 @@ public class LoginService {
 
 }
 
+
+
+
+
+
+
+
+
+private String convertErrorMessage(Exception e) {
+    ObjectMapper objectMapper = new ObjectMapper();
+    List<ErrorDto> errorMessages = null;
+    String errorCode = null;
+    String errorMessage = null;
+
+    // Extract relevant data based on exception type
+    if (e instanceof ValidationException) {
+        ValidationException validationException = (ValidationException) e;
+        errorMessages = validationException.getErrorMessages();
+        errorCode = validationException.getErrorCode();
+        errorMessage = validationException.getErrorMessage();
+    } else if (e instanceof MerchantException) {
+        MerchantException merchantException = (MerchantException) e;
+        errorMessages = merchantException.getErrorMessages();
+        errorCode = merchantException.getErrorCode();
+        errorMessage = merchantException.getErrorMessage();
+    }
+
+    // Serialize errorMessages if available
+    if (errorMessages != null && !errorMessages.isEmpty()) {
+        try {
+            return objectMapper.writeValueAsString(errorMessages);
+        } catch (JsonProcessingException ex) {
+            log.error("Failed to serialize error messages: {}", ex.getMessage());
+            return "[]"; // Default to an empty JSON array
+        }
+    }
+
+    // Fallback to errorCode and errorMessage if errorMessages is null
+    if (errorCode != null && errorMessage != null) {
+        return String.format("{\"errorCode\":\"%s\",\"errorMessage\":\"%s\"}", errorCode, errorMessage);
+    }
+
+    // Default fallback for unknown cases
+    return "{\"errorCode\":\"UNKNOWN\",\"errorMessage\":\"Unknown error occurred\"}";
+}
+
