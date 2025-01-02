@@ -1,143 +1,72 @@
-Wanted but not invoked:
-userEntityValidator.UserEntityRequestValidator(
-    UserEntityMappingRequest(userId=76d6484f-cca1-4fb7-93fd-d09d43e1e3af, userName=null, entityId=valid-entity-id)
-);
--> at com.epay.merchant.validator.UserEntityValidator.UserEntityRequestValidator(UserEntityValidator.java:33)
-Actually, there were zero interactions with this mock.
+package com.epay.merchant.dto;
 
-Wanted but not invoked:
-userEntityValidator.UserEntityRequestValidator(
-    UserEntityMappingRequest(userId=76d6484f-cca1-4fb7-93fd-d09d43e1e3af, userName=null, entityId=valid-entity-id)
-);
+import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.*;
 
-package com.epay.merchant.service;
+/**
+ * Class Name: ErrorDto
+ * *
+ * Description:
+ * *
+ * Author: V1017903(bhushan wadekar)
+ * <p>
+ * Copyright (c) 2024 [State Bank of India]
+ * All rights reserved
+ * *
+ * Version:1.0
+ */
 
-import com.epay.merchant.dao.AdminDao;
-import com.epay.merchant.dto.MerchantDto;
-import com.epay.merchant.dto.MerchantUserDto;
-import com.epay.merchant.dto.OnboardingDto;
-import com.epay.merchant.entity.MerchantUser;
-import com.epay.merchant.mapper.MerchantMapper;
-import com.epay.merchant.model.request.OnboardingRequest;
-import com.epay.merchant.model.request.UserEntityMappingRequest;
-import com.epay.merchant.model.response.MerchantResponse;
-import com.epay.merchant.model.response.MerchantUserResponse;
-import com.epay.merchant.model.response.OnboardingResponse;
-import com.epay.merchant.util.enums.UserStatus;
-import com.epay.merchant.validator.OnboardingValidator;
-import com.epay.merchant.validator.UserEntityValidator;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.Mockito;
-import org.mockito.MockitoAnnotations;
-import org.mockito.junit.jupiter.MockitoExtension;
+@Getter
+@Setter
+@Builder
+@AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class ErrorDto {
+    private String errorCode;
+    private String errorMessage;
 
-import java.util.List;
+}
+
+
+if (StringUtils.isNotEmpty(merchantLoginRequest.getUserName())) {
+                List<ErrorDto> errorMessages = (e instanceof ValidationException)
+                        ? ((ValidationException) e).getErrorMessages()
+                        : ((MerchantException) e).getErrorMessages();
+                tokenService.updateMerchantUserForLogin(merchantLoginRequest.getUserName(), false, errorMessages.toString(), RequestType.LOGIN.getName());
+            }
+            log.error("Login Validation Failed for userName {} ", merchantLoginRequest.getUserName());
+            throw e;
+
+package com.epay.merchant.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.Mockito.*;
-
-@ExtendWith(MockitoExtension.class)
-public class AdminServiceTest {
-    @Mock
-    private AdminDao adminDao;
-    @Mock
-    private OnboardingValidator validator;
-    private MerchantMapper mapper;
-
-    @Mock
-    private UserEntityValidator userEntityValidator;
-
-    @InjectMocks
-    private AdminService adminService;
-    private AutoCloseable closeable;
-    private OnboardingRequest onboardingRequest;
-
-    private MerchantUser merchantUser;
-    private MerchantUserResponse merchantUserResponse;
-
-    @BeforeEach
-    void setUp() {
-        closeable = MockitoAnnotations.openMocks(this);
-        onboardingRequest = OnboardingRequest.builder().merchant(MerchantDto.builder().build()).user(MerchantUserDto.builder().build()).build();
-    }
-
-    @AfterEach
-    void tearDown() throws Exception {
-        closeable.close();
-    }
-
-    //@Test
-    public void onboardingTest() {
-        OnboardingDto onboardingRequestDB = OnboardingDto.builder()
-                .merchant(MerchantDto.builder().mId("100011").build())
-                .build();
-        when(adminDao.onboardingMerchantAndMerchantUser(onboardingRequest)).thenReturn(onboardingRequestDB);
-        List<OnboardingResponse> onboardingRequestRes = adminService.onboardingMerchant(onboardingRequest).getData();
-        assertNotNull(onboardingRequestRes);
-        assertNotNull(onboardingRequestRes.getFirst().getMerchant().getMId());
-    }
-
-    @Test
-    void testMapEntity_ValidRequest() {
-        // Arrange
-        UserEntityMappingRequest request = new UserEntityMappingRequest();
-        request.setUserId(UUID.randomUUID());
-        request.setEntityId("valid-entity-id");
-
-        MerchantUserDto userDto = new MerchantUserDto();
-        userDto.setId(request.getUserId());
-        userDto.setStatus(UserStatus.ACTIVE);
-
-        when(adminDao.findByUserId(request.getUserId())).thenReturn(userDto);
-        when(adminDao.isEntityIdPresent(request.getEntityId())).thenReturn(true);
-
-        // Act
-        MerchantResponse<String> response = adminService.mapUserRole(request);
-
-        // Assert
-        assertNotNull(response);
-        assertEquals(1, response.getStatus());
-        assertEquals(1L, response.getCount());
-        verify(userEntityValidator, times(1)).UserEntityRequestValidator(request);
-        verify(adminDao, times(1)).UpdateUserRole(userDto, request.getEntityId());
-    }
+@Entity
+@Getter
+@Setter
+@Builder
+@Table(name = "login_audit")
+@AllArgsConstructor
+@NoArgsConstructor
+@EntityListeners(AuditingEntityListener.class)
+public class LoginAudit {
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+    private UUID userId;
+    private String requestType;
+    private boolean status;
+    private String reason;
+    @CreatedDate
+    private Long createdAt;
 }
 
+[com.epay.merchant.dto.ErrorDto@6259ca97]
 
 
-@Test
-void testMapEntity_ValidRequest() {
-    // Arrange
-    UserEntityMappingRequest request = new UserEntityMappingRequest();
-    request.setUserId(UUID.randomUUID());
-    request.setEntityId("valid-entity-id");
-
-    MerchantUserDto userDto = new MerchantUserDto();
-    userDto.setId(request.getUserId());
-    userDto.setStatus(UserStatus.ACTIVE);
-
-    // Mocking behavior
-    doNothing().when(userEntityValidator).UserEntityRequestValidator(request);
-    when(adminDao.findByUserId(request.getUserId())).thenReturn(userDto);
-    when(adminDao.isEntityIdPresent(request.getEntityId())).thenReturn(true);
-
-    // Act
-    MerchantResponse<String> response = adminService.mapUserRole(request);
-
-    // Assert
-    assertNotNull(response);
-    assertEquals("SUCCESS", response.getStatus());
-    assertEquals(1L, response.getCount());
-
-    // Verify interactions
-    verify(userEntityValidator, times(1)).UserEntityRequestValidator(request);
-    verify(adminDao, times(1)).UpdateUserRole(userDto, request.getEntityId());
-}
 
