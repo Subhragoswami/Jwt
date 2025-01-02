@@ -255,3 +255,155 @@ public class PasswordValidator extends BaseValidator {
         passwordCheck(newPassword.equals(oldPassword), ErrorConstants.NEW_PASSWORD, ErrorConstants.ERROR_NEW_PASSWORD_SAME_AS_OLD);
         passwordWithOldPasswords(merchantUser, newPassword);
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+package com.epay.merchant.service;
+
+import com.epay.merchant.dto.MerchantResponse;
+import com.epay.merchant.dto.PasswordChangeRequest;
+import com.epay.merchant.dto.PasswordResetRequest;
+import com.epay.merchant.dto.MerchantUserDto;
+import com.epay.merchant.exception.ValidationException;
+import com.epay.merchant.util.EncryptionDecryptionUtil;
+import com.epay.merchant.util.enums.RequestType;
+import com.epay.merchant.util.enums.UserStatus;
+import com.epay.merchant.validator.PasswordValidator;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
+
+class PasswordServiceTest {
+
+    @Mock
+    private PasswordValidator passwordValidator;
+
+    @Mock
+    private PasswordManagementDao passwordManagementDao;
+
+    @Mock
+    private MerchantConfig merchantConfig;
+
+    @InjectMocks
+    private PasswordService passwordService;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+        when(merchantConfig.getDecryptionKey()).thenReturn("dummyKey123");
+    }
+
+    @Test
+    void changePassword_success() {
+        PasswordChangeRequest request = PasswordChangeRequest.builder()
+                .userName("testUser")
+                .oldPassword("oldPassword123")
+                .newPassword(EncryptionDecryptionUtil.hashValue("newPassword123"))
+                .confirmPassword(EncryptionDecryptionUtil.hashValue("newPassword123"))
+                .build();
+
+        // No exceptions during validation
+        doNothing().when(passwordValidator).validatePasswordChangeRequest(request);
+
+        // Mock database updates
+        doNothing().when(passwordManagementDao).updatePasswordDetails(
+                request.getUserName(), request.getNewPassword(), UserStatus.EXPIRED, RequestType.CHANGE_PASSWORD);
+
+        MerchantResponse<String> response = passwordService.changePassword(request);
+
+        assertNotNull(response);
+        assertEquals("SUCCESS", response.getStatus());
+        assertTrue(response.getData().contains("Password Changed Successfully"));
+
+        verify(passwordValidator).validatePasswordChangeRequest(request);
+        verify(passwordManagementDao).updatePasswordDetails(
+                request.getUserName(), request.getNewPassword(), UserStatus.EXPIRED, RequestType.CHANGE_PASSWORD);
+    }
+
+    @Test
+    void changePassword_validationFailure() {
+        PasswordChangeRequest request = PasswordChangeRequest.builder()
+                .userName("testUser")
+                .oldPassword("wrongPassword")
+                .newPassword("newPassword123")
+                .confirmPassword("newPassword123")
+                .build();
+
+        doThrow(new ValidationException("ERR_CODE", "Validation failed"))
+                .when(passwordValidator).validatePasswordChangeRequest(request);
+
+        ValidationException exception = assertThrows(
+                ValidationException.class, () -> passwordService.changePassword(request));
+
+        assertEquals("Validation failed", exception.getErrorMessage());
+        verify(passwordValidator).validatePasswordChangeRequest(request);
+        verifyNoInteractions(passwordManagementDao);
+    }
+
+    @Test
+    void resetPassword_success() {
+        PasswordResetRequest request = PasswordResetRequest.builder()
+                .userName("testUser")
+                .newPassword(EncryptionDecryptionUtil.hashValue("resetPassword123"))
+                .confirmPassword(EncryptionDecryptionUtil.hashValue("resetPassword123"))
+                .build();
+
+        doNothing().when(passwordValidator).validateResetPasswordRequest(request);
+
+        doNothing().when(passwordManagementDao).updatePasswordDetails(
+                request.getUserName(), request.getNewPassword(), UserStatus.ACTIVE, RequestType.RESET_PASSWORD);
+
+        MerchantResponse<String> response = passwordService.resetPassword(request);
+
+        assertNotNull(response);
+        assertEquals("SUCCESS", response.getStatus());
+        assertTrue(response.getData().contains("Password Reset Successfully"));
+
+        verify(passwordValidator).validateResetPasswordRequest(request);
+        verify(passwordManagementDao).updatePasswordDetails(
+                request.getUserName(), request.getNewPassword(), UserStatus.ACTIVE, RequestType.RESET_PASSWORD);
+    }
+
+    @Test
+    void resetPassword_validationFailure() {
+        PasswordResetRequest request = PasswordResetRequest.builder()
+                .userName("testUser")
+                .newPassword("resetPassword123")
+                .confirmPassword("resetPassword123")
+                .build();
+
+        doThrow(new ValidationException("ERR_CODE", "Validation failed"))
+                .when(passwordValidator).validateResetPasswordRequest(request);
+
+        ValidationException exception = assertThrows(
+                ValidationException.class, () -> passwordService.resetPassword(request));
+
+        assertEquals("Validation failed", exception.getErrorMessage());
+        verify(passwordValidator).validateResetPasswordRequest(request);
+        verifyNoInteractions(passwordManagementDao);
+    }
+}
