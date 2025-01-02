@@ -1,320 +1,257 @@
-package com.epay.merchant.service;
+@AllArgsConstructor
+@Getter
+@Setter
+@ToString
+@Builder
+@NoArgsConstructor
+public class PasswordChangeRequest{
+    private String userName;
+    private String oldPassword;
+    private String newPassword;
+    private String confirmPassword;
+}
 
-import com.epay.merchant.dao.AdminDao;
-import com.epay.merchant.dto.MerchantDto;
-import com.epay.merchant.dto.MerchantUserDto;
-import com.epay.merchant.dto.OnboardingDto;
-import com.epay.merchant.entity.MerchantUser;
-import com.epay.merchant.exception.MerchantException;
-import com.epay.merchant.mapper.MerchantMapper;
-import com.epay.merchant.model.request.OnboardingRequest;
-import com.epay.merchant.model.request.UserEntityMappingRequest;
-import com.epay.merchant.model.response.MerchantResponse;
-import com.epay.merchant.model.response.MerchantUserResponse;
-import com.epay.merchant.model.response.OnboardingResponse;
-import com.epay.merchant.util.ErrorConstants;
-import com.epay.merchant.util.MerchantConstant;
-import com.epay.merchant.util.enums.UserStatus;
-import com.epay.merchant.validator.OnboardingValidator;
-import com.epay.merchant.validator.UserEntityValidator;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.Mockito;
-import org.mockito.MockitoAnnotations;
-import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.List;
-import java.util.UUID;
+package com.epay.merchant.util;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import com.sbi.epay.encryptdecrypt.service.DecryptionService;
+import com.sbi.epay.encryptdecrypt.service.HashingService;
+import com.sbi.epay.encryptdecrypt.util.enums.EncryptionDecryptionAlgo;
+import com.sbi.epay.encryptdecrypt.util.enums.GCMIvLength;
+import com.sbi.epay.encryptdecrypt.util.enums.GCMTagLength;
+import com.sbi.epay.encryptdecrypt.util.enums.HashAlgorithm;
 
-@ExtendWith(MockitoExtension.class)
-public class AdminServiceTest {
-    @Mock
-    private AdminDao adminDao;
-    @Mock
-    private OnboardingValidator validator;
-    private MerchantMapper mapper;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
-    @Mock
-    private UserEntityValidator userEntityValidator;
+public class EncryptionDecryptionUtil {
 
-    @InjectMocks
-    private AdminService adminService;
-    private AutoCloseable closeable;
-    private OnboardingRequest onboardingRequest;
-
-    private UserEntityMappingRequest userEntityMappingRequest;
-    private MerchantUser merchantUser;
-    private MerchantUserResponse merchantUserResponse;
-
-    @BeforeEach
-    void setUp() {
-        onboardingRequest = OnboardingRequest.builder().merchant(MerchantDto.builder().build()).user(MerchantUserDto.builder().build()).build();
-        userEntityMappingRequest = UserEntityMappingRequest.builder()
-                .userId(UUID.randomUUID())
-                .entityId("test-entity-id")
-                .build();
+    public static String hashValue(String value) {
+        byte[] bytes = HashingService.generateHash(value.getBytes(StandardCharsets.UTF_8), HashAlgorithm.SHA_512);
+        return Base64.getEncoder().encodeToString(bytes);
     }
 
-    //@Test
-    public void onboardingTest() {
-        OnboardingDto onboardingRequestDB = OnboardingDto.builder()
-                .merchant(MerchantDto.builder().mId("100011").build())
-                .build();
-        when(adminDao.onboardingMerchantAndMerchantUser(onboardingRequest)).thenReturn(onboardingRequestDB);
-        List<OnboardingResponse> onboardingRequestRes = adminService.onboardingMerchant(onboardingRequest).getData();
-        assertNotNull(onboardingRequestRes);
-        assertNotNull(onboardingRequestRes.getFirst().getMerchant().getMId());
+    public static String decryptValue(String key, String value) {
+        return DecryptionService.decryptValueByStringKey(key, value, EncryptionDecryptionAlgo.AES_GCM_NO_PADDING, GCMIvLength.MAXIMUM, GCMTagLength.STANDARD);
+    }
+}
+
+
+@Repository
+@RequiredArgsConstructor
+public class PasswordManagementDao {
+    private final MerchantUserDao merchantUserDao;
+    private final PasswordManagementRepository passwordManagementRepository;
+    private final NotificationDao notificationDao;
+
+    public MerchantUserDto findByUserNameOrEmailOrMobilePhoneAndStatus(String userName, UserStatus userStatus) {
+        return merchantUserDao.getByUserNameOrEmailOrMobilePhoneAndStatus(userName, userName, userName, userStatus);
     }
 
-    @Test
-    void testMapEntityValidRequest() {
-        UserEntityMappingRequest request = new UserEntityMappingRequest();
-        request.setUserId(UUID.randomUUID());
-        request.setEntityId("valid-entity-id");
-
-        MerchantUserDto userDto = new MerchantUserDto();
-        userDto.setId(request.getUserId());
-        userDto.setStatus(UserStatus.ACTIVE);
-        MerchantResponse<String> response = adminService.mapUserRole(request);
-
-        assertNotNull(response);
-        assertEquals(1, response.getStatus());
-        assertEquals("user role updated", response.getData().getFirst());
+    public List<PasswordManagement> findLastPasswordsByUserId(UUID userId) {
+        return passwordManagementRepository.findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(0, 5));
     }
 
-    @Test
-    void testMapUserRole_Success() {
-        MerchantUserDto merchantUserDto = MerchantUserDto.builder().email("email").build();
+    @Transactional
+    public void updatePasswordDetails(String userName, String newPassword, UserStatus userStatus, RequestType requestType) {
+        // Step 1 : Prepare the Password Hash value
+        String passwordHash = hashValue(newPassword);
 
-        MerchantUserDto userDto = new MerchantUserDto();
-        userDto.setId(UUID.randomUUID());
-        userDto.setUserName("test-user");
-        userDto.setStatus(UserStatus.ACTIVE);
+        // Step 2 : Update the Merchant User with Password Information
+        MerchantUserDto merchantUser = merchantUserDao.updateMerchantUserForPassword(userName, passwordHash, userStatus);
 
-        doNothing().when(userEntityValidator).UserEntityRequestValidator(userEntityMappingRequest);
+        // Step 3 : Update previous Password status in Password Management
+        updatePreviousPasswordStatus(merchantUser.getId());
 
-        when(adminDao.findByUserId(userEntityMappingRequest.getUserId())).thenReturn(merchantUserDto);
-        doNothing().when(adminDao).UpdateUserRole(any(MerchantUserDto.class), eq(userEntityMappingRequest.getEntityId()));
+        // Step 4 : Save new Password information in Password Management
+        PasswordManagement passwordManagement = saveUpdatesPasswordDetails(merchantUser.getId(), passwordHash);
 
-        MerchantResponse<String> ans = adminService.mapUserRole(userEntityMappingRequest);
-        assertEquals(ans.getStatus(),1);
-        assertEquals(ans.getData().getFirst(), "user role updated");
+        // Step 5 : Send Notification to user for Password Update
+        sendNotification(requestType, passwordManagement.getId(), "Password has been modified successfully, New Password is " + newPassword, MerchantConstant.RESPONSE_SUCCESS, NotificationType.EMAIL);
+    }
+
+    private void updatePreviousPasswordStatus(UUID userId) {
+        List<PasswordManagement> passwordList = passwordManagementRepository.findByUserIdAndStatus(userId, PasswordStatusType.COMPLETED);
+        passwordList.forEach(passwordManagement -> passwordManagement.setStatus(PasswordStatusType.INACTIVE));
+        passwordManagementRepository.saveAll(passwordList);
+    }
+
+    private PasswordManagement saveUpdatesPasswordDetails(UUID userId, String password) {
+        return passwordManagementRepository.save(PasswordManagement.builder().userId(userId).status(PasswordStatusType.COMPLETED).previousPassword(password).requestType(PasswordManagementType.CHANGE_PASSWORD).build());
+    }
+
+    private void sendNotification(RequestType requestType, UUID entityId, String content, int status, NotificationType notificationType) {
+        notificationDao.sendPasswordNotification(requestType, entityId, content, status, notificationType);
+    }
+
+}
+
+
+   public MerchantUserDto updateMerchantUserForPassword(String userName, String password, UserStatus userStatus) {
+        MerchantUser merchantUser = getMerchantUserByStatus(userName, userName, userName, userStatus);
+        merchantUser.setPassword(EncryptionDecryptionUtil.hashValue(password));
+        merchantUser.setLastPasswordChange(DateTimeUtils.getCurrentTimeInMills());
+        merchantUser.setPasswordExpiryTime(DateTimeUtils.getFutureDateByMonth(merchantConfig.getPasswordExpiryMonths()));
+        merchantUser.setStatus(UserStatus.ACTIVE);
+        merchantUser = save(merchantUser);
+        return merchantMapper.mapMerchantUserEntityToDto(merchantUser);
+    }
+
+@Service
+@RequiredArgsConstructor
+public class PasswordService {
+
+    private final PasswordValidator passwordValidator;
+    private final PasswordManagementDao passwordManagementDao;
+    private final MerchantConfig merchantConfig;
+    LoggerUtility log = LoggerFactoryUtility.getLogger(ValidationController.class);
+
+    /**
+     * Method to handle the password change logic
+     */
+    public MerchantResponse<String> changePassword(PasswordChangeRequest passwordChangeRequest) {
+        log.info("Starting password change process for user: {}", passwordChangeRequest.getUserName());
+        // Step 1 : Decrypt Password
+        passwordChangeRequest.setNewPassword(decryptValue(merchantConfig.getDecryptionKey(), passwordChangeRequest.getNewPassword()));
+        passwordChangeRequest.setConfirmPassword(decryptValue(merchantConfig.getDecryptionKey(), passwordChangeRequest.getConfirmPassword()));
+
+        // Step 2: Validate the password change request
+        validatePasswordChange(passwordChangeRequest);
+        log.info("Password change request validated successfully");
+
+        // Step 3: Update the password details in the database
+        passwordManagementDao.updatePasswordDetails(passwordChangeRequest.getUserName(), passwordChangeRequest.getNewPassword(), UserStatus.EXPIRED, RequestType.CHANGE_PASSWORD);
+
+        // Step 4: Build and return the success response
+        return MerchantResponse.<String>builder().status(MerchantConstant.RESPONSE_SUCCESS).data(List.of("Password Changed Successfully")).count(1L).total(1L).build();
+    }
+
+    /**
+     * Method to handle the reset password logic
+     */
+    public MerchantResponse<String> resetPassword(PasswordResetRequest passwordResetRequest) {
+        log.info("Starting password change process for user: {}", passwordResetRequest.getUserName());
+        // Step 1 : Decrypt Password
+        passwordResetRequest.setNewPassword(decryptValue(merchantConfig.getDecryptionKey(), passwordResetRequest.getNewPassword()));
+        passwordResetRequest.setConfirmPassword(decryptValue(merchantConfig.getDecryptionKey(), passwordResetRequest.getConfirmPassword()));
+
+        // Step 2: Validate the password change request
+        validatePasswordReset(passwordResetRequest);
+        log.info("Password change request validated successfully");
+
+        // Step 3: Update the password details in the database
+        passwordManagementDao.updatePasswordDetails(passwordResetRequest.getUserName(), passwordResetRequest.getNewPassword(), UserStatus.ACTIVE, RequestType.RESET_PASSWORD);
+
+        // Step 4: Build and return the success response
+        return MerchantResponse.<String>builder().status(MerchantConstant.RESPONSE_SUCCESS).data(List.of("Password Reset Successfully")).count(1L).total(1L).build();
+    }
+
+    private void validatePasswordChange(PasswordChangeRequest passwordChangeRequest) {
+        passwordValidator.validatePasswordChangeRequest(passwordChangeRequest);
+        MerchantUserDto merchantUser = passwordManagementDao.findByUserNameOrEmailOrMobilePhoneAndStatus(passwordChangeRequest.getUserName(), UserStatus.EXPIRED);
+        String passwordHashValue = hashValue(passwordChangeRequest.getNewPassword());
+        passwordValidator.validatePasswordUpdateWithDB(merchantUser, passwordHashValue, passwordChangeRequest.getOldPassword());
+    }
+
+    private void validatePasswordReset(PasswordResetRequest passwordResetRequest) {
+        passwordValidator.validateResetPasswordRequest(passwordResetRequest);
+        MerchantUserDto merchantUser = passwordManagementDao.findByUserNameOrEmailOrMobilePhoneAndStatus(passwordResetRequest.getUserName(), UserStatus.ACTIVE);
+        String passwordHashValue = hashValue(passwordResetRequest.getNewPassword());
+        passwordValidator.validatePasswordUpdateWithDB(merchantUser, passwordHashValue);
+    }
+}
+
+
+@Component
+@RequiredArgsConstructor
+public class PasswordValidator extends BaseValidator {
+
+    private final PasswordManagementDao passwordManagementDao;
+    LoggerUtility log = LoggerFactoryUtility.getLogger(ValidationController.class);
+
+    public void validatePasswordChangeRequest(PasswordChangeRequest passwordChangeRequest) {
+        log.info("Validating password change request");
+        errorDtoList = new ArrayList<>();
+        validateMandatoryFields(passwordChangeRequest);
+        throwIfErrors();
+        validatePasswordValue(passwordChangeRequest.getNewPassword(), passwordChangeRequest.getConfirmPassword());
+        throwIfErrors();
+    }
+
+    public void validateResetPasswordRequest(PasswordResetRequest passwordResetRequest) {
+        log.info("Validating password change request");
+        errorDtoList = new ArrayList<>();
+        validateMandatoryFields(passwordResetRequest);
+        validatePasswordValue(passwordResetRequest.getNewPassword(), passwordResetRequest.getConfirmPassword());
+    }
+
+    public void validatePasswordUpdateWithDB(MerchantUserDto merchantUser, String newPassword, String oldPassword) {
+        errorDtoList = new ArrayList<>();
+        passwordCheck(!merchantUser.getPassword().equals(oldPassword), ErrorConstants.OLD_PASSWORD, ErrorConstants.ERROR_OLD_PASSWORD_MISMATCH);
+        passwordCheck(newPassword.equals(oldPassword), ErrorConstants.NEW_PASSWORD, ErrorConstants.ERROR_NEW_PASSWORD_SAME_AS_OLD);
+        passwordWithOldPasswords(merchantUser, newPassword);
     }
 
 
+    public void validatePasswordUpdateWithDB(MerchantUserDto merchantUser, String newPassword) {
+        errorDtoList = new ArrayList<>();
+        passwordWithOldPasswords(merchantUser, newPassword);
+    }
 
-    @Test
-    void testMapUserRole_InvalidRequest() {
-        doThrow(new RuntimeException("Validation failed")).when(userEntityValidator).UserEntityRequestValidator(userEntityMappingRequest);
+    private void validateMandatoryFields(PasswordChangeRequest passwordChangeRequest) {
+        log.info("Validating mandatory fields");
+        checkMandatoryField(passwordChangeRequest.getUserName(), ErrorConstants.USER_NAME);
+        checkMandatoryField(passwordChangeRequest.getOldPassword(), ErrorConstants.OLD_PASSWORD);
+        checkMandatoryField(passwordChangeRequest.getNewPassword(), ErrorConstants.NEW_PASSWORD);
+        checkMandatoryField(passwordChangeRequest.getConfirmPassword(), ErrorConstants.CONFIRM_PASSWORD);
+        throwIfErrors();
+    }
 
-        try {
-            adminService.mapUserRole(userEntityMappingRequest);
-        } catch (RuntimeException e) {
-            assertEquals("Validation failed", e.getMessage());
+    private void validateMandatoryFields(PasswordResetRequest passwordResetRequest) {
+        log.info("Validating mandatory fields");
+        checkMandatoryField(passwordResetRequest.getUserName(), ErrorConstants.USER_NAME);
+        checkMandatoryField(passwordResetRequest.getNewPassword(), ErrorConstants.NEW_PASSWORD);
+        checkMandatoryField(passwordResetRequest.getConfirmPassword(), ErrorConstants.CONFIRM_PASSWORD);
+        throwIfErrors();
+    }
+
+    private void validatePasswordValue(String newPassword, String confirmPassword) {
+        if (!newPassword.matches(PASSWORD_REGEX)) {
+            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, ErrorConstants.NEW_PASSWORD, "Reason : New password does not meet the acceptance criteria")).build());
         }
+        passwordCheck(!newPassword.equals(confirmPassword), ErrorConstants.PASSWORD, ErrorConstants.ERROR_NEW_AND_CONFIRM_PASSWORD_MISMATCH);
+        throwIfErrors();
+    }
 
-        verify(userEntityValidator, times(1)).UserEntityRequestValidator(userEntityMappingRequest);
-        verifyNoInteractions(adminDao);
+    private void passwordCheck(boolean isValid, String field, String reason) {
+        if (isValid) {
+            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, field, reason)).build());
+        }
+        throwIfErrors();
+    }
+
+    private void passwordWithOldPasswords(MerchantUserDto merchantUser, String newPassword) {
+        List<PasswordManagement> lastFiveRecords = passwordManagementDao.findLastPasswordsByUserId(merchantUser.getId());
+        lastFiveRecords.stream().filter(previousPassword -> previousPassword.getPreviousPassword().equals(newPassword)).forEachOrdered(previousPassword -> errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, ErrorConstants.NEW_PASSWORD, ErrorConstants.ERROR_NEW_PASSWORD_REUSED)).build()));
+        throwIfErrors();
     }
 }
 
-
-
-
-
-
-
-
-.............................................................
-
-
-
-
-
-
-
-
-
-
-
-
-
-package com.epay.merchant.dao;
-
-import com.epay.merchant.dto.MerchantDto;
-import com.epay.merchant.dto.MerchantUserDto;
-import com.epay.merchant.dto.OnboardingDto;
-import com.epay.merchant.entity.*;
-import com.epay.merchant.mapper.MerchantMapper;
-import com.epay.merchant.model.request.OnboardingRequest;
-import com.epay.merchant.repository.*;
-import com.epay.merchant.util.enums.MerchantUserRoles;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mapstruct.factory.Mappers;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.Mockito;
-import org.mockito.MockitoAnnotations;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-
-import java.util.*;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
-
-public class AdminDaoTest {
-//    private final ObjectMapper objectMapper = new ObjectMapper();
-    @Mock
-    private MerchantRepository merchantRepo;
-    @Mock
-    private MerchantUserRepository merchantUserRepo;
-    @Mock
-    private MerchantUserRoleRepository userRoleRepo;
-    @Mock
-    private MerchantMapper mapper;
-    @Mock
-    private DefaultUserPermissionRepository defaultUserPermissionRepo;
-    @Mock
-    private MenuInfoRepository menuInfoRepo;
-    @Mock
-    private UserMenuPermissionRepository userMenuPermissionRepository;
-    @Mock
-    private MerchantUserRepository merchantUserRepository;
-    @Mock
-    private MerchantEntityUserRepository merchantEntityUserRepository;
-    @Mock
-    private MerchantUserRoleRepository merchantUserRoleRepository;
-    @Mock
-    private MerchantEntityGroupRepository merchantEntityGroupRepository;
-    @InjectMocks
-    private AdminDao adminDao;
-
-
-
-    private AutoCloseable closeable;
-    private OnboardingRequest onboardingRequest;
-    private UUID userId;
-    private MerchantUserDto userDto;
-
-    private MerchantUserRole merchantUserRole;
-
-
-    @BeforeEach
-    void setUp() {
-        closeable = MockitoAnnotations.openMocks(this);
-        mapper = Mappers.getMapper(MerchantMapper.class);
-        //objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        onboardingRequest = OnboardingRequest.builder().merchant(MerchantDto.builder().mId("100004").build()).user(MerchantUserDto.builder().build()).build();
-        userId = UUID.randomUUID();
-        userDto = MerchantUserDto.builder()
-                .id(userId)
-                .build();
-        merchantUserRole = MerchantUserRole.builder()
-                .role("abc")
-                .id(userId)
-                .build();
+ private void passwordCheck(boolean isValid, String field, String reason) {
+        if (isValid) {
+            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, field, reason)).build());
+        }
+        throwIfErrors();
     }
 
-    //@Test
-    public void onboardingTest() {
-        MerchantInfo merchantInfoEntity = mapper.mapMerchantDtoToEntity(onboardingRequest.getMerchant());
-        Mockito.when(mapper.mapMerchantDtoToEntity(onboardingRequest.getMerchant())).thenReturn(merchantInfoEntity);
-        merchantInfoEntity.setId(UUID.randomUUID());
-        Mockito.when(merchantRepo.save(Mockito.any())).thenReturn(merchantInfoEntity);
-        MerchantDto merchantDto = mapper.mapMerchantInfoEntityToDto(merchantInfoEntity);
-        Mockito.when(mapper.mapMerchantInfoEntityToDto(merchantInfoEntity)).thenReturn(merchantDto);
-
-        MerchantUser merchantUserEntity = mapper.mapMerchantUserDtoToEntity(onboardingRequest.getUser());
-        Mockito.when(mapper.mapMerchantUserDtoToEntity(onboardingRequest.getUser())).thenReturn(merchantUserEntity);
-        merchantUserEntity.setId(UUID.randomUUID());
-        MerchantUserRole role = new MerchantUserRole();
-        role.setId(UUID.randomUUID());
-        role.setRole(MerchantUserRoles.ADMIN.name());
-        Mockito.when(userRoleRepo.findByRole(MerchantUserRoles.ADMIN.name())).thenReturn(Optional.of(role));
-        Mockito.when(merchantUserRepo.save(Mockito.any())).thenReturn(merchantUserEntity);
-        MerchantUserDto merchantUserDto = mapper.mapMerchantUserEntityToDto(merchantUserEntity);
-       Mockito.when(mapper.mapMerchantUserEntityToDto(merchantUserEntity)).thenReturn(merchantUserDto);
-        MenuInfo menu = new MenuInfo();
-        menu.setId(UUID.randomUUID());
-        Mockito.when(menuInfoRepo.findAll()).thenReturn(List.of(menu));
-        DefaultUserPermission defaultUserPermission = new DefaultUserPermission();
-        defaultUserPermission.setMenuId(menu.getId());
-        Mockito.when(defaultUserPermissionRepo.findByRoleId(role.getId())).thenReturn(List.of(defaultUserPermission));
-
-        OnboardingDto onboardingRequestRes = adminDao.onboardingMerchantAndMerchantUser(onboardingRequest);
-        assertNotNull(onboardingRequestRes.getMerchant().getMId());
+    private void passwordWithOldPasswords(MerchantUserDto merchantUser, String newPassword) {
+        List<PasswordManagement> lastFiveRecords = passwordManagementDao.findLastPasswordsByUserId(merchantUser.getId());
+        lastFiveRecords.stream().filter(previousPassword -> previousPassword.getPreviousPassword().equals(newPassword)).forEachOrdered(previousPassword -> errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, ErrorConstants.NEW_PASSWORD, ErrorConstants.ERROR_NEW_PASSWORD_REUSED)).build()));
+        throwIfErrors();
     }
-
-    //@Test
-    void testFindAllMerchantUsersByMId_ReturnsPageOfMerchantUsers() {
-        String mid = "merchant123";
-        Pageable pageable = PageRequest.of(0, 10);
-
-        MerchantUserDto merchantUser = new MerchantUserDto();
-        //merchantUser.setMId(mid);
-        merchantUser.setFirstName("testUser");
-
-        Page<MerchantUser> mockPage = new PageImpl<>(Collections.singletonList(MerchantUser.builder().id(UUID.randomUUID()).firstName("testUser").build()));
-        when(merchantUserRepo.findBymId(mid, pageable)).thenReturn(mockPage);
-        Page<MerchantUserDto> result = adminDao.findAllMerchantUsersByMId(mid, pageable);
-
-        assertEquals(1, result.getTotalElements());
-        assertEquals(merchantUser, result.getContent().getFirst());
-        verify(merchantUserRepo, times(1)).findBymId(mid, pageable);
+   public void validatePasswordUpdateWithDB(MerchantUserDto merchantUser, String newPassword, String oldPassword) {
+        errorDtoList = new ArrayList<>();
+        passwordCheck(!merchantUser.getPassword().equals(oldPassword), ErrorConstants.OLD_PASSWORD, ErrorConstants.ERROR_OLD_PASSWORD_MISMATCH);
+        passwordCheck(newPassword.equals(oldPassword), ErrorConstants.NEW_PASSWORD, ErrorConstants.ERROR_NEW_PASSWORD_SAME_AS_OLD);
+        passwordWithOldPasswords(merchantUser, newPassword);
     }
-
-    @Test
-    void testFindAllMerchantUsersByMId_ReturnsEmptyPage() {
-        String mid = "merchant123";
-        Pageable pageable = PageRequest.of(0, 10);
-
-        Page<MerchantUser> mockPage = Page.empty();
-        when(merchantUserRepo.findBymId(mid, pageable)).thenReturn(mockPage);
-        Page<MerchantUserDto> result = adminDao.findAllMerchantUsersByMId(mid, pageable);
-
-        assertEquals(0, result.getTotalElements());
-        verify(merchantUserRepo, times(1)).findBymId(mid, pageable);
-    }
-
-    @Test
-    public void testUpdateUserRoleSuperAdmin() {
-        String entityId = "test-entity-id";
-        String roleName = MerchantUserRoles.SUPER_ADMIN.name();
-
-        when(adminDao.findUserRoleByUserId(userId)).thenReturn(roleName);
-
-        adminDao.UpdateUserRole(userDto, entityId);
-
-        verify(merchantEntityUserRepository, times(1)).updateEntityIdForUser(userId, entityId);
-    }
-
-    @Test
-    public void testFindRoleIdByRoleName_Success() {
-        UUID expectedRoleId = UUID.randomUUID();
-        String roleName = MerchantUserRoles.ADMIN.name();
-
-        when(merchantUserRoleRepository.findByRole(roleName))
-                .thenReturn(Optional.of(MerchantUserRole.builder().id(expectedRoleId).build()));
-
-        UUID roleId = adminDao.findRoleIdByRoleName(roleName);
-
-        assertEquals(expectedRoleId, roleId);
-        verify(merchantUserRoleRepository, times(1)).findByRole(roleName);
-    }
-    
-}
