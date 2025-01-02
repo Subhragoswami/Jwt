@@ -344,3 +344,66 @@ public class MerchantUserDao {
         MerchantUserDto merchantUserDto = tokenDao.getMerchantUserDto(userName);
         tokenDao.updateMerchantUserForLogin(merchantUserDto, loginStatus, errorReason, requestType);
     }
+
+
+
+----------------
+
+
+
+
+private String convertErrorMessage(Exception e) {
+    List<ErrorDto> errorMessages = getErrorMessages(e);
+    String errorCode = getErrorCode(e);
+    String errorMessage = getErrorMessage(e);
+
+    return (errorMessages != null && !errorMessages.isEmpty())
+            ? formatErrorMessages(errorMessages)
+            : (StringUtils.isNotEmpty(errorCode) && StringUtils.isNotEmpty(errorMessage))
+                ? String.format("ErrorDto(errorCode=%s, errorMessage=%s)", errorCode, errorMessage)
+                : "ErrorDto(errorCode=UNKNOWN, errorMessage=Unknown error occurred)";
+}
+
+/**
+ * Extracts error messages from the exception.
+ */
+private List<ErrorDto> getErrorMessages(Exception e) {
+    return (e instanceof ValidationException validationException)
+            ? validationException.getErrorMessages()
+            : (e instanceof MerchantException merchantException)
+                ? merchantException.getErrorMessages()
+                : List.of(); // Default to an empty list
+}
+
+/**
+ * Extracts error code from the exception.
+ */
+private String getErrorCode(Exception e) {
+    return (e instanceof ValidationException validationException)
+            ? validationException.getErrorCode()
+            : (e instanceof MerchantException merchantException)
+                ? merchantException.getErrorCode()
+                : "UNKNOWN"; // Default to UNKNOWN
+}
+
+/**
+ * Extracts error message from the exception.
+ */
+private String getErrorMessage(Exception e) {
+    return (e instanceof ValidationException validationException)
+            ? validationException.getErrorMessage()
+            : (e instanceof MerchantException merchantException)
+                ? merchantException.getErrorMessage()
+                : "Unknown error occurred"; // Default message
+}
+
+/**
+ * Formats the list of ErrorDto objects into a custom string representation.
+ */
+private String formatErrorMessages(List<ErrorDto> errorMessages) {
+    return errorMessages.stream()
+            .map(error -> String.format("ErrorDto(errorCode=%s, errorMessage=%s)", 
+                                        error.getErrorCode(), 
+                                        error.getErrorMessage()))
+            .collect(Collectors.joining(", "));
+}
