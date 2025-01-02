@@ -320,3 +320,77 @@ private String convertErrorMessage(Exception e) {
     return "{\"errorCode\":\"UNKNOWN\",\"errorMessage\":\"Unknown error occurred\"}";
 }
 
+
+
+
+
+
+
+
+private String convertErrorMessage(Exception e) {
+    ObjectMapper objectMapper = new ObjectMapper();
+
+    // Extract error details from exception
+    List<ErrorDto> errorMessages = getErrorMessages(e);
+    String errorCode = getErrorCode(e);
+    String errorMessage = getErrorMessage(e);
+
+    // Serialize errorMessages if present, else fallback to errorCode and errorMessage
+    if (errorMessages != null && !errorMessages.isEmpty()) {
+        return serializeErrorMessages(errorMessages, objectMapper);
+    } else if (StringUtils.isNotEmpty(errorCode) && StringUtils.isNotEmpty(errorMessage)) {
+        return String.format("{\"errorCode\":\"%s\",\"errorMessage\":\"%s\"}", errorCode, errorMessage);
+    }
+
+    // Default fallback
+    return "{\"errorCode\":\"UNKNOWN\",\"errorMessage\":\"Unknown error occurred\"}";
+}
+
+/**
+ * Extracts error messages from the exception.
+ */
+private List<ErrorDto> getErrorMessages(Exception e) {
+    if (e instanceof ValidationException validationException) {
+        return validationException.getErrorMessages();
+    } else if (e instanceof MerchantException merchantException) {
+        return merchantException.getErrorMessages();
+    }
+    return null;
+}
+
+/**
+ * Extracts error code from the exception.
+ */
+private String getErrorCode(Exception e) {
+    if (e instanceof ValidationException validationException) {
+        return validationException.getErrorCode();
+    } else if (e instanceof MerchantException merchantException) {
+        return merchantException.getErrorCode();
+    }
+    return null;
+}
+
+/**
+ * Extracts error message from the exception.
+ */
+private String getErrorMessage(Exception e) {
+    if (e instanceof ValidationException validationException) {
+        return validationException.getErrorMessage();
+    } else if (e instanceof MerchantException merchantException) {
+        return merchantException.getErrorMessage();
+    }
+    return null;
+}
+
+/**
+ * Serializes the list of error messages into a JSON string.
+ */
+private String serializeErrorMessages(List<ErrorDto> errorMessages, ObjectMapper objectMapper) {
+    try {
+        return objectMapper.writeValueAsString(errorMessages);
+    } catch (JsonProcessingException e) {
+        log.error("Failed to serialize error messages: {}", e.getMessage());
+        return "[]"; // Default to an empty JSON array
+    }
+}
+
