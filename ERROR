@@ -1,1 +1,10 @@
+
 [ErrorDto(errorCode=1003, errorMessage=Login User is not found.)]
+
+
+
+t("ErrorDto(errorCode=%s, errorMessage=%s)", errorCode, errorMessage);
+    }
+
+    // Default fallback
+    return "ErrorDto(errorCode=UNKNOWN, errorMessage=Unknown error occurred)";
