@@ -70,3 +70,67 @@ public class LoginAudit {
 
 
 
+
+
+
+
+
+
+
+-------------------------------------------------------------------------------
+
+
+package com.epay.merchant.exception;
+
+import com.epay.merchant.dto.ErrorDto;
+import lombok.Getter;
+
+import java.util.List;
+
+/**
+ * Class Name: MerchantException
+ * *
+ * Description:
+ * *
+ * Author: V1017903(bhushan wadekar)
+ * <p>
+ * Copyright (c) 2024 [State Bank of India]
+ * All rights reserved
+ * *
+ * Version:1.0
+ */
+@Getter
+public class MerchantException extends RuntimeException {
+    private String errorCode;
+    private String errorMessage;
+    private List<ErrorDto> errorMessages;
+
+    /**
+     * Parametrized constructor taking errorcode and errorMessage
+     * @param errorCode String
+     * @param errorMessage String
+     */
+    public MerchantException(String errorCode, String errorMessage) {
+        super(errorMessage);
+        this.errorCode = errorCode;
+        this.errorMessage = errorMessage;
+    }
+
+    /**
+     * Parametrized constructor taking List of ErrorDTO
+     * @param errorMessages List<ErrorDto>
+     */
+    public MerchantException(List<ErrorDto> errorMessages) {
+        this.errorMessages = errorMessages;
+    }
+
+}
+
+
+     if (StringUtils.isNotEmpty(merchantLoginRequest.getUserName())) {
+                List<ErrorDto> errorMessages = (e instanceof ValidationException)
+                        ? ((ValidationException) e).getErrorMessages()
+                        : ((MerchantException) e).getErrorMessages();
+                String errorMessage = convertErrorMessage(errorMessages);
+                tokenService.updateMerchantUserForLogin(merchantLoginRequest.getUserName(), false, errorMessage, RequestType.LOGIN.getName());
+            }
