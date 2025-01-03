@@ -1,56 +1,99 @@
-Description:
+package com.epay.merchant.entity;
 
-Parameter 0 of constructor in com.neo.client.project.service.EncryptDecryptService required a bean of type 'java.lang.String' that could not be found.
+import jakarta.persistence.*;
+import lombok.Data;
+
+import java.util.UUID;
+/**
+ * Class Name: UserRole
+ * *
+ * Description:
+ * *
+ * Author: Bhoopendra Rajput
+ * <p>
+ * Copyright (c) 2024 [State Bank of India]
+ * All rights reserved
+ * *
+ * Version:1.0
+ */
+@Data
+@Entity
+@Table(name = "USER_ROLES")
+public class MerchantUserRole {
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "ID", nullable = false, updatable = false, unique = true)
+    private UUID id;
+
+    @Column(nullable = false)
+    private String role;
+
+    private String description;
+}
 
 
-Action:
+package com.epay.merchant.entity;
 
-Consider defining a bean of type 'java.lang.String' in your configuration.
+import com.epay.merchant.util.enums.UserStatus;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import jakarta.persistence.*;
+import lombok.*;
 
-package com.neo.client.project.service;
+import java.util.UUID;
 
-import com.neo.client.project.model.request.EncryptDecryptRequest;
-import com.neo.client.project.model.response.EncryptDecryptResponse;
-import com.neo.client.project.model.response.ResponseDto;
-import com.sbi.epay.encryptdecrypt.service.DecryptionService;
-import com.sbi.epay.encryptdecrypt.service.EncryptionService;
-import com.sbi.epay.encryptdecrypt.util.enums.EncryptionDecryptionAlgo;
-import com.sbi.epay.encryptdecrypt.util.enums.GCMIvLength;
-import com.sbi.epay.encryptdecrypt.util.enums.GCMTagLength;
-import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
+/**
+ * Class Name: MerchantUser
+ * *
+ * Description:
+ * *
+ * Author: Bhoopendra Rajput
+ * <p>
+ * Copyright (c) 2024 [State Bank of India]
+ * All rights reserved
+ * *
+ * Version:1.0
+ */
+@EqualsAndHashCode(callSuper = true)
+@Getter
+@Setter
+@Builder
+@Entity
+@Table(name = "MERCHANT_USER")
+@NoArgsConstructor
+@AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class MerchantUser extends AuditEntity {
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(nullable = false, updatable = false, unique = true)
+    private UUID id;
+    @Version
+    private int version;
 
-import java.util.List;
-import java.util.Objects;
+    @Column(name = "PARENT_USERID")
+    private UUID parentUserId;
 
-
-
-@Service
-@RequiredArgsConstructor
-public class EncryptDecryptService {
-    
-    @Value("${merchant.user.password.key}")
-    private final String key;
-
-    public ResponseDto<EncryptDecryptResponse> encryptOrDecryptData(EncryptDecryptRequest encryptDecryptRequest) {
-
-        String result = "";
-        if(Objects.equals(encryptDecryptRequest.getRequestType(), "ENCRYPT")){
-            result = encryptValue(encryptDecryptRequest.getValue(), key);
-        } else if (Objects.equals(encryptDecryptRequest.getRequestType(), "DECRYPT")) {
-            result = decryptValue(encryptDecryptRequest.getValue(), key);
-        }
-        EncryptDecryptResponse encryptDecryptResponse = EncryptDecryptResponse.builder().result(result).build();
-
-        return ResponseDto.<EncryptDecryptResponse>builder().data(List.of(encryptDecryptResponse)).build();
-    }
-
-    private static String encryptValue(String key, String value) {
-       return EncryptionService.encryptValueByStringKey(key, value, EncryptionDecryptionAlgo.AES_GCM_NO_PADDING, GCMIvLength.MAXIMUM, GCMTagLength.STANDARD);
-    }
-
-    public static String decryptValue(String key, String value) {
-        return DecryptionService.decryptValueByStringKey(key, value, EncryptionDecryptionAlgo.AES_GCM_NO_PADDING, GCMIvLength.MAXIMUM, GCMTagLength.STANDARD);
-    }
+    private String userName;
+    private String firstName;
+    private String middleName;
+    private String lastName;
+    private String email;
+    private String primaryPhone;
+    private String secondaryPhone;
+    private String mobilePhone;
+    private String officePhone;
+    private String countryCode;
+    private String stateCode;
+    private String pinCode;
+    private String city;
+    @Column(name = "ROLE_ID")
+    private UUID role;
+    @Enumerated(EnumType.STRING)
+    private UserStatus status;
+    private String password;
+    private Long lastPasswordChange;
+    private Long passwordExpiryTime;
+    private int loginFailAttempt;
+    private Long lastSuccessLogin;
+    private Long lastFailLogin;
 }
