@@ -1,244 +1,56 @@
-Merchant: Change Password
-Open
-Merchant: Change Password
-Open
- Issue
-created
-1 week ago
-by
-Bhoopendra Rajput
-Description
-The Change Password mechanism allows a merchant user to update their password when it's expired. The mechanism includes user validation, password policy checks, encryption, decryption, and notification functionalities. 
+Description:
 
-API Details
-Method: Post
-API Definition:/v1/merchant/password/change
-Access Type: Open API
-Request Body:
-{
-  "userId": String,
-  "oldPassword": String,
-  "newPassword": String
-  "confirmPassword": String
-}
-userId will be either userId or email or mobile.
-oldPassword will be hash value of existing password
-newPassword and confirmPassword will be same
-All fields are mandatory
-Success Response Body
-{
-  "data": [
-    {
-      "message": "Password Changed Successfully"
+Parameter 0 of constructor in com.neo.client.project.service.EncryptDecryptService required a bean of type 'java.lang.String' that could not be found.
+
+
+Action:
+
+Consider defining a bean of type 'java.lang.String' in your configuration.
+
+package com.neo.client.project.service;
+
+import com.neo.client.project.model.request.EncryptDecryptRequest;
+import com.neo.client.project.model.response.EncryptDecryptResponse;
+import com.neo.client.project.model.response.ResponseDto;
+import com.sbi.epay.encryptdecrypt.service.DecryptionService;
+import com.sbi.epay.encryptdecrypt.service.EncryptionService;
+import com.sbi.epay.encryptdecrypt.util.enums.EncryptionDecryptionAlgo;
+import com.sbi.epay.encryptdecrypt.util.enums.GCMIvLength;
+import com.sbi.epay.encryptdecrypt.util.enums.GCMTagLength;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Objects;
+
+
+
+@Service
+@RequiredArgsConstructor
+public class EncryptDecryptService {
+    
+    @Value("${merchant.user.password.key}")
+    private final String key;
+
+    public ResponseDto<EncryptDecryptResponse> encryptOrDecryptData(EncryptDecryptRequest encryptDecryptRequest) {
+
+        String result = "";
+        if(Objects.equals(encryptDecryptRequest.getRequestType(), "ENCRYPT")){
+            result = encryptValue(encryptDecryptRequest.getValue(), key);
+        } else if (Objects.equals(encryptDecryptRequest.getRequestType(), "DECRYPT")) {
+            result = decryptValue(encryptDecryptRequest.getValue(), key);
+        }
+        EncryptDecryptResponse encryptDecryptResponse = EncryptDecryptResponse.builder().result(result).build();
+
+        return ResponseDto.<EncryptDecryptResponse>builder().data(List.of(encryptDecryptResponse)).build();
     }
-   ],
-  "status":1,
-  "count": 1,
-  "total": 1
+
+    private static String encryptValue(String key, String value) {
+       return EncryptionService.encryptValueByStringKey(key, value, EncryptionDecryptionAlgo.AES_GCM_NO_PADDING, GCMIvLength.MAXIMUM, GCMTagLength.STANDARD);
+    }
+
+    public static String decryptValue(String key, String value) {
+        return DecryptionService.decryptValueByStringKey(key, value, EncryptionDecryptionAlgo.AES_GCM_NO_PADDING, GCMIvLength.MAXIMUM, GCMTagLength.STANDARD);
+    }
 }
-Failure Response Body
-{
-  "status":0,
-  "error": [
-     {
-       "errorCode": String,
-       "errorMessage": String
-     }
-   ]
-}
-Testing Checklist 
-Functional Testing 
-User Validation: 
-Verify valid userId (user ID, email, or mobile) and active status. 
-Return "Invalid User" for non-existent or inactive users. 
-Password Validation: 
-Verify the oldPassword hash against the stored password hash. 
-Return "Invalid Old Password" if the hash does not match. 
-New Password Rules: 
-Ensure newPassword and confirmPassword match. 
-Ensure newPassword complies with the password policy: 
-Minimum/maximum length. 
-Includes uppercase, lowercase, digits, and special characters. 
-No similarity with oldPassword. 
-Database Updates: 
-Ensure newPassword hash is updated in the merchant_user table. 
-Verify password_expiry is updated correctly. 
-Edge Cases: 
-Ensure requests with missing or null fields are rejected. 
-Ensure the system handles expired sessions or duplicate requests gracefully. 
-Developer Checklist
-Class Flow
-image.png
-
-Unit Testing 
-Achieve 90%+ code coverage with unit tests 
-Write tests for all validation rules for 
-Missing fields. 
-Invalid formats. 
-Mismatched passwords. 
-Password policy violations. 
-Development Steps for Changing Password 
-Step 1: Create PasswordController 
-
-Create Controller with the /v1/merchant/password/change endpoint. 
-Map the incoming request to PasswordChangeRequest. 
-Validate mandatory fields: userId, oldPassword, newPassword, and confirmPassword.
-Ensure the userId format supports user ID, email, or mobile. Return error response if validation fails. 
-Forward the request to PasswordService for further processing. 
-Step 2: Develop PasswordService 
-
-Password Decryption: Use EncryptionUtility with RSA to decrypt, newPassword, and confirmPassword. 
-Validation Workflow: 
-Validate if the user exists in the database and their status is active. 
-Validate the hashed oldPassword against the stored password hash. 
-Ensure newPassword and confirmPassword match. 
-Ensure newPassword complies with the password policy. 
-Ensure newPassword is not the same as oldPassword. 
-Password Hashing: Hash the newPassword (e.g., using bcrypt or SHA-512). 
-Database Update: 
-Update the hashed newPassword in the merchant_user table. 
-Set a new password expiry timestamp. 
-Notification: 
-Push Kafka messages for SMS and Email notifications. 
- Step 3: Develop Password Validator 
-
-Validate userId exists and is active. 
-
-Validate the oldPassword hash against the stored hash in the database. 
-
-Check the newPassword complies with the defined password policy: 
-
-Minimum and maximum length. 
-
-Use of uppercase, lowercase, digits, and special characters. 
-
-No reuse of the oldPassword. 
-
-Ensure newPassword and confirmPassword match. 
-
- 
-
-Step 4: Create DAO and Repository 
-
-DAO - Fetch user details for validation. 
-DAO - Update merchant_user table with the new password and metadata. 
-Repository: Use Spring Data JPA to manage merchant_user table. 
-Step 5: DB Schema
-
-Table Name : PASSWORD_MANAGEMENT
-Column Name	Data Type	Description
-ID	UUID	Unique identifier for each OTP entry.
-REQUEST_TYPE	VARCHAR2(50)	Type of request associated with the OTP, e.g., changePassword, resetPassword.
-USER_ID	UUID	Reference to the user requesting the OTP.
-STATUS	VARCHAR2(50)	Current status of the password change request (e.g., pending, completed, expired).
-PREVIOUS_PASSWORD	VARCHAR2(100)	Encrypted password for the user.
-CREATED_DATE	LONG	Timestamp when the password reset/change request was created.
-UPDATE_DATE	LONG	Timestamp of the most recent update (e.g., completion or expiration of request).
-Table Name: NOTIFICATION_MANAGMENT
-Column Name	Data Type	Description
-ID	UUID	
-ENTITY_NAME	VARCHAR2(100)	RESET_PASSWORD/ USER/CHANGE_PASSWORD/LOGIN/API_KEY_GEN/ENCRYPTION_KEY_GEN
-ENTITY_ID	UUID	ID of that respective table
-TYPE	VARCHAR2(100)	OTP/KEY/USER_GEN/
-MODE	VARCHAR2(50)	SMS/EMAIL
-VALUE	VARCHAR2(1000)	Text
-STATUS	VARCHAR2(100)	PENDING/COMPLETED
-CREATED_AT	LONG	Timestamp of record creation.
-CREATED_BY	VARCHAR2(50)	User who created the record.
-Summary of Key Components 
-
-Controller: Exposes endpoints for Merchant User. 
-Service: Handles user validation and update newPassword with new expiry. 
-Repository: Validate & update Merchant user. 
-Acceptance Criteria 
-Validation: 
-All fields must be validated (non-empty, valid formats). 
-newPassword should meet the password policy. 
-Password change updates the database correctly. 
-Hashing: Store the hashed value of newPassword in the database. 
-Notifications: 
-Notify the user upon successful password change. 
-Notifications are sent via Kafka for SMS and email. 
-Logging: Log all requests and responses for traceability. 
-Error Handling: 
-Proper error codes and messages for failure scenarios. 
-All edge cases are handled, and proper error codes/messages are returned. 
-
-
-	Table Name: MERCHANT_USER		
-	Column Name	Data Type	Description
-	ID	UUID	A unique identifier for each merchant user.
-	MID	VARCHAR2(100)	Merchant Identifier associated with the user.
-	PARENT_USERID	VARCHAR2(100)	User Id, of parent
-	USER_NAME	VARCHAR2(100)	Username used for login.
-	FIRST_NAME	VARCHAR2(100)	User's first name.
-	MIDDLE_NAME	VARCHAR2(100)	User's middle name (optional).
-	LAST_NAME	VARCHAR2(100)	User's last name.
-	EMAIL	VARCHAR2(100)	User's email address.
-	PRIMARY_PHONE	VARCHAR2(50)	Primary phone number of the user.
-	SECONDARY_PHONE	VARCHAR2(50)	Secondary phone number (optional).
-	MOBILE_PHONE	VARCHAR2(50)	User's mobile phone number.
-	OFFICE_PHONE	VARCHAR2(50)	User's office phone number.
-	COUNTRY_CODE	VARCHAR2(50)	Country code for the user's address or phone.
-	STATE_CODE	VARCHAR2(50)	State code for the user's address.
-	PIN_CODE	VARCHAR2(50)	Postal code of the user's address.
-	CITY	VARCHAR2(100)	City of the user's address.
-	ROLE_ID	UUID	USER_ROLE TABLe ID
-	STATUS	VARCHAR2(100)	Account status (e.g., Active, Inactive, Locked, Expired).
-	PASSWORD	VARCHAR2(100)	Encrypted password for the user.
-	LAST_PASSWORD_CHANGE	LONG	Timestamp of the last password update.
-	PASSWORD_EXPIRY_TIME	LONG	Timestamp when the password expires.
-	LOGIN_FAIL_ATTEMPT	INT	Number of consecutive failed login attempts.
-	LAST_SUCCESS_LOGIN	LONG	Timestamp of the last successful login.
-	LAST_FAIL_LOGIN	LONG	Timestamp of the last failed login attempt.
-	REMARKS	VARCHAR2(500)	Status change we can enter the text
-	CREATED_DATE	LONG	Timestamp of when the user entry was created.
-	UPDATE_DATE	LONG	Timestamp of when the user entry was updated.
-
-
-Table Name : PASSWORD_MANAGEMENT		
-Column Name	Data Type	Description
-ID	UUID	Unique identifier for each OTP entry.
-REQUEST_TYPE	VARCHAR2(50)	Type of request associated with the OTP, e.g., changePassword, resetPassword.
-USER_ID	UUID	Reference to the user requesting the OTP.
-STATUS	VARCHAR(50)	Current status of the password change request (e.g., pending, completed, expired).
-PREVIOUS_PASSWORD	VARCHAR2(100)	Encrypted password for the user.
-CREATED_DATE	LONG	Timestamp when the password reset/change request was created.
-UPDATE_DATE	LONG	Timestamp of the most recent update (e.g., completion or expiration of request).
-
-
-Table Name : NOTIFICATION_MANAGMENT		
-Column Name	Data Type	Description
-ID	UUID	
-ENTITY_NAME	VARCHAR2(100)	RESET_PASSWORD/ USER/CHANGE_PASSWORD/LOGIN/API_KEY_GEN/ENCRYPTION_KEY_GEN
-ENTITY_ID	UUID	ID of that respective table
-TYPE	VARCHAR2(100)	OTP/KEY/USER_GEN/
-MODE	VARCHAR2(50)	SMS/EMAIL
-VALUE	VARCHAR2(1000)	Text
-STATUS	VARCHAR2(100)	PENDING/COMPLETED
-CREATED_AT	LONG	Timestamp of record creation.
-CREATED_BY	VARCHAR2(50)	User who created the record.
-
-
-
-
-
-......................
-
-Minimum and maximum length (e.g., 8 to 20 characters). 
-
-        
-      At least one uppercase letter. 
-
-        
-      At least one lowercase letter. 
-
-        
-      At least one digit. 
-
-        
-      At least one special character (e.g., @, #, $, %, etc.).
-..........
-
-// Password regex for validation
-String passwordRegex = "^(?=.*[A-Z])(?=.*[a-z])(?=.*\\d)(?=.*[@#$%^&+=]).{8,20}$";
