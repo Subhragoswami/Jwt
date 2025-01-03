@@ -1,121 +1,29 @@
-package com.epay.merchant.service;
-
-import com.epay.merchant.exception.MerchantException;
-import com.epay.merchant.exception.ValidationException;
-import com.epay.merchant.model.request.MerchantLoginRequest;
-import com.epay.merchant.model.response.MerchantResponse;
-import com.epay.merchant.util.ErrorConstants;
-import com.epay.merchant.util.MerchantConstant;
-import com.epay.merchant.validator.MerchantLoginValidator;
-import com.sbi.epay.logging.utility.LoggerFactoryUtility;
-import com.sbi.epay.logging.utility.LoggerUtility;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-
-import java.text.MessageFormat;
-import java.util.List;
-
-/**
- * Class Name: LoginService
- * *
- * Description: Validate the UserName and Password to login
- * *
- * Author: Ravi Rathore
- * <p>
- * Copyright (c) 2024 [State Bank of India]
- * All rights reserved
- * *
- * Version:1.0
- */
-
-@Service
-@RequiredArgsConstructor
-public class LoginService {
-
-    private final MerchantLoginValidator merchantLoginValidator;
-    private final TokenService tokenService;
-    LoggerUtility log = LoggerFactoryUtility.getLogger(this.getClass());
-
-    /**
-     * Validates the user based on the provided validation request.
-     *
-     * @param merchantLoginRequest the login validation request containing user login details with captcha.
-     * @return MerchantResponse containing success or failure details.
-     */
-    public MerchantResponse<String> merchantLogin(MerchantLoginRequest merchantLoginRequest) {
-        try {
-            merchantLoginValidator.validateMerchantLoginRequest(merchantLoginRequest);
-            return MerchantResponse.<String>builder().status(MerchantConstant.RESPONSE_SUCCESS).data(List.of(MessageFormat.format(MerchantConstant.SUCCESS_MESSAGE, "Login User Found"))).build();
-        } catch (ValidationException | MerchantException e) {
-            tokenService.updateMerchantUserForLogin(merchantLoginRequest.getUserName(), false);
-            log.error("Login Validation Failed for userName {} ", merchantLoginRequest.getUserName());
-            throw e;
-        } catch (Exception e) {
-            tokenService.updateMerchantUserForLogin(merchantLoginRequest.getUserName(), false);
-            log.error("Login Validation Failed for userName {} ", merchantLoginRequest.getUserName(), e.getMessage());
-            throw new MerchantException(ErrorConstants.GENERATION_ERROR_CODE, ErrorConstants.GENERATION_ERROR_MESSAGE);
+  public void updateUserRole(MerchantUserDto userDto, String entityId) {
+        List<MerchantUserRoleDto> merchantUserRoles = merchantUserRoleDao.getMerchantUserRoles();
+        MerchantUserRoleDto merchantUserRole = merchantUserRoles.stream().filter(role -> role.getId().equals(userDto.getRole())).findFirst().get();
+        if (MerchantUserRoles.SUPER_ADMIN.name().equals(merchantUserRole.getRole())) {
+            log.info("User is a SUPER_ADMIN. Updating entityId for userId: {}", userDto.getId());
+            merchantEntityUserRepository.updateEntityIdForUser(userDto.getId(), entityId);
+        } else if (MerchantUserRoles.ADMIN.name().equals(merchantUserRole.getRole())) {
+            log.info("User is an ADMIN. Upgrading role and saving entityId for userId: {}", userDto.getId());
+            findOrSaveMerchantUser(userDto, entityId, merchantUserRoles);
         }
     }
 
-}
-    */
     @Transactional
-    public MerchantResponse<String> validateOtp(OtpValidationRequest otpValidationRequest) {
-        try {
-            // Step 1 : Validate OtpValidationRequest
-            log.info("Started OTP validation for RequestId: {}", otpValidationRequest.getRequestId());
-            otpValidator.validateOtpValidationRequest(otpValidationRequest);
-
-            // Step 2 : Update the OTP and Captcha Verification Status
-            log.info("Update OTP and Captcha validation status for RequestId: {}", otpValidationRequest.getRequestId());
-            otpManagementDao.updateOtpAndCaptchaStatus(otpValidationRequest.getRequestId());
-
-            // Step 3 : Call Token service to generate User Token and Save Token in DB
-            log.info("User Token Generation for RequestId: {}", otpValidationRequest.getRequestId());
-            String s = tokenService.generateUserToken(otpValidationRequest.getUserName());
-
-            // Step 4 : Build OTP success Response and send
-            return MerchantResponse.<String>builder().status(MerchantConstant.RESPONSE_SUCCESS).data(List.of(s)).build();
-        } catch (ValidationException | MerchantException e) {
-            tokenService.updateMerchantUserForLogin(otpValidationRequest.getUserName(), false);
-            log.error("Otp Validation Failed for OtpValidationRequest {} ", otpValidationRequest);
-            throw e;
-        } catch (Exception e) {
-            tokenService.updateMerchantUserForLogin(otpValidationRequest.getUserName(), false);
-            log.error("Otp Validation Failed for OtpValidationRequest {} ", otpValidationRequest, e.getMessage());
-            throw new MerchantException(ErrorConstants.GENERATION_ERROR_CODE, ErrorConstants.GENERATION_ERROR_MESSAGE);
-        }
+    public void findOrSaveMerchantUser(MerchantUserDto merchantUserDto, String entityId, List<MerchantUserRoleDto> merchantUserRoles) {
+        MerchantUser merchantUser = mapper.mapMerchantUserDtoToEntity(merchantUserDto);
+        MerchantUserRoleDto merchantUserRole = merchantUserRoles.stream().filter(role -> role.getRole().equals(MerchantUserRoles.SUPER_ADMIN.name())).findFirst().get();
+        merchantUser.setRole(merchantUserRole.getId());
+        merchantUser = merchantUserRepository.save(merchantUser);
+        merchantEntityUserRepository.deleteByUserId(merchantUser.getId());
+        MerchantEntityUser newEntityUser = MerchantEntityUser.builder().userId(merchantUser.getId()).entityId(entityId).mId(merchantEntityGroupRepository.findByEntityId(entityId).getMId()).build();
+        merchantEntityUserRepository.save(newEntityUser);
+        updateUserMenuPermission(merchantUser.getId(), merchantUserRole.getId());
     }
 
-LOGIN_AUDIT
+  public List<MerchantUserRoleDto> getMerchantUserRoles() {
+        List<MerchantUserRole> merchantUserRoles = merchantUserRoleRepository.findAll();
+        return mapper.mapMerchantUserRoleListEntityToListDto(merchantUserRoles);
+    }
 
-
-
-
-ID,
-
-
-USER_ID,
-
-
-REQUEST ID,
-
-
-REQUEST_TYPE -- LOGIN - OTP_VALIDATION
-
-
-STATUS
-
-
-REASON
-
-
-VERSION
-
-
-CREATED_AT
-
-
-
-
-For merchant, we need to create login audit mechanism so that for success and failed attempt can be audited.
