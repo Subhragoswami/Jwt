@@ -27,3 +27,33 @@
         return mapper.mapMerchantUserRoleListEntityToListDto(merchantUserRoles);
     }
 
+--------------------------------------
+
+
+
+
+public void updateUserRole(MerchantUserDto userDto, String entityId) {
+
+        Map<String, MerchantUserRoleDto> roleMap = merchantUserRoleDao.getMerchantUserRoles()
+                .stream()
+                .collect(Collectors.toMap(MerchantUserRoleDto::getRole, role -> role));
+        MerchantUserRoleDto userRole = roleMap.get(userDto.getRole());
+        if (MerchantUserRoles.SUPER_ADMIN.name().equals(userRole.getRole())) {
+            log.info("User is a SUPER_ADMIN. Updating entityId for userId: {}", userDto.getId());
+            merchantEntityUserRepository.updateEntityIdForUser(userDto.getId(), entityId);
+        } else if (MerchantUserRoles.ADMIN.name().equals(userRole.getRole())) {
+            log.info("User is an ADMIN. Upgrading role and saving entityId for userId: {}", userDto.getId());
+            findOrSaveMerchantUser(userDto, entityId, roleMap.get(MerchantUserRoles.SUPER_ADMIN.name()));
+        }
+    }
+
+    @Transactional
+    public void findOrSaveMerchantUser(MerchantUserDto merchantUserDto, String entityId, MerchantUserRoleDto superAdminRole) {
+        MerchantUser merchantUser = mapper.mapMerchantUserDtoToEntity(merchantUserDto);
+        merchantUser.setRole(superAdminRole.getId());
+        merchantUser = merchantUserRepository.save(merchantUser);
+        merchantEntityUserRepository.deleteByUserId(merchantUser.getId());
+        MerchantEntityUser newEntityUser = MerchantEntityUser.builder().userId(merchantUser.getId()).entityId(entityId).mId(merchantEntityGroupRepository.findByEntityId(entityId).getMId()).build();
+        merchantEntityUserRepository.save(newEntityUser);
+        updateUserMenuPermission(merchantUser.getId(), superAdminRole.getId());
+    }
