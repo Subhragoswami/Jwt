@@ -1,10 +1,39 @@
+Caused by: java.lang.IllegalStateException: Failed to introspect Class [com.sbi.epay.notification.config.ThymeleafConfig] from ClassLoader [jdk.internal.loader.ClassLoaders$AppClassLoader@70dea4e]
 
-[ErrorDto(errorCode=1003, errorMessage=Login User is not found.)]
+//
+// Source code recreated from a .class file by IntelliJ IDEA
+// (powered by FernFlower decompiler)
+//
 
+package com.sbi.epay.notification.config;
 
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.spring5.SpringTemplateEngine;
+import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
+import org.thymeleaf.templateresolver.ITemplateResolver;
 
-t("ErrorDto(errorCode=%s, errorMessage=%s)", errorCode, errorMessage);
+@Configuration
+public class ThymeleafConfig {
+    public ThymeleafConfig() {
     }
 
-    // Default fallback
-    return "ErrorDto(errorCode=UNKNOWN, errorMessage=Unknown error occurred)";
+    @Bean
+    public TemplateEngine templateEngine() {
+        SpringTemplateEngine templateEngine = new SpringTemplateEngine();
+        templateEngine.setTemplateResolver(this.templateResolver());
+        return templateEngine;
+    }
+
+    @Bean
+    public ITemplateResolver templateResolver() {
+        ClassLoaderTemplateResolver resolver = new ClassLoaderTemplateResolver();
+        resolver.setPrefix("templates/");
+        resolver.setSuffix(".html");
+        resolver.setTemplateMode("HTML");
+        resolver.setCharacterEncoding("UTF-8");
+        resolver.setCacheable(false);
+        return resolver;
+    }
+}
