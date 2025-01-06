@@ -1,59 +1,351 @@
-  public void updateUserRole(MerchantUserDto userDto, String entityId) {
-        List<MerchantUserRoleDto> merchantUserRoles = merchantUserRoleDao.getMerchantUserRoles();
-        MerchantUserRoleDto merchantUserRole = merchantUserRoles.stream().filter(role -> role.getId().equals(userDto.getRole())).findFirst().get();
-        if (MerchantUserRoles.SUPER_ADMIN.name().equals(merchantUserRole.getRole())) {
-            log.info("User is a SUPER_ADMIN. Updating entityId for userId: {}", userDto.getId());
-            merchantEntityUserRepository.updateEntityIdForUser(userDto.getId(), entityId);
-        } else if (MerchantUserRoles.ADMIN.name().equals(merchantUserRole.getRole())) {
-            log.info("User is an ADMIN. Upgrading role and saving entityId for userId: {}", userDto.getId());
-            findOrSaveMerchantUser(userDto, entityId, merchantUserRoles);
+package com.epay.merchant.dao;
+
+import com.epay.merchant.config.MerchantConfig;
+import com.epay.merchant.dto.MerchantUserDto;
+import com.epay.merchant.dto.OtpGenerationDto;
+import com.epay.merchant.entity.MerchantUser;
+import com.epay.merchant.entity.NotificationManagement;
+import com.epay.merchant.repository.NotificationManagementRepository;
+import com.epay.merchant.util.enums.KeyType;
+import com.epay.merchant.util.enums.NotificationEntityType;
+import com.epay.merchant.util.enums.NotificationType;
+import com.epay.merchant.util.enums.RequestType;
+import com.sbi.epay.notification.model.EmailDTO;
+import com.sbi.epay.notification.service.EmailService;
+import com.sbi.epay.notification.util.enums.EmailType;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+
+import java.util.UUID;
+
+@Component
+@RequiredArgsConstructor
+public class NotificationDao {
+
+    private final EmailService emailService;
+    private final NotificationManagementRepository notificationManagementRepository;
+    private final MerchantConfig merchantConfig;
+
+    private final MerchantUserDao merchantUserDao;
+
+
+    public void saveOtpGenerationNotification(OtpGenerationDto otpGenerationDto, String content, int status, NotificationType notificationType) {
+        NotificationManagement notificationMgmt = NotificationManagement.builder().notificationType(notificationType).entityName(NotificationEntityType.OTP_MANAGEMENT).entityId(otpGenerationDto.getId()).requestType(otpGenerationDto.getRequestType().getName()).content(content).status(status).build();
+        sendNotificationRequest(notificationType, merchantUserDao.findEmailByUserNameOrMobilePhoneOrEmail(otpGenerationDto.getUserName()), content, "OTP");
+        notificationManagementRepository.save(notificationMgmt);
+    }
+
+    public void saveKeyGenerationNotification(KeyType keyType, UUID entityId, String content, int status, NotificationType notificationType, String userName) {
+        NotificationManagement notificationMgmt = NotificationManagement.builder().notificationType(notificationType).entityName(NotificationEntityType.KEY_MANAGEMENT).entityId(entityId).requestType(keyType.name()).content(content).status(status).build();
+        sendNotificationRequest(notificationType, merchantUserDao.findEmailByUserNameOrMobilePhoneOrEmail(userName), content, "OTP");
+        notificationManagementRepository.save(notificationMgmt);
+    }
+
+    public void sendUserCreationNotification(UUID entityId, String content, int status, NotificationType notificationType, String email) {
+        NotificationManagement notificationMgmt = NotificationManagement.builder()
+                .notificationType(notificationType)
+                .entityName(NotificationEntityType.MERCHANT_USER)
+                .entityId(entityId)
+                .requestType("UserCreation")
+                .content(content).status(status).build();
+        sendNotificationRequest(notificationType, email, content, "User Creation");
+        notificationManagementRepository.save(notificationMgmt);
+    }
+    public void sendPasswordNotification(RequestType requestType, UUID entityId, String content, int status, NotificationType notificationType, String userName) {
+        NotificationManagement notificationMgmt = NotificationManagement.builder()
+                .notificationType(notificationType)
+                .entityName(NotificationEntityType.PASSWORD_MANAGEMENT)
+                .entityId(entityId)
+                .requestType(requestType.getName())
+                .content(content).status(status).build();
+        sendNotificationRequest(notificationType, merchantUserDao.findEmailByUserNameOrMobilePhoneOrEmail(userName), content, "Password Modification");
+        notificationManagementRepository.save(notificationMgmt);
+    }
+
+    private void sendNotificationRequest(NotificationType notificationType, String UserEmail, String content, String subject) {
+        switch (notificationType) {
+            case SMS -> sendSMS();
+            case EMAIL -> sendEmail(UserEmail, content, subject);
+            case BOTH -> {
+                sendSMS();
+                sendEmail(UserEmail, content, subject);
+            }
         }
     }
 
-    @Transactional
-    public void findOrSaveMerchantUser(MerchantUserDto merchantUserDto, String entityId, List<MerchantUserRoleDto> merchantUserRoles) {
-        MerchantUser merchantUser = mapper.mapMerchantUserDtoToEntity(merchantUserDto);
-        MerchantUserRoleDto merchantUserRole = merchantUserRoles.stream().filter(role -> role.getRole().equals(MerchantUserRoles.SUPER_ADMIN.name())).findFirst().get();
-        merchantUser.setRole(merchantUserRole.getId());
-        merchantUser = merchantUserRepository.save(merchantUser);
-        merchantEntityUserRepository.deleteByUserId(merchantUser.getId());
-        MerchantEntityUser newEntityUser = MerchantEntityUser.builder().userId(merchantUser.getId()).entityId(entityId).mId(merchantEntityGroupRepository.findByEntityId(entityId).getMId()).build();
-        merchantEntityUserRepository.save(newEntityUser);
-        updateUserMenuPermission(merchantUser.getId(), merchantUserRole.getId());
+    /**
+     * Sending onboarding email.
+     */
+    private void sendEmail(String UserEmail, String content, String subject) {
+        //TODO: Send email Notification
+        EmailDTO emailDTO = new EmailDTO();
+        emailDTO.setRecipient(UserEmail);
+        emailDTO.setSubject(subject);
+        emailDTO.setFrom(merchantConfig.getFrom());
+        //emailDTO.setCc();
+        emailDTO.setBody(content);
+        emailDTO.setEmailType(EmailType.CUSTOMER);
+
+        emailService.sendEmail(emailDTO);
+    }
+    /**
+     * Sending onboarding SMS.
+     */
+    private void sendSMS() {
+        //TODO: Send SMS Notification
+    }
+}
+
+
+--------------------------------------------
+
+
+
+
+ public void saveNotification(KeyType keyType, UUID entityId, String content, int status, NotificationType notificationType, String userName) {
+        notificationDao.saveKeyGenerationNotification(keyType, entityId, content, status, notificationType, userName);
     }
 
-  public List<MerchantUserRoleDto> getMerchantUserRoles() {
-        List<MerchantUserRole> merchantUserRoles = merchantUserRoleRepository.findAll();
-        return mapper.mapMerchantUserRoleListEntityToListDto(merchantUserRoles);
+
+--------------------------------------------
+
+
+
+
+package com.epay.merchant.service;
+
+import com.epay.merchant.dao.KeyDao;
+import com.epay.merchant.document.pdf.APIKeyPDFBuilder;
+import com.epay.merchant.document.pdf.EncryptionKeyPDFBuilder;
+import com.epay.merchant.document.pdf.PDFService;
+import com.epay.merchant.exception.MerchantException;
+import com.epay.merchant.externalservice.response.KMSAPIKeysResponse;
+import com.epay.merchant.externalservice.response.KMSEncryptionKeysResponse;
+import com.epay.merchant.externalservice.response.KMSKeyResponse;
+import com.epay.merchant.model.request.APIKeyValidationRequest;
+import com.epay.merchant.model.request.KeyGenerationRequest;
+import com.epay.merchant.model.response.MerchantResponse;
+import com.epay.merchant.util.ErrorConstants;
+import com.epay.merchant.util.MerchantConstant;
+import com.epay.merchant.util.PasswordGenerator;
+import com.epay.merchant.util.enums.KeyType;
+import com.epay.merchant.util.enums.NotificationType;
+import com.epay.merchant.validator.KeyValidator;
+import com.sbi.epay.logging.utility.LoggerFactoryUtility;
+import com.sbi.epay.logging.utility.LoggerUtility;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.stereotype.Service;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.text.MessageFormat;
+import java.util.Arrays;
+
+
+/**
+ * Class Name: MerchantService
+ * *
+ * Description:
+ * *
+ * Author: V1017903(bhushan wadekar)
+ * <p>
+ * Copyright (c) 2024 [State Bank of India]
+ * All rights reserved
+ * *
+ * Version:1.0
+ */
+
+@Service
+@RequiredArgsConstructor
+public class KeyService {
+
+    private static final LoggerUtility logger = LoggerFactoryUtility.getLogger(KeyService.class);
+    private final KeyValidator keyValidator;
+    private final KeyDao keyDao;
+    private final PasswordGenerator passwordGenerator;
+
+    public void generateKey(KeyType type, KeyGenerationRequest keyGenerationRequest, HttpServletResponse response) {
+        ByteArrayOutputStream pdfStream;
+        // Step 1 : Validate the KMSKeyGenerationRequest
+        keyValidator.validateKeyGenerationRequest(keyGenerationRequest);
+        switch (type) {
+            case API -> pdfStream = apiKeyGeneration(keyGenerationRequest);
+            case ENCRYPTION -> pdfStream = encryptionKeyGeneration(keyGenerationRequest);
+            default ->
+                    throw new MerchantException(ErrorConstants.INVALID_ERROR_CODE, MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "KeyType", "Valid Key Type are " + Arrays.toString(KeyType.values())));
+        }
+        fileResponse(type, keyGenerationRequest, response, pdfStream);
     }
 
---------------------------------------
+    public MerchantResponse<String> validatedAPIKey(APIKeyValidationRequest apiKeyValidationRequest) {
+        keyValidator.validateAPIKeyValidationRequest(apiKeyValidationRequest);
+        return keyDao.validatedAPIKey(apiKeyValidationRequest);
+    }
 
+    public MerchantResponse<KMSEncryptionKeysResponse> getMerchantEncryptionKeys(String mId) {
+        keyValidator.validateMId(mId);
+        return keyDao.getMerchantEncryptionKeys(mId);
+    }
 
+    private ByteArrayOutputStream encryptionKeyGeneration(KeyGenerationRequest keyGenerationRequest) {
+        // Step 2 : Call the KMS APIs
+        KMSEncryptionKeysResponse kmsEncryptionKeysResponse = keyDao.generateEncryptionKey(keyGenerationRequest);
+        // Step 3 : Generate the Password-protected PDF File
+        String password = passwordGenerator.generatePassword();
+        ByteArrayOutputStream byteArrayOutputStream = PDFService.generatePDF(new EncryptionKeyPDFBuilder(), kmsEncryptionKeysResponse.getMek(), password);
+        // Step 4 : Send Notification to Merchant
+        // TODO : Send Notification over Email to Merchant
+        keyDao.saveNotification(KeyType.ENCRYPTION, kmsEncryptionKeysResponse.getId(), "Encryption Key PDF file Password is :" + password, MerchantConstant.RESPONSE_SUCCESS, NotificationType.EMAIL);
+        return byteArrayOutputStream;
+    }
 
+    private ByteArrayOutputStream apiKeyGeneration(KeyGenerationRequest keyGenerationRequest) {
+        // Step 2 : Call the KMS APIs
+        KMSAPIKeysResponse kmsapiKeysResponse = keyDao.generateApiKey(keyGenerationRequest.getMId());
+        // Step 3 : Generate the Password-protected PDF File
+        String password = passwordGenerator.generatePassword();
+        ByteArrayOutputStream byteArrayOutputStream = PDFService.generatePDF(new APIKeyPDFBuilder(), kmsapiKeysResponse, password);
+        // Step 4 : Send Notification to Merchant
+        // TODO : Send Notification over Email to Merchant
+        keyDao.saveNotification(KeyType.API, kmsapiKeysResponse.getId(), "API Key PDF File Password is :" + password, MerchantConstant.RESPONSE_SUCCESS, NotificationType.EMAIL);
+        return byteArrayOutputStream;
+    }
 
-public void updateUserRole(MerchantUserDto userDto, String entityId) {
+    public MerchantResponse<KMSKeyResponse> getKeysByMerchant(KeyType keyType, String mId, Pageable pageable) {
+        return keyDao.getKeysByMerchant(keyType, mId, pageable);
+    }
 
-        Map<String, MerchantUserRoleDto> roleMap = merchantUserRoleDao.getMerchantUserRoles()
-                .stream()
-                .collect(Collectors.toMap(MerchantUserRoleDto::getRole, role -> role));
-        MerchantUserRoleDto userRole = roleMap.get(userDto.getRole());
-        if (MerchantUserRoles.SUPER_ADMIN.name().equals(userRole.getRole())) {
-            log.info("User is a SUPER_ADMIN. Updating entityId for userId: {}", userDto.getId());
-            merchantEntityUserRepository.updateEntityIdForUser(userDto.getId(), entityId);
-        } else if (MerchantUserRoles.ADMIN.name().equals(userRole.getRole())) {
-            log.info("User is an ADMIN. Upgrading role and saving entityId for userId: {}", userDto.getId());
-            findOrSaveMerchantUser(userDto, entityId, roleMap.get(MerchantUserRoles.SUPER_ADMIN.name()));
+    private void fileResponse(KeyType type, KeyGenerationRequest keyGenerationRequest, HttpServletResponse response, ByteArrayOutputStream pdfStream) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            ContentDisposition contentDisposition = ContentDisposition.attachment().filename(type.name() + "_" + keyGenerationRequest.getMId() + "_" + System.currentTimeMillis() + ".pdf").build();
+            headers.setContentDisposition(contentDisposition);
+            response.setContentType(MediaType.APPLICATION_PDF_VALUE);
+            response.setHeader(HttpHeaders.CONTENT_DISPOSITION, headers.getFirst(HttpHeaders.CONTENT_DISPOSITION));
+            response.getOutputStream().write(pdfStream.toByteArray());
+            response.getOutputStream().flush();
+        } catch (IOException e) {
+            logger.error("Error in PDF File Generation ", e);
+            throw new MerchantException(ErrorConstants.GENERATION_ERROR_CODE, MessageFormat.format(ErrorConstants.GENERATION_ERROR_MESSAGE, type.name() + "Key"));
         }
     }
 
-    @Transactional
-    public void findOrSaveMerchantUser(MerchantUserDto merchantUserDto, String entityId, MerchantUserRoleDto superAdminRole) {
-        MerchantUser merchantUser = mapper.mapMerchantUserDtoToEntity(merchantUserDto);
-        merchantUser.setRole(superAdminRole.getId());
-        merchantUser = merchantUserRepository.save(merchantUser);
-        merchantEntityUserRepository.deleteByUserId(merchantUser.getId());
-        MerchantEntityUser newEntityUser = MerchantEntityUser.builder().userId(merchantUser.getId()).entityId(entityId).mId(merchantEntityGroupRepository.findByEntityId(entityId).getMId()).build();
-        merchantEntityUserRepository.save(newEntityUser);
-        updateUserMenuPermission(merchantUser.getId(), superAdminRole.getId());
+}
+
+
+
+
+
+
+----------------------------------------
+
+
+
+
+
+    public String findEmailByUserNameOrMobilePhoneOrEmail(String userName){
+        return merchantUserRepository.findEmailByUserNameOrMobilePhoneOrEmail(userName, userName, userName);
     }
+
+
+
+
+
+
+------------------------------
+
+
+
+
+    String findEmailByUserNameOrMobilePhoneOrEmail(String userName, String mobilePhone, String email);
+
+
+
+
+---------------------------------------
+
+
+
+
+package com.epay.merchant.dao;
+
+import com.epay.merchant.dto.MerchantUserDto;
+import com.epay.merchant.entity.PasswordManagement;
+import com.epay.merchant.repository.PasswordManagementRepository;
+import com.epay.merchant.util.MerchantConstant;
+import com.epay.merchant.util.enums.*;
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.UUID;
+
+import static com.epay.merchant.util.EncryptionDecryptionUtil.*;
+
+/**
+ * Class Name: PasswordManagementDao
+ * *
+ * Description:
+ * *
+ * Author: Subhra Goswami
+ * <p>
+ * Copyright (c) 2024 [State Bank of India]
+ * All rights reserved
+ * *
+ * Version:1.0
+ */
+@Repository
+@RequiredArgsConstructor
+public class PasswordManagementDao {
+    private final MerchantUserDao merchantUserDao;
+    private final PasswordManagementRepository passwordManagementRepository;
+    private final NotificationDao notificationDao;
+
+    public MerchantUserDto findByUserNameOrEmailOrMobilePhoneAndStatus(String userName, UserStatus userStatus) {
+        return merchantUserDao.getByUserNameOrEmailOrMobilePhoneAndStatus(userName, userName, userName, userStatus);
+    }
+
+    public List<PasswordManagement> findLastPasswordsByUserId(UUID userId) {
+        return passwordManagementRepository.findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(0, 5));
+    }
+
+    @Transactional
+    public void updatePasswordDetails(String userName, String newPassword, UserStatus userStatus, RequestType requestType) {
+        // Step 1 : Prepare the Password Hash value
+        String passwordHash = hashValue(newPassword);
+
+        // Step 2 : Update the Merchant User with Password Information
+        MerchantUserDto merchantUser = merchantUserDao.updateMerchantUserForPassword(userName, passwordHash, userStatus);
+
+        // Step 3 : Update previous Password status in Password Management
+        updatePreviousPasswordStatus(merchantUser.getId());
+
+        // Step 4 : Save new Password information in Password Management
+        PasswordManagement passwordManagement = saveUpdatesPasswordDetails(merchantUser.getId(), passwordHash);
+
+        // Step 5 : Send Notification to user for Password Update
+        sendNotification(requestType, passwordManagement.getId(), "Password has been modified successfully, New Password is " + newPassword, MerchantConstant.RESPONSE_SUCCESS, NotificationType.EMAIL, userName);
+    }
+
+    private void updatePreviousPasswordStatus(UUID userId) {
+        List<PasswordManagement> passwordList = passwordManagementRepository.findByUserIdAndStatus(userId, PasswordStatusType.COMPLETED);
+        passwordList.forEach(passwordManagement -> passwordManagement.setStatus(PasswordStatusType.INACTIVE));
+        passwordManagementRepository.saveAll(passwordList);
+    }
+
+    private PasswordManagement saveUpdatesPasswordDetails(UUID userId, String password) {
+        return passwordManagementRepository.save(PasswordManagement.builder().userId(userId).status(PasswordStatusType.COMPLETED).previousPassword(password).requestType(PasswordManagementType.CHANGE_PASSWORD).build());
+    }
+
+    private void sendNotification(RequestType requestType, UUID entityId, String content, int status, NotificationType notificationType, String userName) {
+        notificationDao.sendPasswordNotification(requestType, entityId, content, status, notificationType, userName);
+    }
+
+}
