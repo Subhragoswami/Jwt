@@ -1,0 +1,24 @@
+<html>
+<head>
+<style>
+</style>
+</head>
+<body>
+<br/>
+Dear {First Name},
+<br/></br>
+Thank You for choosing {aggId}, secure and convenient Payment Gateway Service.
+<br/>
+You had chosen change password option for your account associated with Merchant ID: {MID} and Login ID: {Login ID}.Your OTP for accessing your {aggId} account is as given below:
+<br/><br/>
+OTP - {generatedOTP}
+<br/><br/>
+In case of any queries, please feel free to contact us. 
+<br/><br/>
+Regards
+<br/>
+{aggId} Team
+<br/><br/>
+<b>Note - This is an auto generated email and you need not reply to this.</b>
+</body>
+</html>
