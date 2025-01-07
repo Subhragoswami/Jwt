@@ -1,99 +1,14 @@
-package com.epay.merchant.entity;
+ @Value("${email.recipient}")
+    private String recipient;
 
-import jakarta.persistence.*;
-import lombok.Data;
-
-import java.util.UUID;
-/**
- * Class Name: UserRole
- * *
- * Description:
- * *
- * Author: Bhoopendra Rajput
- * <p>
- * Copyright (c) 2024 [State Bank of India]
- * All rights reserved
- * *
- * Version:1.0
- */
-@Data
-@Entity
-@Table(name = "USER_ROLES")
-public class MerchantUserRole {
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "ID", nullable = false, updatable = false, unique = true)
-    private UUID id;
-
-    @Column(nullable = false)
-    private String role;
-
-    private String description;
-}
-
-
-package com.epay.merchant.entity;
-
-import com.epay.merchant.util.enums.UserStatus;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import jakarta.persistence.*;
-import lombok.*;
-
-import java.util.UUID;
-
-/**
- * Class Name: MerchantUser
- * *
- * Description:
- * *
- * Author: Bhoopendra Rajput
- * <p>
- * Copyright (c) 2024 [State Bank of India]
- * All rights reserved
- * *
- * Version:1.0
- */
-@EqualsAndHashCode(callSuper = true)
-@Getter
-@Setter
-@Builder
-@Entity
-@Table(name = "MERCHANT_USER")
-@NoArgsConstructor
-@AllArgsConstructor
-@JsonIgnoreProperties(ignoreUnknown = true)
-public class MerchantUser extends AuditEntity {
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(nullable = false, updatable = false, unique = true)
-    private UUID id;
-    @Version
-    private int version;
-
-    @Column(name = "PARENT_USERID")
-    private UUID parentUserId;
-
-    private String userName;
-    private String firstName;
-    private String middleName;
-    private String lastName;
-    private String email;
-    private String primaryPhone;
-    private String secondaryPhone;
-    private String mobilePhone;
-    private String officePhone;
-    private String countryCode;
-    private String stateCode;
-    private String pinCode;
-    private String city;
-    @Column(name = "ROLE_ID")
-    private UUID role;
-    @Enumerated(EnumType.STRING)
-    private UserStatus status;
-    private String password;
-    private Long lastPasswordChange;
-    private Long passwordExpiryTime;
-    private int loginFailAttempt;
-    private Long lastSuccessLogin;
-    private Long lastFailLogin;
-}
+   @Async
+    private void sendEmail(String UserEmail, String content, String subject) {
+        EmailDTO emailDTO = new EmailDTO();
+        emailDTO.setRecipient(merchantConfig.getRecipient());
+        emailDTO.setCc(UserEmail);
+        emailDTO.setSubject(subject);
+        emailDTO.setFrom(merchantConfig.getFrom());
+        emailDTO.setBody(content);
+        emailDTO.setEmailType(EmailType.CUSTOMER);
+        emailService.sendEmail(emailDTO);
+    }
