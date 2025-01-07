@@ -22,3 +22,36 @@ Regards
 <b>Note - This is an auto generated email and you need not reply to this.</b>
 </body>
 </html>
+
+
+
+
+
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <style>
+        /* Add any necessary styles here */
+    </style>
+</head>
+<body>
+    <br/>
+    Dear <span th:text="${firstName}">First Name</span>,
+    <br/><br/>
+    Thank You for choosing <span th:text="${aggId}">aggId</span>, secure and convenient Payment Gateway Service.
+    <br/>
+    You had chosen the change password option for your account associated with Merchant ID: 
+    <span th:text="${mid}">MID</span> and Login ID: 
+    <span th:text="${loginId}">Login ID</span>. Your OTP for accessing your <span th:text="${aggId}">aggId</span> account is as given below:
+    <br/><br/>
+    OTP - <span th:text="${generatedOTP}">generatedOTP</span>
+    <br/><br/>
+    In case of any queries, please feel free to contact us. 
+    <br/><br/>
+    Regards
+    <br/>
+    <span th:text="${aggId}">aggId</span> Team
+    <br/><br/>
+    <b>Note - This is an auto-generated email, and you need not reply to this.</b>
+</body>
+</html>
