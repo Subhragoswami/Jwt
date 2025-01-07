@@ -69,3 +69,33 @@ public class AsyncConfig {
         return executor;
     }
 }
+
+
+
+import java.util.concurrent.CompletableFuture;
+
+public CompletableFuture<Void> sendEmail(String userEmail, String content, String subject) {
+    return CompletableFuture.runAsync(() -> {
+        try {
+            System.out.println("Starting email task for " + userEmail);
+
+            EmailDTO emailDTO = new EmailDTO();
+            if (!merchantConfig.getRecipient().isEmpty()) {
+                emailDTO.setRecipient(merchantConfig.getRecipient());
+                emailDTO.setCc(userEmail);
+            } else {
+                emailDTO.setRecipient(userEmail);
+            }
+            emailDTO.setSubject(subject);
+            emailDTO.setFrom(merchantConfig.getFrom());
+            emailDTO.setBody(content);
+            emailDTO.setEmailType(EmailType.CUSTOMER);
+            
+            emailService.sendEmail(emailDTO);
+
+            System.out.println("Email task completed for " + userEmail);
+        } catch (Exception e) {
+            System.err.println("Error sending email to " + userEmail + ": " + e.getMessage());
+        }
+    });
+}
