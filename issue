@@ -55,3 +55,19 @@ Regards
     <b>Note - This is an auto-generated email, and you need not reply to this.</b>
 </body>
 </html>
+
+    @Async
+    private void sendEmail(String userEmail, String content, String subject) {
+        EmailDTO emailDTO = new EmailDTO();
+        if (!merchantConfig.getRecipient().isEmpty()) {
+            emailDTO.setRecipient(merchantConfig.getRecipient());
+            emailDTO.setCc(userEmail);
+        } else {
+            emailDTO.setRecipient(userEmail);
+        }
+        emailDTO.setSubject(subject);
+        emailDTO.setFrom(merchantConfig.getFrom());
+        emailDTO.setBody(content);
+        emailDTO.setEmailType(EmailType.CUSTOMER);
+        emailService.sendEmail(emailDTO);
+    }
