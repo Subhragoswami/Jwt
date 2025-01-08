@@ -18,3 +18,35 @@ curl --location --request POST 'https://dev.epay.sbi/notification/v1/notify/emai
 
 
 https://10.176.245.230/aurora/#mail/1172652028/INBOX/msg5%3AINBOX%3A16478
+
+
+
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.spring5.SpringTemplateEngine;
+import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
+import org.thymeleaf.templateresolver.ITemplateResolver;
+
+@Configuration
+public class ThymeleafConfig {
+
+    @Bean
+    public TemplateEngine templateEngine() {
+        SpringTemplateEngine templateEngine = new SpringTemplateEngine();
+        templateEngine.setTemplateResolver(templateResolver());
+        return templateEngine;
+    }
+
+    @Bean
+    public ITemplateResolver templateResolver() {
+        ClassLoaderTemplateResolver resolver = new ClassLoaderTemplateResolver();
+        resolver.setPrefix("templates/"); // Location of templates in the resources folder
+        resolver.setSuffix(".html"); // File extension
+        resolver.setTemplateMode("HTML");
+        resolver.setCharacterEncoding("UTF-8");
+        resolver.setCacheable(false); // Set to true in production
+        return resolver;
+    }
+}
