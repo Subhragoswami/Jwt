@@ -1,101 +1,17 @@
- Caused by: java.lang.IllegalStateException: Failed to introspect Class [com.sbi.epay.notification.config.ThymeleafConfig] from ClassLoader [jdk.internal.loader.ClassLoaders$AppClassLoader@70dea4e]
+***************************
+APPLICATION FAILED TO START
+***************************
 
-//
-// Source code recreated from a .class file by IntelliJ IDEA
-// (powered by FernFlower decompiler)
-//
+Description:
 
-package com.sbi.epay.notification.config;
-
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.thymeleaf.TemplateEngine;
-import org.thymeleaf.spring5.SpringTemplateEngine;
-import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
-import org.thymeleaf.templateresolver.ITemplateResolver;
-
-@Configuration
-public class ThymeleafConfig {
-    public ThymeleafConfig() {
-    }
-
-    @Bean
-    public TemplateEngine templateEngine() {
-        SpringTemplateEngine templateEngine = new SpringTemplateEngine();
-        templateEngine.setTemplateResolver(this.templateResolver());
-        return templateEngine;
-    }
-
-    @Bean
-    public ITemplateResolver templateResolver() {
-        ClassLoaderTemplateResolver resolver = new ClassLoaderTemplateResolver();
-        resolver.setPrefix("templates/");
-        resolver.setSuffix(".html");
-        resolver.setTemplateMode("HTML");
-        resolver.setCharacterEncoding("UTF-8");
-        resolver.setCacheable(false);
-        return resolver;
-    }
-}
+Parameter 0 of constructor in com.sbi.epay.notification.service.EmailTemplateService required a bean of type 'org.thymeleaf.TemplateEngine' that could not be found.
 
 
+Action:
+
+Consider defining a bean of type 'org.thymeleaf.TemplateEngine' in your configuration.
 
 
-
-
-
-
-
-
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.scheduling.annotation.EnableAsync;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
-
-import java.util.concurrent.Executor;
-
-@Configuration
-@EnableAsync
-public class AsyncConfig {
-
-    @Bean(name = "taskExecutor")
-    public Executor taskExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(5);
-        executor.setMaxPoolSize(10);
-        executor.setQueueCapacity(25);
-        executor.setThreadNamePrefix("AsyncThread-");
-        executor.initialize();
-        return executor;
-    }
-}
-
-
-
-import java.util.concurrent.CompletableFuture;
-
-public CompletableFuture<Void> sendEmail(String userEmail, String content, String subject) {
-    return CompletableFuture.runAsync(() -> {
-        try {
-            System.out.println("Starting email task for " + userEmail);
-
-            EmailDTO emailDTO = new EmailDTO();
-            if (!merchantConfig.getRecipient().isEmpty()) {
-                emailDTO.setRecipient(merchantConfig.getRecipient());
-                emailDTO.setCc(userEmail);
-            } else {
-                emailDTO.setRecipient(userEmail);
-            }
-            emailDTO.setSubject(subject);
-            emailDTO.setFrom(merchantConfig.getFrom());
-            emailDTO.setBody(content);
-            emailDTO.setEmailType(EmailType.CUSTOMER);
-            
-            emailService.sendEmail(emailDTO);
-
-            System.out.println("Email task completed for " + userEmail);
-        } catch (Exception e) {
-            System.err.println("Error sending email to " + userEmail + ": " + e.getMessage());
-        }
-    });
-}
+BUILD SUCCESSFUL in 16s
+3 actionable tasks: 1 executed, 2 up-to-date
+15:28:42: Execution finished ':com.epay.merchant.EpayMerchantServiceApplication.main()'.
