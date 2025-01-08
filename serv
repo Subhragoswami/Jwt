@@ -1,66 +1,159 @@
+@Service
+@RequiredArgsConstructor
+public class EmailService {
+    private final EmailClient emailClient;
+    LoggerUtility logger = LoggerFactoryUtility.getLogger(EmailService.class);
 
-    private String generateEmailTemplateForOtp(MerchantUser merchantUser, String otp){
-        Context context = new Context();
-        context.setVariable("firstName", merchantUser.getFirstName());
-        context.setVariable("generatedOTP", otp);
-        return templateEngine.process("otp_generated", context);
+    /**
+     * This method that is used for validating emailDTO object and send email
+     *
+     * @param emailDTO object for validating and sending email
+     * @return boolean true or false
+     * @throws NotificationException if any exception occurs
+     */
+    public boolean sendEmail(EmailDTO emailDTO) throws NotificationException {
+        logger.info("ClassName - EmailService, MethodName -sendEmail - start");
+        EmailValidator.validateEMAIL(emailDTO);
+        logger.info("ClassName - EmailService, MethodName -sendEmail - end");
+        return emailClient.sendEmail(emailDTO);
     }
-    private String generateEmailTemplateForUser(String user){
-        Context context = new Context();
-        context.setVariable("name", user);
-        return templateEngine.process("otp_generated", context);
+}
+
+@Service
+@RequiredArgsConstructor
+public class EmailClient {
+    private final JavaMailSender javaMailSender;
+    private final EmailTemplateService emailTemplateService;
+    LoggerUtility logger = LoggerFactoryUtility.getLogger(EmailClient.class);
+
+    /**
+     * This method will be used for calling createMimeMessage and send method
+     *
+     * @param emailDTO object for calling createMimeMessage method
+     * @return true if email send successfully otherwise return false
+     * @throws NotificationException if any exception occur
+     */
+    public boolean sendEmail(EmailDTO emailDTO) throws NotificationException {
+        logger.info("ClassName - EmailClient,MethodName - sendEmail,Method-start");
+        try {
+            MimeMessage message = createMimeMessage(emailDTO);
+            javaMailSender.send(message);
+            return true;
+        } catch (MessagingException e) {
+            logger.info("ClassName - EmailClient,MethodName - sendEmail, inside catch" + e);
+            throw new NotificationException(NotificationConstant.FAILURE_CODE, MessageFormat.format(NotificationConstant.FAILURE_MSG, "EMail"));
+        }
     }
 
-<!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
-<head>
-    <style>
-        /* Add any necessary styles here */
-    </style>
-</head>
-<body>
-<br/>
-Dear <span th:text="${firstName}">First Name</span>,
-<br/><br/>
-Thank You for choosing <span th:text="${aggId}">aggId</span>, secure and convenient Payment Gateway Service.
-<br/>
-You had chosen the change password option for your account associated with Merchant ID:
-<span th:text="${mid}">MID</span> and Login ID:
-<span th:text="${loginId}">Login ID</span>. Your OTP for accessing your <span th:text="${aggId}">aggId</span> account is as given below:
-<br/><br/>
-OTP - <span th:text="${generatedOTP}">generatedOTP</span>
-<br/><br/>
-In case of any queries, please feel free to contact us.
-<br/><br/>
-Regards
-<br/>
-<span th:text="${aggId}">aggId</span> Team
-<br/><br/>
-<b>Note - This is an auto-generated email, and you need not reply to this.</b>
-</body>
-</html>
+    /**
+     * This method will be used for createMimeMessage
+     *
+     * @param emailDTO object for mimeMessage
+     * @return notification message
+     * @throws MessagingException if any exception occur
+     */
+    private MimeMessage createMimeMessage(EmailDTO emailDTO) throws MessagingException {
+        logger.info("ClassName - EmailClient,MethodName - createMimeMessage,Method-start");
+        MimeMessage message = javaMailSender.createMimeMessage();
+        setMimeMessageHelper(emailDTO, message);
+        logger.info("ClassName - EmailClient,MethodName - createMimeMessage,Method-end");
+        return message;
+    }
+
+    /**
+     * This method will be used for set email details into MimeMessageHelper
+     *
+     * @param emailDTO for set parameter into MimeMessageHelper
+     * @param message
+     * @throws MessagingException
+     */
+    private void setMimeMessageHelper(EmailDTO emailDTO, MimeMessage message) throws MessagingException {
+        logger.info("ClassName - EmailClient,MethodName - setMimeMessageHelper,Method-start");
+        MimeMessageHelper helper = new MimeMessageHelper(message, true);
+        helper.setFrom(emailDTO.getFrom());
+        helper.setTo(emailDTO.getRecipient());
+        helper.setSubject(emailDTO.getSubject());
+        String emailContent = emailTemplateService.generateEmailBody(emailTemplateService.getEmailTemplateName(emailDTO.getEmailType()), emailDTO.getBody());
+        helper.setText(emailContent, true); // true indicates HTML content
+        if (StringUtils.isNotEmpty(emailDTO.getCc())) {
+            helper.setCc(emailDTO.getCc());
+        }
+        if (StringUtils.isNotEmpty(emailDTO.getBcc())) {
+            helper.setBcc(emailDTO.getBcc());
+        }
+        logger.info("ClassName - EmailClient,MethodName - setMimeMessageHelper,Method-end");
+    }
+
+}
+
+ public String getEmailTemplateName(EmailType type) {
+        logger.info("ClassName - EmailTemplateService,MethodName - getEmailTemplateName, Method-start");
+        return switch (type) {
+            case CUSTOMER -> NotificationConstant.CUSTOMER_TEMPLATE;
+            case ORDER -> NotificationConstant.ORDER_TEMPLATE;
+            default -> StringUtils.EMPTY;
+        };
+
+    }
+
+    /**
+     * This Method to generate email body using template name and content
+     *
+     * @param templateName contain name of template
+     * @param fieldValues      contain data we are set into template
+     * @return emailbody
+     */
+    public String generateEmailBody(String templateName, Map<String, Object> fieldValues) {
+        logger.info("ClassName - EmailTemplateService,MethodName - generateEmailBody, method-start");
+        Context context = new Context();
+        for (Map.Entry<String, Object> entry : fieldValues.entrySet()) {
+            context.setVariable(entry.getKey(), entry.getValue());
+        }
+        logger.info("ClassName - EmailTemplateService,MethodName - generateEmailBody, method-end");
+        return templateEngine.process(templateName, context);
+    }
+
+package com.sbi.epay.notification.util.enums;
+
+public enum EmailType {
+    CUSTOMER, ORDER, TRANSACTION
 
 
-<!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
-<head>
-    <style>
-        /* Add any necessary styles here */
-    </style>
-</head>
-<body>
-<br/>
-Dear <span th:text="${user}">First Name</span>,
-<br/><br/>
-Thank You for choosing <span th:text="${aggId}">aggId</span>, secure and convenient Payment Gateway Service.
-<br/>
- <span th:text="${aggId}">aggId</span> account is as given below:
-In case of any queries, please feel free to contact us.
-<br/><br/>
-Regards
-<br/>
-<span th:text="${aggId}">aggId</span> Team
-<br/><br/>
-<b>Note - This is an auto-generated email, and you need not reply to this.</b>
-</body>
-</html>
+}
+
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class EmailDTO {
+    private String recipient;
+    private String subject;
+    private String from;
+    private String cc;
+    private String bcc;
+    private Map<String, Object> body;
+    private EmailType emailType;
+
+}
+
+
+ public CompletableFuture<Void> sendEmail(String userEmail, String content, String subject) {
+        return CompletableFuture.runAsync(() -> {
+                EmailDTO emailDTO = new EmailDTO();
+                if (!merchantConfig.getRecipient().isEmpty()) {
+                    emailDTO.setRecipient(merchantConfig.getRecipient());
+                    emailDTO.setCc(userEmail);
+                } else {
+                    emailDTO.setRecipient(userEmail);
+                }
+                emailDTO.setSubject(subject);
+                emailDTO.setFrom(merchantConfig.getFrom());
+                emailDTO.setBody(content);
+                emailDTO.setEmailType(EmailType.CUSTOMER);
+
+                emailService.sendEmail(emailDTO);
+        });
+    }
+
+
+
