@@ -15,3 +15,28 @@ Consider defining a bean of type 'org.thymeleaf.TemplateEngine' in your configur
 BUILD SUCCESSFUL in 16s
 3 actionable tasks: 1 executed, 2 up-to-date
 15:28:42: Execution finished ':com.epay.merchant.EpayMerchantServiceApplication.main()'.
+
+
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <style>
+        /* Add any necessary styles here */
+    </style>
+</head>
+<body>
+<br/>
+Dear <span th:text="${user}">First Name</span>,
+<br/><br/>
+Thank You for choosing <span th:text="${aggId}">aggId</span>, secure and convenient Payment Gateway Service.
+<br/>
+<span th:text="${aggId}">aggId</span> account is as given below:
+In case of any queries, please feel free to contact us.
+<br/><br/>
+Regards
+<br/>
+<span th:text="${aggId}">aggId</span> Team
+<br/><br/>
+<b>Note - This is an auto-generated email, and you need not reply to this.</b>
+</body>
+</html>
