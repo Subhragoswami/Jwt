@@ -1,4 +1,4 @@
-package com.epay.reporting.repositroy.view;
+I package com.epay.reporting.repositroy.view;
 
 import com.epay.reporting.entity.view.TransactionDailyReport;
 import com.epay.reporting.util.enums.Frequency;
@@ -67,4 +67,45 @@ public class TransactionPaymodeQueries {
             "successPercentage FROM view_transaction_paymode_daily_report WHERE MID = 1000834 AND " +
             "PAYMODE_CODE is NOT NULL AND TRANSACTION_DATE BETWEEN TO_DATE('1-01-2025', 'DD-MM-YYYY') AND " +
             "TO_DATE('31-01-2025', 'DD-MM-YYYY') GROUP BY TO_CHAR(TO_DATE(TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY'),paymode_code";
+}
+
+
+
+
+
+
+
+
+
+@Repository
+@RequiredArgsConstructor
+public class TransactionPayModeDailyRepository {
+
+    private final NamedParameterJdbcTemplate namedParameterJdbcTemplate;
+
+    public List<TransactionPaymodeReport> getPayModeReport(String mid, TransactionPayModeRequest transactionPayModeRequest) {
+        // Define parameters to be passed to the query
+        MapSqlParameterSource parameters = new MapSqlParameterSource();
+        parameters.addValue("mid", mid);
+        parameters.addValue("startDate", transactionPayModeRequest.getStartDate());
+        parameters.addValue("endDate", transactionPayModeRequest.getEndDate());
+
+        // Execute query and map results to TransactionPaymodeReport
+        return namedParameterJdbcTemplate.query(
+                TransactionPaymodeQueries.JDBC_TRANSACTION_PAYMODE,
+                parameters,
+                (rs, rowNum) -> mapTransactionPaymodeReport(rs)
+        );
+    }
+
+    private TransactionPaymodeReport mapTransactionPaymodeReport(ResultSet rs) throws SQLException {
+        // Map ResultSet to TransactionPaymodeReport object
+        return TransactionPaymodeReport.builder()
+                .transactionDate(rs.getString("transactionDate"))
+                .payMode(rs.getString("payMode"))
+                .totalSuccessAmount(rs.getBigDecimal("totalSuccessAmount"))
+                .totalDebitAmount(rs.getBigDecimal("totalDebitAmount"))
+                .successPercentage(rs.getBigDecimal("successPercentage"))
+                .build();
+    }
 }
