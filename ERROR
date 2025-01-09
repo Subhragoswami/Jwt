@@ -1,42 +1,51 @@
-***************************
-APPLICATION FAILED TO START
-***************************
+package com.epay.reporting.util.queries;
 
-Description:
+public class TransactionPaymodeQueries {
 
-Parameter 0 of constructor in com.sbi.epay.notification.service.EmailTemplateService required a bean of type 'org.thymeleaf.TemplateEngine' that could not be found.
+    public static String JDBC_TRANSACTION_PAYMODE = "SELECT TO_CHAR(TO_DATE(TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') as transactionDate, " +
+            "paymode_code as payMode, sum(total_success_amount) as totalSuccessAmount, " +
+            "sum(total_debit_amount)as totalDebitAmount, " +
+            "round(sum(total_success_amount)/sum(total_debit_amount) *100, 2) as " +
+            "successPercentage FROM view_transaction_paymode_daily_report WHERE MID = :mId AND " +
+            "PAYMODE_CODE is NOT NULL AND TRANSACTION_DATE BETWEEN TO_DATE('1-01-2025', 'DD-MM-YYYY') AND " +
+            "TO_DATE('31-01-2025', 'DD-MM-YYYY') GROUP BY TO_CHAR(TO_DATE(TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY'),paymode_code";
+}
+
+this query is working fine if i  do this it's notwoking
+package com.epay.reporting.util.queries;
+
+public class TransactionPaymodeQueries {
+
+    public static String JDBC_TRANSACTION_PAYMODE = "SELECT TO_CHAR(TO_DATE(TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') as transactionDate, " +
+            "paymode_code as payMode, sum(total_success_amount) as totalSuccessAmount, " +
+            "sum(total_debit_amount)as totalDebitAmount, " +
+            "round(sum(total_success_amount)/sum(total_debit_amount) *100, 2) as " +
+            "successPercentage FROM view_transaction_paymode_daily_report WHERE MID = :mId AND " +
+            "PAYMODE_CODE is NOT NULL AND TRANSACTION_DATE BETWEEN TO_DATE(:startDate, 'DD-MM-YYYY') AND " +
+            "TO_DATE(:endDate, 'DD-MM-YYYY') GROUP BY TO_CHAR(TO_DATE(TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY'),paymode_code";
+}
 
 
-Action:
 
-Consider defining a bean of type 'org.thymeleaf.TemplateEngine' in your configuration.
+    public List<TransactionPaymodeReport> getPayModeReport(String mid, TransactionPayModeRequest transactionPayModeRequest) {
+        MapSqlParameterSource parameters = new MapSqlParameterSource();
+        parameters.addValue("mId", mid);
+        parameters.addValue("startDate", transactionPayModeRequest.getFromDate());
+        parameters.addValue("endDate", transactionPayModeRequest.getToDate());
 
+        return namedParameterJdbcTemplate.query(
+                TransactionPaymodeQueries.JDBC_TRANSACTION_PAYMODE,
+                parameters,
+                (rs, rowNum) -> mapTransactionPaymodeReport(rs)
+        );
+    }
 
-BUILD SUCCESSFUL in 16s
-3 actionable tasks: 1 executed, 2 up-to-date
-15:28:42: Execution finished ':com.epay.merchant.EpayMerchantServiceApplication.main()'.
-
-
-<!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
-<head>
-    <style>
-        /* Add any necessary styles here */
-    </style>
-</head>
-<body>
-<br/>
-Dear <span th:text="${user}">First Name</span>,
-<br/><br/>
-Thank You for choosing <span th:text="${aggId}">aggId</span>, secure and convenient Payment Gateway Service.
-<br/>
-<span th:text="${aggId}">aggId</span> account is as given below:
-In case of any queries, please feel free to contact us.
-<br/><br/>
-Regards
-<br/>
-<span th:text="${aggId}">aggId</span> Team
-<br/><br/>
-<b>Note - This is an auto-generated email, and you need not reply to this.</b>
-</body>
-</html>
+    private TransactionPaymodeReport mapTransactionPaymodeReport(ResultSet rs) throws SQLException {
+        return TransactionPaymodeReport.builder()
+                .transactionDate(rs.getString("transactionDate"))
+                .PaymodeCode(rs.getString("payMode"))
+                .totalSuccessAmount(rs.getBigDecimal("totalSuccessAmount"))
+                .totalDebitAmount(rs.getBigDecimal("totalDebitAmount"))
+                .successPercentage(rs.getBigDecimal("successPercentage"))
+                .build();
+    }
