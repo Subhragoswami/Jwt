@@ -72,3 +72,10 @@ public class TransactionReportService {
         return ReportingResponse.<TransactionDailyFailureReport>builder().data(summaryList).build();
     }
 }
+
+ for (TransactionFailure failure : failuresForDate) {
+                BigDecimal failurePercentage = totalFailedAmount.compareTo(BigDecimal.ZERO) > 0
+                        ? totalFailedAmount.divide(failure.getFailureAmount(), 2, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100))
+                        : BigDecimal.ZERO;
+                failure.setFailurePercentage(failurePercentage);
+            }
