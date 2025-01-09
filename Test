@@ -34,3 +34,59 @@ public class TransactionPaymodeReport {
         }
     ]
 }
+
+
+
+
+
+
+
+
+public Map<String, List<TransactionFailure>> getFailureDetails(String mid, String startDate, String endDate) {
+    MapSqlParameterSource params = new MapSqlParameterSource();
+    params.addValue("mId", mid);
+    params.addValue("startDate", startDate);
+    params.addValue("endDate", endDate);
+
+    return namedParameterJdbcTemplate.query(TransactionFailureQueries.FAILURE_DETAILS_QUERY, params, rs -> {
+        Map<String, List<TransactionFailure>> failureMap = new HashMap<>();
+        while (rs.next()) {
+            String transactionDate = rs.getString("transactionDate");
+            TransactionFailure failure = TransactionFailure.builder()
+                    .failureReason(rs.getString("failureReason"))
+                    .failureAmount(rs.getBigDecimal("failureAmount"))
+                    .build();
+
+            failureMap.computeIfAbsent(transactionDate, k -> new ArrayList<>()).add(failure);
+        }
+        return failureMap;
+    });
+}
+
+public List<TransactionDailyReport> getTransactionDailyReport(String mid, String startDate, String endDate) {
+    // Fetch summary data
+    List<TransactionDailyReport> summaryList = failureRepository.getSuccessFailureSummary(mid, startDate, endDate);
+
+    // Fetch failure details grouped by transactionDate
+    Map<String, List<TransactionFailure>> failureMap = failureRepository.getFailureDetails(mid, startDate, endDate);
+
+    // Iterate over the summary data and map failure details
+    for (TransactionDailyReport report : summaryList) {
+        BigDecimal totalFailedAmount = report.getTotalFailedAmount();
+
+        // Get failures for the current transaction date
+        List<TransactionFailure> failuresForDate = failureMap.getOrDefault(report.getTransactionDate(), new ArrayList<>());
+
+        // Calculate failure percentage for each failure reason
+        for (TransactionFailure failure : failuresForDate) {
+            BigDecimal failurePercentage = totalFailedAmount.compareTo(BigDecimal.ZERO) > 0
+                    ? failure.getFailureAmount().divide(totalFailedAmount, 2, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100))
+                    : BigDecimal.ZERO;
+            failure.setFailurePercentage(failurePercentage);
+        }
+
+        report.setTransactionFailures(failuresForDate);
+    }
+
+    return summaryList;
+}
