@@ -1,111 +1,36 @@
-I package com.epay.reporting.repositroy.view;
+package com.epay.reporting.entity.view;
 
-import com.epay.reporting.entity.view.TransactionDailyReport;
-import com.epay.reporting.util.enums.Frequency;
-import com.epay.reporting.util.queries.TransactionTrendsQueries;
-import lombok.RequiredArgsConstructor;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.jdbc.core.namedparam.SqlParameterSource;
-import org.springframework.stereotype.Repository;
+import lombok.Builder;
+import lombok.Data;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.List;
+import java.math.BigDecimal;
+import java.util.Date;
 
-@Repository
-@RequiredArgsConstructor
-public class TransactionDailyRepository {
+@Data
+@Builder
+public class TransactionPaymodeReport {
 
-    private final NamedParameterJdbcTemplate namedParameterJdbcTemplate;
-
-    public List<TransactionDailyReport> getTransactionDailyTrends(String mId, Frequency frequency) {
-        SqlParameterSource parameters = new MapSqlParameterSource("mId", mId);
-        String sql = TransactionTrendsQueries.JDBC_DAILY_TRANSACTION_TRENDS;
-        if (Frequency.MONTHLY.equals(frequency)) {
-            sql = TransactionTrendsQueries.JDBC_MONTHLY_TRANSACTION_TRENDS;
-        } else if (Frequency.YEARLY.equals(frequency)) {
-            sql = TransactionTrendsQueries.JDBC_YEARLY_TRANSACTION_TRENDS;
+    private String PaymodeCode;
+    private BigDecimal totalSuccessAmount;
+    private BigDecimal totalDebitAmount;
+    private BigDecimal successPercentage;
+    private String transactionDate;
+}
+ {
+    "data": [
+        {
+            "totalSuccessAmount": 1,
+            "totalDebitAmount": 8,
+            "successPercentage": 12.5,
+            "transactionDate": "Jan-2025",
+            "paymodeCode": "INB"
+        },
+        {
+            "totalSuccessAmount": 9,
+            "totalDebitAmount": 21,
+            "successPercentage": 42.86,
+            "transactionDate": "Jan-2025",
+            "paymodeCode": "NB"
         }
-        return namedParameterJdbcTemplate.query(sql, parameters, (rs, rowNum) -> setTransactionDailyReport(rs));
-    }
-
-
-    private TransactionDailyReport setTransactionDailyReport(ResultSet rs) throws SQLException {
-        return TransactionDailyReport.builder().successCount(rs.getLong("successCount")).totalSuccessAmount(rs.getBigDecimal("successAmount")).transactionDate(rs.getString("transactionDate")).build();
-    }
-}
-
-package com.epay.reporting.repositroy.view;
-
-import com.epay.reporting.entity.view.TransactionPaymodeReport;
-import com.epay.reporting.model.request.TransactionPayModeRequest;
-import lombok.RequiredArgsConstructor;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.stereotype.Repository;
-
-import java.util.List;
-
-@Repository
-@RequiredArgsConstructor
-public class TransactionPayModeDailyRepository {
-
-    private final NamedParameterJdbcTemplate namedParameterJdbcTemplate;
-
-    public List<TransactionPaymodeReport> getPayModeReport(String mid, TransactionPayModeRequest transactionPayModeRequest){
-
-    }
-}
-package com.epay.reporting.util.queries;
-
-public class TransactionPaymodeQueries {
-
-    public static String JDBC_TRANSACTION_PAYMODE = "SELECT TO_CHAR(TO_DATE(TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') as transactionDate, " +
-            "paymode_code as payMode, sum(total_success_amount) as totalSuccessAmount, " +
-            "sum(total_debit_amount)as totalDebitAmount, " +
-            "round(sum(total_success_amount)/sum(total_debit_amount) *100, 2) as " +
-            "successPercentage FROM view_transaction_paymode_daily_report WHERE MID = 1000834 AND " +
-            "PAYMODE_CODE is NOT NULL AND TRANSACTION_DATE BETWEEN TO_DATE('1-01-2025', 'DD-MM-YYYY') AND " +
-            "TO_DATE('31-01-2025', 'DD-MM-YYYY') GROUP BY TO_CHAR(TO_DATE(TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY'),paymode_code";
-}
-
-
-
-
-
-
-
-
-
-@Repository
-@RequiredArgsConstructor
-public class TransactionPayModeDailyRepository {
-
-    private final NamedParameterJdbcTemplate namedParameterJdbcTemplate;
-
-    public List<TransactionPaymodeReport> getPayModeReport(String mid, TransactionPayModeRequest transactionPayModeRequest) {
-        // Define parameters to be passed to the query
-        MapSqlParameterSource parameters = new MapSqlParameterSource();
-        parameters.addValue("mid", mid);
-        parameters.addValue("startDate", transactionPayModeRequest.getStartDate());
-        parameters.addValue("endDate", transactionPayModeRequest.getEndDate());
-
-        // Execute query and map results to TransactionPaymodeReport
-        return namedParameterJdbcTemplate.query(
-                TransactionPaymodeQueries.JDBC_TRANSACTION_PAYMODE,
-                parameters,
-                (rs, rowNum) -> mapTransactionPaymodeReport(rs)
-        );
-    }
-
-    private TransactionPaymodeReport mapTransactionPaymodeReport(ResultSet rs) throws SQLException {
-        // Map ResultSet to TransactionPaymodeReport object
-        return TransactionPaymodeReport.builder()
-                .transactionDate(rs.getString("transactionDate"))
-                .payMode(rs.getString("payMode"))
-                .totalSuccessAmount(rs.getBigDecimal("totalSuccessAmount"))
-                .totalDebitAmount(rs.getBigDecimal("totalDebitAmount"))
-                .successPercentage(rs.getBigDecimal("successPercentage"))
-                .build();
-    }
+    ]
 }
