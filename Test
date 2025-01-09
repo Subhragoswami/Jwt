@@ -1,409 +1,70 @@
-@AllArgsConstructor
-@Getter
-@Setter
-@ToString
-@Builder
-@NoArgsConstructor
-public class PasswordChangeRequest{
-    private String userName;
-    private String oldPassword;
-    private String newPassword;
-    private String confirmPassword;
-}
+package com.epay.reporting.repositroy.view;
 
+import com.epay.reporting.entity.view.TransactionDailyReport;
+import com.epay.reporting.util.enums.Frequency;
+import com.epay.reporting.util.queries.TransactionTrendsQueries;
+import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.namedparam.SqlParameterSource;
+import org.springframework.stereotype.Repository;
 
-package com.epay.merchant.util;
-
-import com.sbi.epay.encryptdecrypt.service.DecryptionService;
-import com.sbi.epay.encryptdecrypt.service.HashingService;
-import com.sbi.epay.encryptdecrypt.util.enums.EncryptionDecryptionAlgo;
-import com.sbi.epay.encryptdecrypt.util.enums.GCMIvLength;
-import com.sbi.epay.encryptdecrypt.util.enums.GCMTagLength;
-import com.sbi.epay.encryptdecrypt.util.enums.HashAlgorithm;
-
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-
-public class EncryptionDecryptionUtil {
-
-    public static String hashValue(String value) {
-        byte[] bytes = HashingService.generateHash(value.getBytes(StandardCharsets.UTF_8), HashAlgorithm.SHA_512);
-        return Base64.getEncoder().encodeToString(bytes);
-    }
-
-    public static String decryptValue(String key, String value) {
-        return DecryptionService.decryptValueByStringKey(key, value, EncryptionDecryptionAlgo.AES_GCM_NO_PADDING, GCMIvLength.MAXIMUM, GCMTagLength.STANDARD);
-    }
-}
-
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.List;
 
 @Repository
 @RequiredArgsConstructor
-public class PasswordManagementDao {
-    private final MerchantUserDao merchantUserDao;
-    private final PasswordManagementRepository passwordManagementRepository;
-    private final NotificationDao notificationDao;
+public class TransactionDailyRepository {
 
-    public MerchantUserDto findByUserNameOrEmailOrMobilePhoneAndStatus(String userName, UserStatus userStatus) {
-        return merchantUserDao.getByUserNameOrEmailOrMobilePhoneAndStatus(userName, userName, userName, userStatus);
+    private final NamedParameterJdbcTemplate namedParameterJdbcTemplate;
+
+    public List<TransactionDailyReport> getTransactionDailyTrends(String mId, Frequency frequency) {
+        SqlParameterSource parameters = new MapSqlParameterSource("mId", mId);
+        String sql = TransactionTrendsQueries.JDBC_DAILY_TRANSACTION_TRENDS;
+        if (Frequency.MONTHLY.equals(frequency)) {
+            sql = TransactionTrendsQueries.JDBC_MONTHLY_TRANSACTION_TRENDS;
+        } else if (Frequency.YEARLY.equals(frequency)) {
+            sql = TransactionTrendsQueries.JDBC_YEARLY_TRANSACTION_TRENDS;
+        }
+        return namedParameterJdbcTemplate.query(sql, parameters, (rs, rowNum) -> setTransactionDailyReport(rs));
     }
 
-    public List<PasswordManagement> findLastPasswordsByUserId(UUID userId) {
-        return passwordManagementRepository.findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(0, 5));
+
+    private TransactionDailyReport setTransactionDailyReport(ResultSet rs) throws SQLException {
+        return TransactionDailyReport.builder().successCount(rs.getLong("successCount")).totalSuccessAmount(rs.getBigDecimal("successAmount")).transactionDate(rs.getString("transactionDate")).build();
     }
-
-    @Transactional
-    public void updatePasswordDetails(String userName, String newPassword, UserStatus userStatus, RequestType requestType) {
-        // Step 1 : Prepare the Password Hash value
-        String passwordHash = hashValue(newPassword);
-
-        // Step 2 : Update the Merchant User with Password Information
-        MerchantUserDto merchantUser = merchantUserDao.updateMerchantUserForPassword(userName, passwordHash, userStatus);
-
-        // Step 3 : Update previous Password status in Password Management
-        updatePreviousPasswordStatus(merchantUser.getId());
-
-        // Step 4 : Save new Password information in Password Management
-        PasswordManagement passwordManagement = saveUpdatesPasswordDetails(merchantUser.getId(), passwordHash);
-
-        // Step 5 : Send Notification to user for Password Update
-        sendNotification(requestType, passwordManagement.getId(), "Password has been modified successfully, New Password is " + newPassword, MerchantConstant.RESPONSE_SUCCESS, NotificationType.EMAIL);
-    }
-
-    private void updatePreviousPasswordStatus(UUID userId) {
-        List<PasswordManagement> passwordList = passwordManagementRepository.findByUserIdAndStatus(userId, PasswordStatusType.COMPLETED);
-        passwordList.forEach(passwordManagement -> passwordManagement.setStatus(PasswordStatusType.INACTIVE));
-        passwordManagementRepository.saveAll(passwordList);
-    }
-
-    private PasswordManagement saveUpdatesPasswordDetails(UUID userId, String password) {
-        return passwordManagementRepository.save(PasswordManagement.builder().userId(userId).status(PasswordStatusType.COMPLETED).previousPassword(password).requestType(PasswordManagementType.CHANGE_PASSWORD).build());
-    }
-
-    private void sendNotification(RequestType requestType, UUID entityId, String content, int status, NotificationType notificationType) {
-        notificationDao.sendPasswordNotification(requestType, entityId, content, status, notificationType);
-    }
-
 }
 
+package com.epay.reporting.repositroy.view;
 
-   public MerchantUserDto updateMerchantUserForPassword(String userName, String password, UserStatus userStatus) {
-        MerchantUser merchantUser = getMerchantUserByStatus(userName, userName, userName, userStatus);
-        merchantUser.setPassword(EncryptionDecryptionUtil.hashValue(password));
-        merchantUser.setLastPasswordChange(DateTimeUtils.getCurrentTimeInMills());
-        merchantUser.setPasswordExpiryTime(DateTimeUtils.getFutureDateByMonth(merchantConfig.getPasswordExpiryMonths()));
-        merchantUser.setStatus(UserStatus.ACTIVE);
-        merchantUser = save(merchantUser);
-        return merchantMapper.mapMerchantUserEntityToDto(merchantUser);
-    }
+import com.epay.reporting.entity.view.TransactionPaymodeReport;
+import com.epay.reporting.model.request.TransactionPayModeRequest;
+import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.stereotype.Repository;
 
-@Service
+import java.util.List;
+
+@Repository
 @RequiredArgsConstructor
-public class PasswordService {
+public class TransactionPayModeDailyRepository {
 
-    private final PasswordValidator passwordValidator;
-    private final PasswordManagementDao passwordManagementDao;
-    private final MerchantConfig merchantConfig;
-    LoggerUtility log = LoggerFactoryUtility.getLogger(ValidationController.class);
+    private final NamedParameterJdbcTemplate namedParameterJdbcTemplate;
 
-    /**
-     * Method to handle the password change logic
-     */
-    public MerchantResponse<String> changePassword(PasswordChangeRequest passwordChangeRequest) {
-        log.info("Starting password change process for user: {}", passwordChangeRequest.getUserName());
-        // Step 1 : Decrypt Password
-        passwordChangeRequest.setNewPassword(decryptValue(merchantConfig.getDecryptionKey(), passwordChangeRequest.getNewPassword()));
-        passwordChangeRequest.setConfirmPassword(decryptValue(merchantConfig.getDecryptionKey(), passwordChangeRequest.getConfirmPassword()));
+    public List<TransactionPaymodeReport> getPayModeReport(String mid, TransactionPayModeRequest transactionPayModeRequest){
 
-        // Step 2: Validate the password change request
-        validatePasswordChange(passwordChangeRequest);
-        log.info("Password change request validated successfully");
-
-        // Step 3: Update the password details in the database
-        passwordManagementDao.updatePasswordDetails(passwordChangeRequest.getUserName(), passwordChangeRequest.getNewPassword(), UserStatus.EXPIRED, RequestType.CHANGE_PASSWORD);
-
-        // Step 4: Build and return the success response
-        return MerchantResponse.<String>builder().status(MerchantConstant.RESPONSE_SUCCESS).data(List.of("Password Changed Successfully")).count(1L).total(1L).build();
-    }
-
-    /**
-     * Method to handle the reset password logic
-     */
-    public MerchantResponse<String> resetPassword(PasswordResetRequest passwordResetRequest) {
-        log.info("Starting password change process for user: {}", passwordResetRequest.getUserName());
-        // Step 1 : Decrypt Password
-        passwordResetRequest.setNewPassword(decryptValue(merchantConfig.getDecryptionKey(), passwordResetRequest.getNewPassword()));
-        passwordResetRequest.setConfirmPassword(decryptValue(merchantConfig.getDecryptionKey(), passwordResetRequest.getConfirmPassword()));
-
-        // Step 2: Validate the password change request
-        validatePasswordReset(passwordResetRequest);
-        log.info("Password change request validated successfully");
-
-        // Step 3: Update the password details in the database
-        passwordManagementDao.updatePasswordDetails(passwordResetRequest.getUserName(), passwordResetRequest.getNewPassword(), UserStatus.ACTIVE, RequestType.RESET_PASSWORD);
-
-        // Step 4: Build and return the success response
-        return MerchantResponse.<String>builder().status(MerchantConstant.RESPONSE_SUCCESS).data(List.of("Password Reset Successfully")).count(1L).total(1L).build();
-    }
-
-    private void validatePasswordChange(PasswordChangeRequest passwordChangeRequest) {
-        passwordValidator.validatePasswordChangeRequest(passwordChangeRequest);
-        MerchantUserDto merchantUser = passwordManagementDao.findByUserNameOrEmailOrMobilePhoneAndStatus(passwordChangeRequest.getUserName(), UserStatus.EXPIRED);
-        String passwordHashValue = hashValue(passwordChangeRequest.getNewPassword());
-        passwordValidator.validatePasswordUpdateWithDB(merchantUser, passwordHashValue, passwordChangeRequest.getOldPassword());
-    }
-
-    private void validatePasswordReset(PasswordResetRequest passwordResetRequest) {
-        passwordValidator.validateResetPasswordRequest(passwordResetRequest);
-        MerchantUserDto merchantUser = passwordManagementDao.findByUserNameOrEmailOrMobilePhoneAndStatus(passwordResetRequest.getUserName(), UserStatus.ACTIVE);
-        String passwordHashValue = hashValue(passwordResetRequest.getNewPassword());
-        passwordValidator.validatePasswordUpdateWithDB(merchantUser, passwordHashValue);
     }
 }
-
-
-@Component
-@RequiredArgsConstructor
-public class PasswordValidator extends BaseValidator {
-
-    private final PasswordManagementDao passwordManagementDao;
-    LoggerUtility log = LoggerFactoryUtility.getLogger(ValidationController.class);
-
-    public void validatePasswordChangeRequest(PasswordChangeRequest passwordChangeRequest) {
-        log.info("Validating password change request");
-        errorDtoList = new ArrayList<>();
-        validateMandatoryFields(passwordChangeRequest);
-        throwIfErrors();
-        validatePasswordValue(passwordChangeRequest.getNewPassword(), passwordChangeRequest.getConfirmPassword());
-        throwIfErrors();
-    }
-
-    public void validateResetPasswordRequest(PasswordResetRequest passwordResetRequest) {
-        log.info("Validating password change request");
-        errorDtoList = new ArrayList<>();
-        validateMandatoryFields(passwordResetRequest);
-        validatePasswordValue(passwordResetRequest.getNewPassword(), passwordResetRequest.getConfirmPassword());
-    }
-
-    public void validatePasswordUpdateWithDB(MerchantUserDto merchantUser, String newPassword, String oldPassword) {
-        errorDtoList = new ArrayList<>();
-        passwordCheck(!merchantUser.getPassword().equals(oldPassword), ErrorConstants.OLD_PASSWORD, ErrorConstants.ERROR_OLD_PASSWORD_MISMATCH);
-        passwordCheck(newPassword.equals(oldPassword), ErrorConstants.NEW_PASSWORD, ErrorConstants.ERROR_NEW_PASSWORD_SAME_AS_OLD);
-        passwordWithOldPasswords(merchantUser, newPassword);
-    }
-
-
-    public void validatePasswordUpdateWithDB(MerchantUserDto merchantUser, String newPassword) {
-        errorDtoList = new ArrayList<>();
-        passwordWithOldPasswords(merchantUser, newPassword);
-    }
-
-    private void validateMandatoryFields(PasswordChangeRequest passwordChangeRequest) {
-        log.info("Validating mandatory fields");
-        checkMandatoryField(passwordChangeRequest.getUserName(), ErrorConstants.USER_NAME);
-        checkMandatoryField(passwordChangeRequest.getOldPassword(), ErrorConstants.OLD_PASSWORD);
-        checkMandatoryField(passwordChangeRequest.getNewPassword(), ErrorConstants.NEW_PASSWORD);
-        checkMandatoryField(passwordChangeRequest.getConfirmPassword(), ErrorConstants.CONFIRM_PASSWORD);
-        throwIfErrors();
-    }
-
-    private void validateMandatoryFields(PasswordResetRequest passwordResetRequest) {
-        log.info("Validating mandatory fields");
-        checkMandatoryField(passwordResetRequest.getUserName(), ErrorConstants.USER_NAME);
-        checkMandatoryField(passwordResetRequest.getNewPassword(), ErrorConstants.NEW_PASSWORD);
-        checkMandatoryField(passwordResetRequest.getConfirmPassword(), ErrorConstants.CONFIRM_PASSWORD);
-        throwIfErrors();
-    }
-
-    private void validatePasswordValue(String newPassword, String confirmPassword) {
-        if (!newPassword.matches(PASSWORD_REGEX)) {
-            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, ErrorConstants.NEW_PASSWORD, "Reason : New password does not meet the acceptance criteria")).build());
-        }
-        passwordCheck(!newPassword.equals(confirmPassword), ErrorConstants.PASSWORD, ErrorConstants.ERROR_NEW_AND_CONFIRM_PASSWORD_MISMATCH);
-        throwIfErrors();
-    }
-
-    private void passwordCheck(boolean isValid, String field, String reason) {
-        if (isValid) {
-            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, field, reason)).build());
-        }
-        throwIfErrors();
-    }
-
-    private void passwordWithOldPasswords(MerchantUserDto merchantUser, String newPassword) {
-        List<PasswordManagement> lastFiveRecords = passwordManagementDao.findLastPasswordsByUserId(merchantUser.getId());
-        lastFiveRecords.stream().filter(previousPassword -> previousPassword.getPreviousPassword().equals(newPassword)).forEachOrdered(previousPassword -> errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, ErrorConstants.NEW_PASSWORD, ErrorConstants.ERROR_NEW_PASSWORD_REUSED)).build()));
-        throwIfErrors();
-    }
-}
-
- private void passwordCheck(boolean isValid, String field, String reason) {
-        if (isValid) {
-            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, field, reason)).build());
-        }
-        throwIfErrors();
-    }
-
-    private void passwordWithOldPasswords(MerchantUserDto merchantUser, String newPassword) {
-        List<PasswordManagement> lastFiveRecords = passwordManagementDao.findLastPasswordsByUserId(merchantUser.getId());
-        lastFiveRecords.stream().filter(previousPassword -> previousPassword.getPreviousPassword().equals(newPassword)).forEachOrdered(previousPassword -> errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, ErrorConstants.NEW_PASSWORD, ErrorConstants.ERROR_NEW_PASSWORD_REUSED)).build()));
-        throwIfErrors();
-    }
-   public void validatePasswordUpdateWithDB(MerchantUserDto merchantUser, String newPassword, String oldPassword) {
-        errorDtoList = new ArrayList<>();
-        passwordCheck(!merchantUser.getPassword().equals(oldPassword), ErrorConstants.OLD_PASSWORD, ErrorConstants.ERROR_OLD_PASSWORD_MISMATCH);
-        passwordCheck(newPassword.equals(oldPassword), ErrorConstants.NEW_PASSWORD, ErrorConstants.ERROR_NEW_PASSWORD_SAME_AS_OLD);
-        passwordWithOldPasswords(merchantUser, newPassword);
-    }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-package com.epay.merchant.service;
-
-import com.epay.merchant.dto.MerchantResponse;
-import com.epay.merchant.dto.PasswordChangeRequest;
-import com.epay.merchant.dto.PasswordResetRequest;
-import com.epay.merchant.dto.MerchantUserDto;
-import com.epay.merchant.exception.ValidationException;
-import com.epay.merchant.util.EncryptionDecryptionUtil;
-import com.epay.merchant.util.enums.RequestType;
-import com.epay.merchant.util.enums.UserStatus;
-import com.epay.merchant.validator.PasswordValidator;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-
-import static org.mockito.Mockito.*;
-import static org.junit.jupiter.api.Assertions.*;
-
-class PasswordServiceTest {
-
-    @Mock
-    private PasswordValidator passwordValidator;
-
-    @Mock
-    private PasswordManagementDao passwordManagementDao;
-
-    @Mock
-    private MerchantConfig merchantConfig;
-
-    @InjectMocks
-    private PasswordService passwordService;
-
-    @BeforeEach
-    void setUp() {
-        MockitoAnnotations.openMocks(this);
-        when(merchantConfig.getDecryptionKey()).thenReturn("dummyKey123");
-    }
-
-    @Test
-    void changePassword_success() {
-        PasswordChangeRequest request = PasswordChangeRequest.builder()
-                .userName("testUser")
-                .oldPassword("oldPassword123")
-                .newPassword(EncryptionDecryptionUtil.hashValue("newPassword123"))
-                .confirmPassword(EncryptionDecryptionUtil.hashValue("newPassword123"))
-                .build();
-
-        // No exceptions during validation
-        doNothing().when(passwordValidator).validatePasswordChangeRequest(request);
-
-        // Mock database updates
-        doNothing().when(passwordManagementDao).updatePasswordDetails(
-                request.getUserName(), request.getNewPassword(), UserStatus.EXPIRED, RequestType.CHANGE_PASSWORD);
-
-        MerchantResponse<String> response = passwordService.changePassword(request);
-
-        assertNotNull(response);
-        assertEquals("SUCCESS", response.getStatus());
-        assertTrue(response.getData().contains("Password Changed Successfully"));
-
-        verify(passwordValidator).validatePasswordChangeRequest(request);
-        verify(passwordManagementDao).updatePasswordDetails(
-                request.getUserName(), request.getNewPassword(), UserStatus.EXPIRED, RequestType.CHANGE_PASSWORD);
-    }
-
-    @Test
-    void changePassword_validationFailure() {
-        PasswordChangeRequest request = PasswordChangeRequest.builder()
-                .userName("testUser")
-                .oldPassword("wrongPassword")
-                .newPassword("newPassword123")
-                .confirmPassword("newPassword123")
-                .build();
-
-        doThrow(new ValidationException("ERR_CODE", "Validation failed"))
-                .when(passwordValidator).validatePasswordChangeRequest(request);
-
-        ValidationException exception = assertThrows(
-                ValidationException.class, () -> passwordService.changePassword(request));
-
-        assertEquals("Validation failed", exception.getErrorMessage());
-        verify(passwordValidator).validatePasswordChangeRequest(request);
-        verifyNoInteractions(passwordManagementDao);
-    }
-
-    @Test
-    void resetPassword_success() {
-        PasswordResetRequest request = PasswordResetRequest.builder()
-                .userName("testUser")
-                .newPassword(EncryptionDecryptionUtil.hashValue("resetPassword123"))
-                .confirmPassword(EncryptionDecryptionUtil.hashValue("resetPassword123"))
-                .build();
-
-        doNothing().when(passwordValidator).validateResetPasswordRequest(request);
-
-        doNothing().when(passwordManagementDao).updatePasswordDetails(
-                request.getUserName(), request.getNewPassword(), UserStatus.ACTIVE, RequestType.RESET_PASSWORD);
-
-        MerchantResponse<String> response = passwordService.resetPassword(request);
-
-        assertNotNull(response);
-        assertEquals("SUCCESS", response.getStatus());
-        assertTrue(response.getData().contains("Password Reset Successfully"));
-
-        verify(passwordValidator).validateResetPasswordRequest(request);
-        verify(passwordManagementDao).updatePasswordDetails(
-                request.getUserName(), request.getNewPassword(), UserStatus.ACTIVE, RequestType.RESET_PASSWORD);
-    }
-
-    @Test
-    void resetPassword_validationFailure() {
-        PasswordResetRequest request = PasswordResetRequest.builder()
-                .userName("testUser")
-                .newPassword("resetPassword123")
-                .confirmPassword("resetPassword123")
-                .build();
-
-        doThrow(new ValidationException("ERR_CODE", "Validation failed"))
-                .when(passwordValidator).validateResetPasswordRequest(request);
-
-        ValidationException exception = assertThrows(
-                ValidationException.class, () -> passwordService.resetPassword(request));
-
-        assertEquals("Validation failed", exception.getErrorMessage());
-        verify(passwordValidator).validateResetPasswordRequest(request);
-        verifyNoInteractions(passwordManagementDao);
-    }
+package com.epay.reporting.util.queries;
+
+public class TransactionPaymodeQueries {
+
+    public static String JDBC_TRANSACTION_PAYMODE = "SELECT TO_CHAR(TO_DATE(TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') as transactionDate, " +
+            "paymode_code as payMode, sum(total_success_amount) as totalSuccessAmount, " +
+            "sum(total_debit_amount)as totalDebitAmount, " +
+            "round(sum(total_success_amount)/sum(total_debit_amount) *100, 2) as " +
+            "successPercentage FROM view_transaction_paymode_daily_report WHERE MID = 1000834 AND " +
+            "PAYMODE_CODE is NOT NULL AND TRANSACTION_DATE BETWEEN TO_DATE('1-01-2025', 'DD-MM-YYYY') AND " +
+            "TO_DATE('31-01-2025', 'DD-MM-YYYY') GROUP BY TO_CHAR(TO_DATE(TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY'),paymode_code";
 }
