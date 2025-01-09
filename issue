@@ -1,185 +1,20 @@
-package com.epay.merchant.dao;
+first here need to create one object named transaction daily report
+inside that 
+thransactionDate, totalSuccessAmount and totalFailedAmount 
+and need to send data in list as transactionFailure and inside that
 
-import com.epay.merchant.config.MerchantConfig;
-import com.epay.merchant.dto.OtpGenerationDto;
-import com.epay.merchant.entity.MerchantUser;
-import com.epay.merchant.entity.NotificationManagement;
-import com.epay.merchant.repository.MerchantUserRepository;
-import com.epay.merchant.repository.NotificationManagementRepository;
-import com.epay.merchant.util.enums.*;
-import com.sbi.epay.notification.model.EmailDTO;
-import com.sbi.epay.notification.service.EmailService;
-import com.sbi.epay.notification.util.enums.EmailType;
-import lombok.RequiredArgsConstructor;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.stereotype.Component;
-import org.thymeleaf.TemplateEngine;
-import org.thymeleaf.context.Context;
+failureReason and failureamount and fauilure percentage will be there failure percentage will be totalFailedAmount/failureAmount*100
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+Jan-2025	CUSTOMER	117
+Jan-2025	BUSINESS	78
+Jan-2025	TECHNICAL	39
+this type of data I'll get by
+SELECT TO_CHAR(TO_DATE(TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') as transactionDate, error_code as failureReason, sum(failure_amount) as failureAmount FROM view_transaction_daily_failure_report WHERE MID = 1000834 AND error_code is NOT NULL AND TRANSACTION_DATE BETWEEN TO_DATE('1-01-2025', 'DD-MM-YYYY') AND TO_DATE('31-01-2025', 'DD-MM-YYYY') GROUP BY TO_CHAR(TO_DATE(TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY'),error_code;
 
-@Component
-@RequiredArgsConstructor
-public class NotificationDao {
-
-    private final EmailService emailService;
-    private final NotificationManagementRepository notificationManagementRepository;
-    private final MerchantConfig merchantConfig;
-    private final MerchantUserRepository merchantUserRepository;
-    private final TemplateEngine templateEngine;
+and
+Jan-2025	22	12
+this I'll get by
+SELECT TO_CHAR(TO_DATE(TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') as transactionDate, SUM(total_success_amount) as totalSuccessAmount, sum(total_failed_amount) as toalFailedAmount FROM view_transaction_daily_report WHERE MID = 1000834 AND TRANSACTION_DATE BETWEEN TO_DATE('1-01-2025', 'DD-MM-YYYY') AND TO_DATE('31-01-2025', 'DD-MM-YYYY') GROUP BY TO_CHAR(TO_DATE(TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY');
 
 
-    public void saveOtpGenerationNotification(OtpGenerationDto otpGenerationDto, String content, int status, NotificationType notificationType, String otp) {
-        NotificationManagement notificationMgmt = NotificationManagement.builder().notificationType(notificationType).entityName(NotificationEntityType.OTP_MANAGEMENT).entityId(otpGenerationDto.getId()).requestType(otpGenerationDto.getRequestType().getName()).content(content).status(status).build();
-        MerchantUser merchantUser = getMerchantUser(otpGenerationDto.getUserName());
-        String emailTemplate = generateEmailTemplateForOtp(merchantUser , otp);
-        sendNotificationRequest(notificationType, getMerchantUser(otpGenerationDto.getUserName()), emailTemplate, "OTP");
-        notificationManagementRepository.save(notificationMgmt);
-    }
-
-    public void saveKeyGenerationNotification(KeyType keyType, UUID entityId, String content, int status, NotificationType notificationType, String userName) {
-        NotificationManagement notificationMgmt = NotificationManagement.builder().notificationType(notificationType).entityName(NotificationEntityType.KEY_MANAGEMENT).entityId(entityId).requestType(keyType.name()).content(content).status(status).build();
-        sendNotificationRequest(notificationType, getMerchantUser(userName), content, "Key Generation");
-        notificationManagementRepository.save(notificationMgmt);
-    }
-
-    public void sendUserCreationNotification(UUID entityId, String content, int status, NotificationType notificationType, MerchantUser merchantUser) {
-        NotificationManagement notificationMgmt = NotificationManagement.builder()
-                .notificationType(notificationType)
-                .entityName(NotificationEntityType.MERCHANT_USER)
-                .entityId(entityId)
-                .requestType("UserCreation")
-                .content(content).status(status).build();
-        sendNotificationRequest(notificationType, merchantUser, content, "User Creation");
-        notificationManagementRepository.save(notificationMgmt);
-    }
-
-    public void sendPasswordNotification(RequestType requestType, UUID entityId, String content, int status, NotificationType notificationType, String userName) {
-        NotificationManagement notificationMgmt = NotificationManagement.builder()
-                .notificationType(notificationType)
-                .entityName(NotificationEntityType.PASSWORD_MANAGEMENT)
-                .entityId(entityId)
-                .requestType(requestType.getName())
-                .content(content).status(status).build();
-        sendNotificationRequest(notificationType, getMerchantUser(userName), content, "Password Modification");
-        notificationManagementRepository.save(notificationMgmt);
-    }
-
-    private MerchantUser getMerchantUser(String userName) {
-        return merchantUserRepository.findByUserNameOrEmailOrMobilePhone(userName, userName, userName).get();
-    }
-
-    private void sendNotificationRequest(NotificationType notificationType, MerchantUser merchantUser, String content, String subject) {
-        switch (notificationType) {
-            case SMS -> sendSMS();
-            case EMAIL -> sendEmail(merchantUser.getEmail(), content, subject);
-            case BOTH -> {
-                sendSMS();
-                sendEmail(merchantUser.getEmail(), content, subject);
-            }
-        }
-    }
-
-    /**
-     * Sending onboarding email.
-     */
-    @Async
-    private void sendEmail(String userEmail, String content, String subject) {
-        EmailDTO emailDTO = new EmailDTO();
-        if (!merchantConfig.getRecipient().isEmpty()) {
-            emailDTO.setRecipient(merchantConfig.getRecipient());
-            emailDTO.setCc(userEmail);
-        } else {
-            emailDTO.setRecipient(userEmail);
-        }
-        emailDTO.setSubject(subject);
-        emailDTO.setFrom(merchantConfig.getFrom());
-        emailDTO.setBody(content);
-        emailDTO.setEmailType(EmailType.CUSTOMER);
-        emailService.sendEmail(emailDTO);
-    }
-
-    private String generateEmailTemplateForOtp(MerchantUser merchantUser, String otp){
-        Context context = new Context();
-//        HashMap<String, Object> map = new HashMap<>();
-//        map.forEach(context::setVariable);
-        context.setVariable("firstName", merchantUser.getFirstName());
-        context.setVariable("generatedOTP", otp);
-        return templateEngine.process("otp_generated", context);
-    }
-    private String generateEmailTemplateFor(MerchantUser merchantUser, String otp){
-        Context context = new Context();
-//        HashMap<String, Object> map = new HashMap<>();
-//        map.forEach(context::setVariable);
-        context.setVariable("first", merchantUser.getFirstName());
-//        context.setVariable("generatedOTP", otp);
-        return templateEngine.process("otp_generated", context);
-    }
-    /**
-     * Sending onboarding SMS.
-     */
-    private void sendSMS() {
-        //TODO: Send SMS Notification
-    }
-}
-
-
-package com.epay.merchant;
-
-import com.epay.merchant.config.audit.SpringSecurityAuditorAware;
-import com.epay.merchant.config.converter.HelpSupportTypeEnumConverter;
-import com.epay.merchant.config.converter.KeyTypeEnumConverter;
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.actuate.autoconfigure.security.servlet.ManagementWebSecurityAutoConfiguration;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.autoconfigure.domain.EntityScan;
-import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.data.domain.AuditorAware;
-import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
-import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
-import org.springframework.format.FormatterRegistry;
-import org.springframework.scheduling.annotation.EnableAsync;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-
-/**
- * Class Name: EpayMerchantServiceApplication
- * *
- * Description:
- * *
- * Author: V1017903(bhushan wadekar)
- * <p>
- * Copyright (c) 2024 [State Bank of India]
- * All rights reserved
- * *
- * Version:1.0
- */
-
-@SpringBootApplication(exclude = {SecurityAutoConfiguration.class, ManagementWebSecurityAutoConfiguration.class})
-@ComponentScan(basePackages = {"com.epay.merchant", "com.sbi.epay"})
-@EnableJpaRepositories(basePackages = "com.epay.merchant")
-@EntityScan(basePackages = "com.epay.merchant")
-@EnableJpaAuditing(auditorAwareRef = "auditorAware")
-@EnableAsync
-public class EpayMerchantServiceApplication implements WebMvcConfigurer {
-
-    public static void main(String[] args) {
-        SpringApplication.run(EpayMerchantServiceApplication.class, args);
-    }
-
-    @Bean
-    public AuditorAware<String> auditorAware() {
-        return new SpringSecurityAuditorAware();
-    }
-
-    @Override
-    public void addFormatters(FormatterRegistry registry) {
-        registry.addConverter(new KeyTypeEnumConverter());
-        registry.addConverter(new HelpSupportTypeEnumConverter());
-    }
-
-}
-
+now I need to calculate the percentage in code and build the object 
