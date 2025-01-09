@@ -2,3 +2,32 @@
         List<TransactionPaymodeReport> transactionDailyPaymode = transactionDailyRepository.getTransactionPaymodeReport(mid, transactionPayModeRequest);
         return ReportingResponse.<TransactionPaymodeReport>builder().data(transactionDailyPaymode).build();
     }
+
+
+/**
+ * Fetches the transaction paymode report for a given Merchant ID (MID) and date range.
+ * 
+ * @param mid                   Merchant ID for which the report is to be fetched
+ * @param transactionPayModeRequest Request object containing the date range (fromDate and toDate)
+ * @return ReportingResponse<TransactionPaymodeReport> containing the list of transaction paymode reports
+ */
+public ReportingResponse<TransactionPaymodeReport> getTransactionPaymodeReport(String mid, TransactionPayModeRequest transactionPayModeRequest) {
+    Logger logger = LoggerFactory.getLogger(YourServiceClassName.class);
+
+    logger.info("ClassName - {}, MethodName - getTransactionPaymodeReport, Method-start", this.getClass().getSimpleName());
+    logger.info("Fetching transaction paymode report for MID: {} and Request: {}", mid, transactionPayModeRequest);
+
+    List<TransactionPaymodeReport> transactionDailyPaymode = transactionDailyRepository.getTransactionPaymodeReport(mid, transactionPayModeRequest);
+
+    if (transactionDailyPaymode.isEmpty()) {
+        logger.warn("No transaction paymode report found for MID: {} and Request: {}", mid, transactionPayModeRequest);
+    } else {
+        logger.info("Transaction paymode report fetched successfully for MID: {}", mid);
+    }
+
+    logger.info("ClassName - {}, MethodName - getTransactionPaymodeReport, Method-end", this.getClass().getSimpleName());
+
+    return ReportingResponse.<TransactionPaymodeReport>builder()
+            .data(transactionDailyPaymode)
+            .build();
+}
