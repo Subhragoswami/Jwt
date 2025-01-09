@@ -49,3 +49,7 @@ public class TransactionPaymodeQueries {
                 .successPercentage(rs.getBigDecimal("successPercentage"))
                 .build();
     }
+{
+    "fromDate": "09-01-25",
+    "toDate": "09-01-25"
+}
