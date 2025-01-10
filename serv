@@ -1,81 +1,46 @@
- public ReportingResponse<TransactionDailyFailureReport> getTransactionDailyReport(String mid, String startDate, String endDate) {
-        List<TransactionDailyFailureReport> summaryList = transactionDailyRepository.getSuccessFailureSummary(mid, startDate, endDate);
-        Map<String, List<TransactionFailure>> failureMap = transactionDailyRepository.getFailureDetails(mid, startDate, endDate);
-        for (TransactionDailyFailureReport report : summaryList) {
-            BigDecimal totalFailedAmount = report.getTotalFailureAmount();
-            List<TransactionFailure> failuresForDate = failureMap.getOrDefault(report.getTransactionDate(), new ArrayList<>());
-            for (TransactionFailure failure : failuresForDate) {
-                BigDecimal failurePercentage = totalFailedAmount.compareTo(BigDecimal.ZERO) > 0
-                        ? failure.getFailureAmount().divide(totalFailedAmount, 2, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100))
-                        : BigDecimal.ZERO;
-                failure.setFailurePercentage(failurePercentage);
-            }
-
-            report.setTransactionFailures(failuresForDate);
-        }
-
-        return ReportingResponse.<TransactionDailyFailureReport>builder().data(summaryList).build();
-    }
-
-@Slf4j
-@Service
-@RequiredArgsConstructor
-public class TransactionReportService {
-
-    private final TransactionDailyRepository transactionDailyRepository;
-
-    /**
-     * Fetches daily transaction failure reports with success and failure summaries.
-     *
-     * @param mid       Merchant ID
-     * @param startDate Start date for the report
-     * @param endDate   End date for the report
-     * @return ReportingResponse containing a list of TransactionDailyFailureReport
+ /**
+     * Create Merchant User
+     * @param merchantUserRequest
+     * @return MerchantUserResponse
      */
-    public ReportingResponse<TransactionDailyFailureReport> getTransactionDailyReport(String mid, String startDate, String endDate) {
-        log.info("Fetching transaction daily report for MID: {}, StartDate: {}, EndDate: {}", mid, startDate, endDate);
-
-        // Fetch success and failure summary
-        List<TransactionDailyFailureReport> summaryList = transactionDailyRepository.getSuccessFailureSummary(mid, startDate, endDate);
-        log.info("Retrieved {} records for success and failure summary.", summaryList.size());
-
-        // Fetch detailed failure data
-        Map<String, List<TransactionFailure>> failureMap = transactionDailyRepository.getFailureDetails(mid, startDate, endDate);
-        log.info("Retrieved failure details for {} transaction dates.", failureMap.size());
-
-        // Combine summaries with failure details and calculate failure percentages
-        summaryList.forEach(report -> {
-            String transactionDate = report.getTransactionDate();
-            BigDecimal totalFailedAmount = report.getTotalFailureAmount();
-            List<TransactionFailure> failuresForDate = failureMap.getOrDefault(transactionDate, new ArrayList<>());
-
-            log.debug("Processing transaction date: {}, TotalFailedAmount: {}", transactionDate, totalFailedAmount);
-
-            // Calculate failure percentage for each failure reason
-            failuresForDate.forEach(failure -> {
-                BigDecimal failurePercentage = BigDecimal.ZERO;
-                if (totalFailedAmount.compareTo(BigDecimal.ZERO) > 0) {
-                    failurePercentage = failure.getFailureAmount()
-                            .divide(totalFailedAmount, 2, RoundingMode.HALF_UP)
-                            .multiply(BigDecimal.valueOf(100));
-                }
-                failure.setFailurePercentage(failurePercentage);
-                log.debug("FailureReason: {}, FailureAmount: {}, FailurePercentage: {}",
-                        failure.getFailureReason(), failure.getFailureAmount(), failurePercentage);
-            });
-
-            // Set failures for the current report
-            report.setTransactionFailures(failuresForDate);
-        });
-
-        log.info("Completed transaction daily report generation for MID: {}", mid);
-        return ReportingResponse.<TransactionDailyFailureReport>builder().data(summaryList).build();
+    @PostMapping
+    @Operation(summary = "User Creation for Merchant by Merchant Admin or Super Admin", description = "Merchant SuperAdmin/Admin will use this API to create Merchant Users for managing merchant portal")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
+    public MerchantResponse<MerchantUserResponse> createMerchantUser(@RequestBody MerchantUserRequest merchantUserRequest) {
+        log.info("Entity Creation : merchantRequest {}", merchantUserRequest);
+        return merchantUserService.createMerchantUser(merchantUserRequest);
     }
-}
 
- for (TransactionFailure failure : failuresForDate) {
-                BigDecimal failurePercentage = totalFailedAmount.compareTo(BigDecimal.ZERO) > 0
-                        ? totalFailedAmount.divide(failure.getFailureAmount(), 2, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100))
-                        : BigDecimal.ZERO;
-                failure.setFailurePercentage(failurePercentage);
-            }
+    @PutMapping("/{userName}/{status}")
+    @Operation(summary = "", description = "")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
+    public MerchantResponse<MerchantUserResponse> updateUserStatus(@PathVariable String userName, @PathVariable UserStatus status) {
+        return merchantUserService.updateUserStatus(userName, status);
+    }
+
+public MerchantResponse<MerchantUserResponse> updateUserStatus(String userName, UserStatus status){
+        MerchantUserResponse merchantUserResponse = merchantUserDao.updateUserStatusByUserName(userName, status);
+        return MerchantResponse.<MerchantUserResponse>builder().data(List.of(merchantUserResponse)).status(MerchantConstant.RESPONSE_SUCCESS).count(1L).total(1L).build();
+    }
+
+/**
+     * Merchant User Creation
+     *
+     * @param merchantUserRequest MerchantUserRequest
+     * @return MerchantUserResponse
+     */
+    public MerchantResponse<MerchantUserResponse> createMerchantUser(MerchantUserRequest merchantUserRequest) {
+        //Step 1 : MerchantUserRequest validation
+        merchantUserValidator.validateMerchantUserRequest(merchantUserRequest);
+
+        //Step 2 : Set up the default value for Merchant and Merchant User
+        MerchantUserDto merchantUserDto = merchantMapper.mapMerchantUserRequestToMerchantUserDto(merchantUserRequest);
+
+        //Step 3 : Save the Merchant and Merchant User Data in DB
+        merchantUserDto = merchantUserDao.saveMerchantUser(merchantUserDto, merchantUserRequest.getAssignedMIds().toArray(String[]::new));
+
+        //Step 4 : Build MerchantResponse and return to caller
+        MerchantUserResponse merchantUserResponse = merchantMapper.mapMerchantUserDtoToResponse(merchantUserDto);
+        merchantUserResponse.setRole(merchantUserDao.getUserRoleName(merchantUserDto.getRole()));
+        return MerchantResponse.<MerchantUserResponse>builder().data(List.of(merchantUserResponse)).status(MerchantConstant.RESPONSE_SUCCESS).count(1L).build();
+    }
