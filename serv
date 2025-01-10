@@ -44,3 +44,77 @@ public MerchantResponse<MerchantUserResponse> updateUserStatus(String userName, 
         merchantUserResponse.setRole(merchantUserDao.getUserRoleName(merchantUserDto.getRole()));
         return MerchantResponse.<MerchantUserResponse>builder().data(List.of(merchantUserResponse)).status(MerchantConstant.RESPONSE_SUCCESS).count(1L).build();
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+/**
+ * Update Merchant User Status
+ *
+ * @param userName String - Username or identifier of the user whose status needs to be updated
+ * @param status UserStatus - New status to be set for the user (ACTIVE, INACTIVE, BLOCKED, EXPIRED)
+ * @return MerchantResponse<MerchantUserResponse> - Response containing updated user information
+ */
+public MerchantResponse<MerchantUserResponse> updateUserStatus(String userName, UserStatus status) {
+    // Step 1: Validate input parameters
+    log.info("Step 1: Validating input parameters. userName: {}, status: {}", userName, status);
+    if (userName == null || userName.trim().isEmpty()) {
+        log.error("Validation failed: userName is null or empty");
+        throw new MerchantException(MerchantConstant.INVALID_REQUEST, "UserName cannot be null or empty");
+    }
+    if (status == null) {
+        log.error("Validation failed: status is null");
+        throw new MerchantException(MerchantConstant.INVALID_REQUEST, "Status cannot be null");
+    }
+
+    // Step 2: Update user status in the database
+    log.info("Step 2: Updating status of user '{}' to '{}'", userName, status);
+    MerchantUserResponse merchantUserResponse = merchantUserDao.updateUserStatusByUserName(userName, status);
+
+    // Step 3: Build the response object
+    log.info("Step 3: Building response object for updated user. Updated user details: {}", merchantUserResponse);
+    return MerchantResponse.<MerchantUserResponse>builder()
+            .data(List.of(merchantUserResponse))
+            .status(MerchantConstant.RESPONSE_SUCCESS)
+            .count(1L)
+            .total(1L)
+            .build();
+}
+
+
+
+
+
+
+
+
+/**
+ * Update Merchant User Status
+ *
+ * @param userName String - Username or identifier of the user whose status needs to be updated
+ * @param status UserStatus - New status to be set for the user (ACTIVE, INACTIVE, BLOCKED, EXPIRED)
+ * @return MerchantResponse<MerchantUserResponse> - Response containing updated user information
+ */
+@PutMapping("/{userName}/{status}")
+@Operation(summary = "Update User Status", description = "Updates the status of a Merchant User (e.g., ACTIVE, INACTIVE, BLOCKED, EXPIRED). Only Admins or Super Admins can perform this action.")
+@PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
+public MerchantResponse<MerchantUserResponse> updateUserStatus(@PathVariable String userName, @PathVariable UserStatus status) {
+    log.info("API call received: Update user status. userName: {}, status: {}", userName, status);
+
+    // Step 1: Call the service layer to update the user status
+    log.info("Step 1: Calling service layer to update the user status.");
+    MerchantResponse<MerchantUserResponse> response = merchantUserService.updateUserStatus(userName, status);
+
+    // Step 2: Return the response back to the caller
+    log.info("Step 2: Returning the response to the caller. Response: {}", response);
+    return response;
+}
