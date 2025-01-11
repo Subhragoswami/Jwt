@@ -9,3 +9,40 @@
         List<UserRoleResponse> userRoleResponse = merchantUserDao.getUserRoles();
         return MerchantResponse.<UserRoleResponse>builder().data(userRoleResponse).status(MerchantConstant.RESPONSE_SUCCESS).count(userRoleResponse.stream().count()).build();
     }
+
+
+
+/**
+ * Get User Roles
+ *
+ * @return MerchantResponse containing the list of user roles
+ */
+@GetMapping("/roles")
+@Operation(summary = "Retrieve User Roles", description = "Fetch the list of user roles available for merchants.")
+@PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
+public MerchantResponse<UserRoleResponse> getUserRole() {
+    log.info("Fetching user roles");
+    return merchantUserService.getUserRole();
+}
+
+
+
+/**
+ * Fetch User Roles
+ *
+ * @return MerchantResponse<UserRoleResponse> containing user roles
+ */
+public MerchantResponse<UserRoleResponse> getUserRole() {
+    log.info("Started fetching user roles");
+
+    // Step 1: Fetch user roles from DAO layer
+    List<UserRoleResponse> userRoleResponse = merchantUserDao.getUserRoles();
+    log.info("Fetched user roles from DAO: {}", userRoleResponse);
+
+    // Step 2: Build and return MerchantResponse with the fetched data
+    return MerchantResponse.<UserRoleResponse>builder()
+            .data(userRoleResponse)
+            .status(MerchantConstant.RESPONSE_SUCCESS)
+            .count(userRoleResponse.stream().count())
+            .build();
+}
