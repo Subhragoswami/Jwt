@@ -1,52 +1,171 @@
-curl --location --request POST 'https://dev.epay.sbi/notification/v1/notify/email' \
---header 'Content-Type: application/json' \
---header 'Cookie: 0e4369a7a9882292f0be96d96f09c504=0f9a1c19e11ef0b3197e690f4c119a3b; KR01dd9f70=01890e9c13cada180b81bdf05f62e7fab25fa3fa0958c63182887b329fab2982d8fcc488a5fcf5de07756842ce486158688a4c26bbfe27a3dbbbbb9b75ca260841d397c242' \
---data-raw '{
-    "recipient" : "ebms_uat_receiver@ebmsgits.sbi.co.in",
-    "subject" : "Hi",
-    "from" : "ebms_uat_sender@ebmsgits.sbi.co.in",
-    "cc" : "",
-    "bcc" : "",
-    "body" : "Hello",
-    "emailType" : "CUSTOMER"
-}'
+package com.coffee.nyl.util;
 
+import com.coffee.nyl.exceptions.CoffeeException;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
+import java.io.IOException;
+import java.io.OutputStream;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 
+@Slf4j
+public class ExcelWorkBookUtil {
 
-
-
-
-https://10.176.245.230/aurora/#mail/1172652028/INBOX/msg5%3AINBOX%3A16478
-
-
-
-
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.thymeleaf.TemplateEngine;
-import org.thymeleaf.spring5.SpringTemplateEngine;
-import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
-import org.thymeleaf.templateresolver.ITemplateResolver;
-
-@Configuration
-public class ThymeleafConfig {
-
-    @Bean
-    public TemplateEngine templateEngine() {
-        SpringTemplateEngine templateEngine = new SpringTemplateEngine();
-        templateEngine.setTemplateResolver(templateResolver());
-        return templateEngine;
+    public static void createExcelWorkBook(HttpServletResponse response, String fileName, List<SheetData<?>> sheetDataList) {
+        Workbook workbook = new XSSFWorkbook();
+        try {
+            for (SheetData<?> sheetData : sheetDataList) {
+                createSheet(workbook, sheetData.getSheetName(), sheetData.getHeaders(), sheetData.getData(), sheetData.getDataMapper());
+            }
+            writeWorkbookToResponse(response, workbook, fileName);
+        } finally {
+            closeWorkbook(workbook);
+        }
     }
 
-    @Bean
-    public ITemplateResolver templateResolver() {
-        ClassLoaderTemplateResolver resolver = new ClassLoaderTemplateResolver();
-        resolver.setPrefix("templates/"); // Location of templates in the resources folder
-        resolver.setSuffix(".html"); // File extension
-        resolver.setTemplateMode("HTML");
-        resolver.setCharacterEncoding("UTF-8");
-        resolver.setCacheable(false); // Set to true in production
-        return resolver;
+    private static <T> void createSheet(Workbook workbook, String sheetName, String[] headers, List<T> data, Function<T, List<Object>> dataMapper) {
+        Sheet sheet = workbook.createSheet(sheetName);
+        createHeaderRow(sheet, headers);
+
+        int rowNum = 1;
+        for (T record : data) {
+            Row row = sheet.createRow(rowNum++);
+            List<Object> rowData = dataMapper.apply(record);
+            for (int i = 0; i < rowData.size(); i++) {
+                Cell cell = row.createCell(i);
+                setCellValue(cell, rowData.get(i));
+            }
+        }
+    }
+
+    private static void createHeaderRow(Sheet sheet, String[] headers) {
+        Row headerRow = sheet.createRow(0);
+        for (int i = 0; i < headers.length; i++) {
+            Cell cell = headerRow.createCell(i);
+            cell.setCellValue(headers[i]);
+        }
+    }
+
+    private static void setCellValue(Cell cell, Object value) {
+        if (value instanceof String) {
+            cell.setCellValue((String) value);
+        } else if (value instanceof Number) {
+            cell.setCellValue(((Number) value).doubleValue());
+        } else if (value instanceof Boolean) {
+            cell.setCellValue((Boolean) value);
+        } else {
+            cell.setCellValue(value != null ? value.toString() : "---");
+        }
+    }
+
+    private static void writeWorkbookToResponse(HttpServletResponse response, Workbook workbook, String fileName) {
+        try (OutputStream outputStream = response.getOutputStream()) {
+            response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            response.setHeader("Content-Disposition", "attachment; filename=" + fileName + ".xlsx");
+            workbook.write(outputStream);
+        } catch (IOException e) {
+            log.error("An error occurred while writing the Excel file: {}", e.getMessage());
+            throw new CoffeeException("SYSTEM_ERROR", "Error generating Excel file.");
+        }
+    }
+
+    private static void closeWorkbook(Workbook workbook) {
+        try {
+            if (workbook != null) {
+                workbook.close();
+            }
+        } catch (IOException e) {
+            log.error("An error occurred while closing the workbook: {}", e.getMessage());
+        }
+    }
+}
+
+
+
+
+
+
+--------------------------CSV----------------
+
+
+
+
+
+
+
+package com.coffee.nyl.util;
+
+import com.coffee.nyl.exceptions.CoffeeException;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
+
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.util.List;
+import java.util.function.Function;
+
+@Slf4j
+public class CsvFileUtil {
+
+    public static void createCsvFile(HttpServletResponse response, String fileName, List<SheetData<?>> sheetDataList) {
+        try {
+            response.setContentType("text/csv");
+            response.setHeader("Content-Disposition", "attachment; filename=" + fileName + ".csv");
+
+            try (PrintWriter writer = new PrintWriter(new OutputStreamWriter(response.getOutputStream()))) {
+                for (SheetData<?> sheetData : sheetDataList) {
+                    writer.println(sheetData.getSheetName()); // Write sheet name as a title
+                    writeHeaders(writer, sheetData.getHeaders());
+                    writeData(writer, sheetData.getData(), sheetData.getDataMapper());
+                    writer.println(); // Add a blank line between sheets
+                }
+            }
+        } catch (IOException e) {
+            log.error("An error occurred while writing the CSV file: {}", e.getMessage());
+            throw new CoffeeException("SYSTEM_ERROR", "Error generating CSV file.");
+        }
+    }
+
+    private static void writeHeaders(PrintWriter writer, String[] headers) {
+        writer.println(String.join(",", headers));
+    }
+
+    private static <T> void writeData(PrintWriter writer, List<T> data, Function<T, List<Object>> dataMapper) {
+        for (T record : data) {
+            List<Object> rowData = dataMapper.apply(record);
+            writer.println(formatRow(rowData));
+        }
+    }
+
+    private static String formatRow(List<Object> rowData) {
+        StringBuilder row = new StringBuilder();
+        for (int i = 0; i < rowData.size(); i++) {
+            Object value = rowData.get(i);
+            row.append(formatCellValue(value));
+            if (i < rowData.size() - 1) {
+                row.append(",");
+            }
+        }
+        return row.toString();
+    }
+
+    private static String formatCellValue(Object value) {
+        if (value == null) {
+            return ""; // Empty for null values
+        } else if (value instanceof String) {
+            String stringValue = (String) value;
+            if (stringValue.contains(",") || stringValue.contains("\"")) {
+                stringValue = stringValue.replace("\"", "\"\""); // Escape quotes
+                return "\"" + stringValue + "\""; // Enclose in quotes
+            }
+            return stringValue;
+        } else {
+            return value.toString();
+        }
     }
 }
