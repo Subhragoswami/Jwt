@@ -1,150 +1,23 @@
-first here need to create one object named transaction daily report
-inside that 
-thransactionDate, totalSuccessAmount and totalFailedAmount 
-and need to send data in list as transactionFailure and inside that
-
-failureReason and failureamount and fauilure percentage will be there failure percentage will be totalFailedAmount/failureAmount*100
-
-Jan-2025	CUSTOMER	117
-Jan-2025	BUSINESS	78
-Jan-2025	TECHNICAL	39
-this type of data I'll get by
-SELECT TO_CHAR(TO_DATE(TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') as transactionDate, error_code as failureReason, sum(failure_amount) as failureAmount FROM view_transaction_daily_failure_report WHERE MID = 1000834 AND error_code is NOT NULL AND TRANSACTION_DATE BETWEEN TO_DATE('1-01-2025', 'DD-MM-YYYY') AND TO_DATE('31-01-2025', 'DD-MM-YYYY') GROUP BY TO_CHAR(TO_DATE(TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY'),error_code;
-
-and
-Jan-2025	22	12
-this I'll get by
-SELECT TO_CHAR(TO_DATE(TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') as transactionDate, SUM(total_success_amount) as totalSuccessAmount, sum(total_failed_amount) as toalFailedAmount FROM view_transaction_daily_report WHERE MID = 1000834 AND TRANSACTION_DATE BETWEEN TO_DATE('1-01-2025', 'DD-MM-YYYY') AND TO_DATE('31-01-2025', 'DD-MM-YYYY') GROUP BY TO_CHAR(TO_DATE(TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY');
-
-
-now I need to calculate the percentage in code and build the object 
-
-
+CREATE TABLE MERCHANT_BANK_ACCOUNT (
+    ID RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+    MID VARCHAR2(100) ,
+    ACCOUNT_NAME NUMBER(18,2),
+    BANK_NAME NUMBER(18,2),
+    IFSC_CODE VARCHAR2(20),
+    BRANCH_NAME VARCHAR2(100),
+    ACCOUNT_TYPE VARCHAR2(30),
+    ACCOUNT_NUMBER VARCHAR2(30),
+    IS_APPROVED NUMBER(1),
+    IS_PRIMARY NUMBER(1),
+    APPROVED_REJECTED_BY VARCHAR2(50),
+    REJECTED_REASON VARCHAR2(200),
+    APPROVED_REJECTED_ON NUMBER,
+    MERCHANT_BANK_ACCOUNT VARCHAR2(30),
+    STATUS VARCHAR2(30),
+    CREATED_AT NUMBER,
+    CREATED_BY VARCHAR2(50),
+    UPDATED_BY VARCHAR2(50),
+    UPDATED_AT NUMBER
 
 
-@Service
-@RequiredArgsConstructor
-public class TransactionReportService {
-
-    private final TransactionDailyFailureRepository failureRepository;
-
-    /**
-     * This method generates the daily transaction report with failure details and percentage calculation.
-     *
-     * @param mid       Merchant ID
-     * @param startDate Start date of the report
-     * @param endDate   End date of the report
-     * @return List of TransactionDailyReport
-     */
-    public List<TransactionDailyReport> getTransactionDailyReport(String mid, String startDate, String endDate) {
-        // Fetch the summary data
-        List<TransactionDailyReport> summaryList = failureRepository.getSuccessFailureSummary(mid, startDate, endDate);
-
-        // Fetch the failure details
-        List<TransactionFailure> failureDetails = failureRepository.getFailureDetails(mid, startDate, endDate);
-
-        // Map failure details to the summary
-        Map<String, List<TransactionFailure>> failureMap = failureDetails.stream()
-                .collect(Collectors.groupingBy(TransactionFailure::getTransactionDate));
-
-        for (TransactionDailyReport report : summaryList) {
-            BigDecimal totalFailedAmount = report.getTotalFailedAmount();
-
-            List<TransactionFailure> failuresForDate = failureMap.getOrDefault(report.getTransactionDate(), new ArrayList<>());
-
-            // Calculate failure percentage for each failure reason
-            for (TransactionFailure failure : failuresForDate) {
-                BigDecimal failurePercentage = totalFailedAmount.compareTo(BigDecimal.ZERO) > 0
-                        ? failure.getFailureAmount().divide(totalFailedAmount, 2, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100))
-                        : BigDecimal.ZERO;
-                failure.setFailurePercentage(failurePercentage);
-            }
-
-            report.setTransactionFailures(failuresForDate);
-        }
-
-        return summaryList;
-    }
-}
-
-
-
-
-
-
-@Repository
-@RequiredArgsConstructor
-public class TransactionDailyFailureRepository {
-
-    private final NamedParameterJdbcTemplate namedParameterJdbcTemplate;
-
-    public List<TransactionFailure> getFailureDetails(String mid, String startDate, String endDate) {
-        MapSqlParameterSource params = new MapSqlParameterSource();
-        params.addValue("mId", mid);
-        params.addValue("startDate", startDate);
-        params.addValue("endDate", endDate);
-
-        return namedParameterJdbcTemplate.query(TransactionFailureQueries.FAILURE_DETAILS_QUERY, params,
-                (rs, rowNum) -> TransactionFailure.builder()
-                        .failureReason(rs.getString("failureReason"))
-                        .failureAmount(rs.getBigDecimal("failureAmount"))
-                        .build());
-    }
-
-    public List<TransactionDailyReport> getSuccessFailureSummary(String mid, String startDate, String endDate) {
-        MapSqlParameterSource params = new MapSqlParameterSource();
-        params.addValue("mId", mid);
-        params.addValue("startDate", startDate);
-        params.addValue("endDate", endDate);
-
-        return namedParameterJdbcTemplate.query(TransactionFailureQueries.SUCCESS_FAILURE_SUMMARY_QUERY, params,
-                (rs, rowNum) -> TransactionDailyReport.builder()
-                        .transactionDate(rs.getString("transactionDate"))
-                        .totalSuccessAmount(rs.getBigDecimal("totalSuccessAmount"))
-                        .totalFailedAmount(rs.getBigDecimal("totalFailedAmount"))
-                        .transactionFailures(new ArrayList<>()) // Initialize with empty list
-                        .build());
-    }
-}
-
-
-
-
-
-
-public class TransactionFailureQueries {
-    public static final String FAILURE_DETAILS_QUERY =
-            "SELECT TO_CHAR(TO_DATE(TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') as transactionDate, " +
-            "error_code as failureReason, SUM(failure_amount) as failureAmount " +
-            "FROM view_transaction_daily_failure_report " +
-            "WHERE MID = :mId AND error_code IS NOT NULL AND TRANSACTION_DATE BETWEEN TO_DATE(:startDate, 'DD-MM-YYYY') " +
-            "AND TO_DATE(:endDate, 'DD-MM-YYYY') " +
-            "GROUP BY TO_CHAR(TO_DATE(TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY'), error_code";
-
-    public static final String SUCCESS_FAILURE_SUMMARY_QUERY =
-            "SELECT TO_CHAR(TO_DATE(TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') as transactionDate, " +
-            "SUM(total_success_amount) as totalSuccessAmount, SUM(total_failed_amount) as totalFailedAmount " +
-            "FROM view_transaction_daily_report " +
-            "WHERE MID = :mId AND TRANSACTION_DATE BETWEEN TO_DATE(:startDate, 'DD-MM-YYYY') AND TO_DATE(:endDate, 'DD-MM-YYYY') " +
-            "GROUP BY TO_CHAR(TO_DATE(TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY')";
-}
-
-
-
-
-@Data
-@Builder
-public class TransactionDailyReport {
-    private String transactionDate;
-    private BigDecimal totalSuccessAmount;
-    private BigDecimal totalFailedAmount;
-    private List<TransactionFailure> transactionFailures;
-}
-
-@Data
-@Builder
-public class TransactionFailure {
-    private String failureReason;
-    private BigDecimal failureAmount;
-    private BigDecimal failurePercentage; // Calculated as (failureAmount / totalFailedAmount) * 100
-}
+);
