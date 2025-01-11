@@ -1,55 +1,111 @@
-package com.epay.reporting.util.queries;
+package com.epay.merchant.config;
 
-public class TransactionPaymodeQueries {
+import lombok.Data;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Configuration;
 
-    public static String JDBC_TRANSACTION_PAYMODE = "SELECT TO_CHAR(TO_DATE(TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') as transactionDate, " +
-            "paymode_code as payMode, sum(total_success_amount) as totalSuccessAmount, " +
-            "sum(total_debit_amount)as totalDebitAmount, " +
-            "round(sum(total_success_amount)/sum(total_debit_amount) *100, 2) as " +
-            "successPercentage FROM view_transaction_paymode_daily_report WHERE MID = :mId AND " +
-            "PAYMODE_CODE is NOT NULL AND TRANSACTION_DATE BETWEEN TO_DATE('1-01-2025', 'DD-MM-YYYY') AND " +
-            "TO_DATE('31-01-2025', 'DD-MM-YYYY') GROUP BY TO_CHAR(TO_DATE(TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY'),paymode_code";
+/**
+ * Class Name: MerchantConfig
+ * *
+ * Description:
+ * *
+ * Author: V1017903(bhushan wadekar)
+ * <p>
+ * Copyright (c) 2024 [State Bank of India]
+ * All rights reserved
+ * *
+ * Version:1.0
+ */
+
+@Data
+@Configuration
+public class MerchantConfig {
+
+    @Value("${kaptcha.border}")
+    private String border;
+
+    @Value("${kaptcha.textproducer.font.color}")
+    private String fontColor;
+
+    @Value("${kaptcha.textproducer.char.space}")
+    private String charSpace;
+
+    @Value("${kaptcha.image.width}")
+    private String imageWidth;
+
+    @Value("${kaptcha.image.height}")
+    private String imageHeight;
+
+    @Value("${kaptcha.textproducer.font.size}")
+    private String fontSize;
+
+    @Value("${kaptcha.textproducer.char.length}")
+    private String charLength;
+
+    @Value("${captcha.expiry.time.minutes:5}")
+    private int expiryTime;
+
+    @Value("${merchant.user.password.expiry.months:3}")
+    private int passwordExpiryMonths;
+
+    @Value("${otp.expiry.time.minutes:5}")
+    private int otpExpiryTime;
+
+    @Value("${merchant.encryption.key.expiry.time.days:30}")
+    private int encryptionKeyExpiryTime;
+
+    @Value("${merchant.api.key.expiry.time.month:12}")
+    private int apiKeyExpiryTime;
+
+    @Value("${merchant.user.password.key}")
+    private String decryptionKey;
+
+    @Value("${token.expiry.time.minutes}")
+    private int tokenExpiryTime;
+
+    @Value("${theme.logo.dimension.height:100}")
+    private int logoHeight;
+
+    @Value("${theme.logo.dimension.width:100}")
+    private int logoWidth;
+
+    @Value("${theme.logo.size.max:16KB}")
+    private String logoMaxSize;
+
+    @Value("${external.api.sms.gateway.base.path}")
+    private String smsBasePath;
+
+    @Value("${external.api.sms.gateway.user}")
+    private String smsUserName;
+
+    @Value("${external.api.sms.gateway.password}")
+    private String smsPassword;
+
+    @Value("${external.api.sms.body.content.type:text}")
+    private String smsContentType;
+
+    @Value("${external.api.sms.body.sender.id:SBIBNK}")
+    private String smsSenderId;
+
+    @Value("${external.api.sms.body.int.flag:0}")
+    private String smsIntFlag;
+
+    @Value("${external.api.sms.body.charging:0}")
+    private int smsCharging;
+
+    @Value("${external.api.sms.gateway.url:/bmg/sms/epaypgotpdom}")
+    private String smsURL;
+
+    @Value("${email.recipient:}")
+    private String recipient;
+
+    @Value("${email.from}")
+    private String from;
 }
 
-this query is working fine if i  do this it's notwoking
-package com.epay.reporting.util.queries;
-
-public class TransactionPaymodeQueries {
-
-    public static String JDBC_TRANSACTION_PAYMODE = "SELECT TO_CHAR(TO_DATE(TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') as transactionDate, " +
-            "paymode_code as payMode, sum(total_success_amount) as totalSuccessAmount, " +
-            "sum(total_debit_amount)as totalDebitAmount, " +
-            "round(sum(total_success_amount)/sum(total_debit_amount) *100, 2) as " +
-            "successPercentage FROM view_transaction_paymode_daily_report WHERE MID = :mId AND " +
-            "PAYMODE_CODE is NOT NULL AND TRANSACTION_DATE BETWEEN TO_DATE(:startDate, 'DD-MM-YYYY') AND " +
-            "TO_DATE(:endDate, 'DD-MM-YYYY') GROUP BY TO_CHAR(TO_DATE(TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY'),paymode_code";
-}
 
 
 
-    public List<TransactionPaymodeReport> getPayModeReport(String mid, TransactionPayModeRequest transactionPayModeRequest) {
-        MapSqlParameterSource parameters = new MapSqlParameterSource();
-        parameters.addValue("mId", mid);
-        parameters.addValue("startDate", transactionPayModeRequest.getFromDate());
-        parameters.addValue("endDate", transactionPayModeRequest.getToDate());
 
-        return namedParameterJdbcTemplate.query(
-                TransactionPaymodeQueries.JDBC_TRANSACTION_PAYMODE,
-                parameters,
-                (rs, rowNum) -> mapTransactionPaymodeReport(rs)
-        );
-    }
+Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'merchantConfig': Unsatisfied dependency expressed through field 'smsCharging': Failed to convert value of type 'java.lang.String' to required type 'int'; For input string: ""
 
-    private TransactionPaymodeReport mapTransactionPaymodeReport(ResultSet rs) throws SQLException {
-        return TransactionPaymodeReport.builder()
-                .transactionDate(rs.getString("transactionDate"))
-                .PaymodeCode(rs.getString("payMode"))
-                .totalSuccessAmount(rs.getBigDecimal("totalSuccessAmount"))
-                .totalDebitAmount(rs.getBigDecimal("totalDebitAmount"))
-                .successPercentage(rs.getBigDecimal("successPercentage"))
-                .build();
-    }
-{
-    "fromDate": "09-01-25",
-    "toDate": "09-01-25"
-}
