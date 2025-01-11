@@ -1,51 +1,24 @@
-2025-01-11 14:35:35.173 WARN | com.epay.merchant.exceptionhandlers.MerchantExceptionHandler:97 | principal=  | scenario=/merchant/v1/bank/MID002 | operation=GET | correlation=4b050811-d232-4536-a9ee-1210554625a0 | handleDBException | Resolved [org.springframework.dao.InvalidDataAccessApiUsageException: Could not resolve attribute 'MId' of 'com.epay.merchant.entity.MerchantBankAccount']
+   public static void createExcelWorkBook(HttpServletResponse response, String fileName, List<SheetData<?>> sheetDataList) throws IOException {
+        Workbook workbook = new XSSFWorkbook();
+        try {
+            for (SheetData<?> sheetData : sheetDataList) {
+                createSheet(workbook, sheetData.getSheetName(), sheetData.getHeaders(), sheetData.getData(), sheetData.getDataMapper());
+            }
+            writeWorkbookToResponse(response, workbook, fileName);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } finally {
+            closeWorkbook(workbook);
+        }
+    }
 
- List<MerchantBankAccount> findAllByMId(String mId, Pageable pageable);
 
-package com.epay.merchant.entity;
-
-import jakarta.persistence.*;
-import lombok.Builder;
-import lombok.Data;
-
-import java.util.UUID;
-
-@Builder
-@Data
-@Entity
-@Table(name = "MERCHANT_BANK_ACCOUNT")
-public class MerchantBankAccount extends AuditEntity{
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "ID", nullable = false, updatable = false, unique = true)
-    private UUID id;
-    @Column(name="MID")
-    private String mId;
-    @Column(name="ACCOUNT_NAME")
-    private Long accountName;
-    @Column(name="BANK_NAME")
-    private String bankName;
-    @Column(name="IFSC_CODE")
-    private String ifscCode;
-    @Column(name="BRANCH_NAME")
-    private String branchName;
-    @Column(name="ACCOUNT_TYPE")
-    private String accountType;
-    @Column(name="ACCOUNT_NUMBER")
-    private String accountNumber;
-    @Column(name="IS_APPROVED")
-    private int isApproved;
-    @Column(name="IS_PRIMARY")
-    private int isPrimary;
-    @Column(name="APPROVED_REJECTED_BY")
-    private String approvedRejectedBy;
-    @Column(name="REJECTED_REASON")
-    private String rejectedReason;
-    @Column(name="APPROVED_REJECTED_ON")
-    private String approvedRejectedOn;
-    @Column(name="MERCHANT_BANK_ACCOUNT")
-    private String merchantBankAccount;
-    @Column(name="STATUS")
-    private String status;
-
-}
+Required type
+Provided
+data:
+List<T>
+List<capture of ?>
+dataMapper:
+Function<T, List<Object>>
+Function<capture of ?,List<Object>>
+reason: Incompatible equality constraint: capture of ? and capture of ?
