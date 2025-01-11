@@ -1,14 +1,11 @@
- @Value("${email.recipient}")
-    private String recipient;
+ @GetMapping("/roles")
+    @Operation(summary = "", description = "")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
+    public MerchantResponse<UserRoleResponse> getUserRole(){
+        return merchantUserService.getUserRole();
+    }
 
-   @Async
-    private void sendEmail(String UserEmail, String content, String subject) {
-        EmailDTO emailDTO = new EmailDTO();
-        emailDTO.setRecipient(merchantConfig.getRecipient());
-        emailDTO.setCc(UserEmail);
-        emailDTO.setSubject(subject);
-        emailDTO.setFrom(merchantConfig.getFrom());
-        emailDTO.setBody(content);
-        emailDTO.setEmailType(EmailType.CUSTOMER);
-        emailService.sendEmail(emailDTO);
+   public MerchantResponse<UserRoleResponse> getUserRole(){
+        List<UserRoleResponse> userRoleResponse = merchantUserDao.getUserRoles();
+        return MerchantResponse.<UserRoleResponse>builder().data(userRoleResponse).status(MerchantConstant.RESPONSE_SUCCESS).count(userRoleResponse.stream().count()).build();
     }
