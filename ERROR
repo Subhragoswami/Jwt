@@ -22,3 +22,21 @@ dataMapper:
 Function<T, List<Object>>
 Function<capture of ?,List<Object>>
 reason: Incompatible equality constraint: capture of ? and capture of ?
+
+
+
+
+
+public static <T> void createExcelWorkBook(HttpServletResponse response, String fileName, List<SheetData<T>> sheetDataList) throws IOException {
+    Workbook workbook = new XSSFWorkbook();
+    try {
+        for (SheetData<T> sheetData : sheetDataList) {
+            createSheet(workbook, sheetData.getSheetName(), sheetData.getHeaders(), sheetData.getData(), sheetData.getDataMapper());
+        }
+        writeWorkbookToResponse(response, workbook, fileName);
+    } catch (IOException e) {
+        throw new RuntimeException(e);
+    } finally {
+        closeWorkbook(workbook);
+    }
+}
