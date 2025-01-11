@@ -169,3 +169,18 @@ public class CsvFileUtil {
         }
     }
 }
+
+
+
+dependencies {
+    // Apache POI for working with Excel files
+    implementation 'org.apache.poi:poi:5.2.3'
+    implementation 'org.apache.poi:poi-ooxml:5.2.3'
+
+    // Jakarta Servlet API for HttpServletResponse
+    implementation 'jakarta.servlet:jakarta.servlet-api:5.0.0'
+
+    // Lombok (if not already included)
+    compileOnly 'org.projectlombok:lombok:1.18.28'
+    annotationProcessor 'org.projectlombok:lombok:1.18.28'
+}
