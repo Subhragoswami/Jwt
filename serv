@@ -11,3 +11,86 @@
         return MerchantResponse.<String>builder().data(List.of("View updated successfully")).status(MerchantConstant.RESPONSE_SUCCESS).count(1L).total(1L).build();
 
     }
+
+
+
+
+
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RestController;
+import io.swagger.v3.oas.annotations.Operation;
+
+@RestController
+public class AlertManagementController {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(AlertManagementController.class);
+
+    private final AlertManagementService alertManagementService;
+
+    public AlertManagementController(AlertManagementService alertManagementService) {
+        this.alertManagementService = alertManagementService;
+    }
+
+    /**
+     * Updates the view status of a specific alert for a given merchant ID.
+     *
+     * @param mId      String - the merchant ID
+     * @param alertId  UUID - the alert ID
+     * @return MerchantResponse<String> - response message indicating success
+     */
+    @PutMapping("/{mId}/{alertId}")
+    @Operation(summary = "Update Alert View", description = "Updates the 'viewed' status of a specific alert for the given merchant ID and alert ID.")
+    public MerchantResponse<String> updateView(@PathVariable String mId, @PathVariable UUID alertId) {
+        LOGGER.info("Updating view status for alert ID '{}' of merchant ID '{}'", alertId, mId);
+        return alertManagementService.updateView(mId, alertId);
+    }
+}
+
+
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+@Service
+public class AlertManagementService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(AlertManagementService.class);
+
+    private final AlertValidator alertValidator;
+    private final AlertManagementDao alertManagementDao;
+
+    public AlertManagementService(AlertValidator alertValidator, AlertManagementDao alertManagementDao) {
+        this.alertValidator = alertValidator;
+        this.alertManagementDao = alertManagementDao;
+    }
+
+    /**
+     * Marks the alert as viewed for the given merchant and alert ID.
+     *
+     * @param mId      String - the merchant ID
+     * @param alertId  UUID - the alert ID
+     * @return MerchantResponse<String> - response message indicating success
+     */
+    public MerchantResponse<String> updateView(String mId, UUID alertId) {
+        // Validate the merchant ID and alert ID
+        alertValidator.validateMIdAndAlertId(mId, alertId);
+        
+        LOGGER.info("Marking alert ID '{}' as viewed for merchant ID '{}'", alertId, mId);
+
+        // Update the view status of the alert
+        alertManagementDao.updateView(mId, alertId);
+
+        // Return the success response
+        return MerchantResponse.<String>builder()
+                .data(List.of("View updated successfully"))
+                .status(MerchantConstant.RESPONSE_SUCCESS)
+                .count(1L)
+                .total(1L)
+                .build();
+    }
+}
