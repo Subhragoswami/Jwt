@@ -6,3 +6,11 @@ public class AlertManagement extends AuditEntity {
     @Column(name = "MID")
     private String mId;
     private boolean isViewed;
+
+
+@Repository
+public interface AlertManagementRepository extends JpaRepository<AlertManagement, UUID> {
+
+    @Query("SELECT a FROM AlertManagement a WHERE a.isViewed = false ORDER BY a.id ASC")
+    List<AlertManagement> findTop50ByIsViewedFalse(Pageable pageable);
+}
