@@ -1,6 +1,10 @@
-  public MerchantUserResponse updateUserStatusByUserName(String userName, UserStatus userStatus, MerchantUserUpdateRequest merchantUserUpdateRequest) {
-        MerchantUser merchantUser = merchantUserRepository.findByUserNameOrEmailOrMobilePhone(userName, userName, userName).get();
-        merchantUser.setStatus(userStatus);
-        merchantUser.setRemark(merchantUserUpdateRequest.getRemark());
-        return merchantMapper.mapMerchantUserEntityToResponse(merchantUserRepository.save(merchantUser));
+ @GetMapping("/{mId}")
+    @Operation(summary = "", description = "")
+    public MerchantResponse<AlertManagementResponse> getLatestAlerts(@PageableDefault(size = 50, page = 0, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable, @PathVariable String mId) {
+        return alertManagementService.getLatestAlerts(pageable, mId);
+    }
+
+  public MerchantResponse<AlertManagementResponse> getLatestAlerts(Pageable pageable, String mid){
+        List<AlertManagementResponse> alertManagementResponses = alertManagementDao.getUnreadAlerts(pageable, mid);
+        return MerchantResponse.<AlertManagementResponse>builder().data(alertManagementResponses).status(MerchantConstant.RESPONSE_SUCCESS).count(alertManagementResponses.stream().count()).build();
     }
