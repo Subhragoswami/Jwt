@@ -354,3 +354,15 @@ public class MerchantUserDao {
 
 }
 
+
+
+
+private void validateWordLimit(String content, int maxWords) {
+    if (content != null) {
+        int wordCount = content.trim().split("\\s+").length; // Splits on whitespace
+        if (wordCount > maxWords) {
+            throw new MerchantException("CONTENT_LIMIT_EXCEEDED", 
+                "Content exceeds the maximum allowed word limit of " + maxWords + " words.");
+        }
+    }
+}
