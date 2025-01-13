@@ -1,83 +1,141 @@
- public MerchantResponse<MerchantBankAccountDetailsResponse> getBankAccountDetails(String mId, Pageable pageable){
-        List<MerchantBankAccountDetailsResponse> merchantBankAccountDetailsResponseList = merchantBankAccountCreationDao.getBankDetailsByMid(mId, pageable);
-        return MerchantResponse.<MerchantBankAccountDetailsResponse>builder().data(merchantBankAccountDetailsResponseList).status(RESPONSE_SUCCESS).count(merchantBankAccountDetailsResponseList.stream().count()).build();
+@Entity
+@Table(name = "Merchant_Info")
+public class MerchantInfo {
+    @Id
+    @Column(name = "MERCHANT_ID")
+    private String merchantId;
+
+    @Column(name = "MID")
+    private String mid;
+
+    @Column(name = "MERCHANT_NAME")
+    private String merchantName;
+
+    @Column(name = "VALIDITY_END_TIME")
+    private Long validityEndTime;
+
+    // Other fields, getters, and setters...
+}
+
+
+@Entity
+@Table(name = "ALERT_MASTER")
+public class AlertMaster {
+    @Id
+    @Column(name = "ID")
+    private UUID id;
+
+    @Column(name = "VALUE")
+    private String value;
+
+    // Other fields, getters, and setters...
+}
+
+
+@Entity
+@Table(name = "ALERT_MANAGEMENT")
+public class AlertManagement {
+    @Id
+    @Column(name = "ID")
+    private UUID id;
+
+    @Column(name = "ALERT_ID")
+    private UUID alertId;
+
+    @Column(name = "MID")
+    private String mid;
+
+    @Column(name = "VIEWED")
+    private String viewed;
+
+    @Column(name = "CREATED_AT")
+    private Long createdAt;
+
+    @Column(name = "CREATED_BY")
+    private String createdBy;
+
+    @Column(name = "UPDATED_BY")
+    private String updatedBy;
+
+    @Column(name = "UPDATED_AT")
+    private Long updatedAt;
+
+    // Getters and setters...
+}
+
+
+
+
+
+@Repository
+public interface MerchantInfoRepository extends JpaRepository<MerchantInfo, String> {
+    @Query("SELECT m FROM MerchantInfo m WHERE m.validityEndTime BETWEEN :startTime AND :endTime")
+    List<MerchantInfo> findMerchantsExpiringInRange(@Param("startTime") Long startTime, @Param("endTime") Long endTime);
+}
+
+@Repository
+public interface AlertMasterRepository extends JpaRepository<AlertMaster, UUID> {
+    List<AlertMaster> findByValueIn(List<String> values);
+}
+
+@Repository
+public interface AlertManagementRepository extends JpaRepository<AlertManagement, UUID> {
+}
+
+
+
+
+@Service
+public class MerchantExpiryScheduler {
+
+    @Autowired
+    private MerchantInfoRepository merchantInfoRepository;
+
+    @Autowired
+    private AlertMasterRepository alertMasterRepository;
+
+    @Autowired
+    private AlertManagementRepository alertManagementRepository;
+
+    @Scheduled(cron = "0 0 0 * * ?") // Runs daily at midnight
+    public void checkMerchantExpiry() {
+        long currentTime = System.currentTimeMillis();
+        long oneDayMillis = 24 * 60 * 60 * 1000L;
+
+        // Alert values (e.g., 1, 2, 3, 4, 5, 15, 30 days)
+        List<String> alertValues = Arrays.asList("1", "2", "3", "4", "5", "15", "30");
+
+        // Get merchants expiring in the next 30 days
+        long maxEndTime = currentTime + (30 * oneDayMillis);
+        List<MerchantInfo> expiringMerchants = merchantInfoRepository.findMerchantsExpiringInRange(currentTime, maxEndTime);
+
+        for (MerchantInfo merchant : expiringMerchants) {
+            long daysLeft = (merchant.getValidityEndTime() - currentTime) / oneDayMillis;
+
+            if (alertValues.contains(String.valueOf(daysLeft))) {
+                // Fetch alert details
+                List<AlertMaster> alertMasters = alertMasterRepository.findByValueIn(alertValues);
+                Optional<AlertMaster> alert = alertMasters.stream()
+                        .filter(a -> a.getValue().equals(String.valueOf(daysLeft)))
+                        .findFirst();
+
+                alert.ifPresent(alertMaster -> {
+                    // Update Alert Management
+                    AlertManagement alertManagement = new AlertManagement();
+                    alertManagement.setId(UUID.randomUUID());
+                    alertManagement.setAlertId(alertMaster.getId());
+                    alertManagement.setMid(merchant.getMid());
+                    alertManagement.setViewed(daysLeft + " days left");
+                    alertManagement.setCreatedAt(System.currentTimeMillis());
+                    alertManagement.setCreatedBy("System");
+                    alertManagement.setUpdatedBy("System");
+                    alertManagement.setUpdatedAt(System.currentTimeMillis());
+
+                    alertManagementRepository.save(alertManagement);
+                });
+            }
+        }
     }
-
- @GetMapping("/{mId}")
-    @Operation(summary = "", description = "")
-    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
-    public MerchantResponse<MerchantBankAccountDetailsResponse> getBankAccountDetails(@PathVariable String mId, @PageableDefault Pageable pageable){
-        return merchantBankAccountCreationService.getBankAccountDetails(mId, pageable);
-    }
-
-
-
-/**
- * Fetch Bank Account Details for a Merchant
- *
- * @param mId String - Merchant ID for which bank account details are requested
- * @param pageable Pageable - Pagination details for the request
- * @return MerchantResponse<MerchantBankAccountDetailsResponse> - Response containing bank account details
- */
-@GetMapping("/{mId}")
-@Operation(summary = "Fetch Bank Account Details", description = "Fetches bank account details for a merchant based on their Merchant ID. Supports pagination.")
-@PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
-public MerchantResponse<MerchantBankAccountDetailsResponse> getBankAccountDetails(@PathVariable String mId, @PageableDefault Pageable pageable) {
-    log.info("API call received: Fetch bank account details. Merchant ID: {}, Pageable: {}", mId, pageable);
-
-    // Step 1: Call the service layer to get bank account details
-    log.info("Step 1: Calling service layer to fetch bank account details for Merchant ID: {}", mId);
-    MerchantResponse<MerchantBankAccountDetailsResponse> response = merchantBankAccountCreationService.getBankAccountDetails(mId, pageable);
-
-    // Step 2: Return the response back to the caller
-    log.info("Step 2: Returning the response to the caller. Response: {}", response);
-    return response;
 }
 
 
-
-
-/**
- * Get Merchant Bank Account Details
- *
- * @param mId String - Merchant ID to fetch bank account details
- * @param pageable Pageable - Pagination details for fetching records
- * @return MerchantResponse<MerchantBankAccountDetailsResponse> - Response containing a list of bank account details
- */
-public MerchantResponse<MerchantBankAccountDetailsResponse> getBankAccountDetails(String mId, Pageable pageable) {
-    log.info("Step 1: Starting service method to fetch bank account details for Merchant ID: {}, Pageable: {}", mId, pageable);
-
-    // Step 2: Fetch the list of bank account details from DAO
-    List<MerchantBankAccountDetailsResponse> merchantBankAccountDetailsResponseList =
-            merchantBankAccountCreationDao.getBankDetailsByMid(mId, pageable);
-    log.info("Step 2: Fetched bank account details from DAO. Total records fetched: {}", merchantBankAccountDetailsResponseList.size());
-
-    // Step 3: Build the response object
-    MerchantResponse<MerchantBankAccountDetailsResponse> response = MerchantResponse.<MerchantBankAccountDetailsResponse>builder()
-            .data(merchantBankAccountDetailsResponseList)
-            .status(RESPONSE_SUCCESS)
-            .count((long) merchantBankAccountDetailsResponseList.size())
-            .build();
-    log.info("Step 3: Response built successfully. Response: {}", response);
-
-    // Step 4: Return the response back to the caller
-    log.info("Step 4: Returning the response to the caller.");
-    return response;
-}
-
-
-
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-
-import java.util.List;
-import java.util.function.Function;
-
-@Getter
-@AllArgsConstructor
-public class SheetData<T> {
-    private String sheetName; // Name of the sheet
-    private String[] headers; // Headers for the columns
-    private List<T> data; // Data to populate the sheet
-    private Function<T, List<Object>> dataMapper; // Mapper to convert data to a row
-}
