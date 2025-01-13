@@ -172,15 +172,58 @@ public class CsvFileUtil {
 
 
 
-dependencies {
-    // Apache POI for working with Excel files
-    implementation 'org.apache.poi:poi:5.2.3'
-    implementation 'org.apache.poi:poi-ooxml:5.2.3'
 
-    // Jakarta Servlet API for HttpServletResponse
-    implementation 'jakarta.servlet:jakarta.servlet-api:5.0.0'
 
-    // Lombok (if not already included)
-    compileOnly 'org.projectlombok:lombok:1.18.28'
-    annotationProcessor 'org.projectlombok:lombok:1.18.28'
+
+
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
+import java.util.List;
+import java.util.function.Function;
+
+@Getter
+@AllArgsConstructor
+public class SheetData<T> {
+    private String sheetName; // Name of the sheet
+    private String[] headers; // Headers for the columns
+    private List<T> data; // Data to populate the sheet
+    private Function<T, List<Object>> dataMapper; // Mapper to convert data to a row
+}
+
+
+
+
+
+
+/**
+ * Sending onboarding email and/or SMS.
+ */
+private void sendNotification(MerchantUser merchantUser, String password) {
+    // Step 1: Send Email Notification
+    MerchantEmailDto emailDto = MerchantEmailDto.builder()
+            .toEmail(merchantUser.getEmail())
+            .content(EmailUtil.generateUserCreationContent(merchantUser))
+            .eMailType(EMailType.USER_CREATION)
+            .build();
+    NotificationManagement emailNotification = buildNotificationManagement(merchantUser.getId());
+    notificationDao.sendEmailNotification(emailDto, emailNotification);
+
+    // Step 2: Send SMS Notification
+    SmsRequest smsRequest = SmsRequest.builder()
+            .mobileNumber(merchantUser.getMobilePhone())
+            .message(MessageFormat.format(SmsUtil.USER_ONBOARDING, merchantUser.getUserName()))
+            .build();
+    NotificationManagement smsNotification = buildNotificationManagement(merchantUser.getId());
+    notificationDao.sendSmsNotification(smsRequest, smsNotification);
+
+    // Step 3: Send Password Email Notification
+    MerchantEmailDto passwordEmailDto = MerchantEmailDto.builder()
+            .toEmail(merchantUser.getEmail())
+            .content(EmailUtil.generateDefaultContent("Password has been generated successfully, Password is " + password))
+            .eMailType(EMailType.PASSWORD_GENERATION)
+            .build();
+    NotificationManagement passwordNotification = buildNotificationManagement(merchantUser.getId());
+    notificationDao.sendEmailNotification(passwordEmailDto, passwordNotification);
 }
