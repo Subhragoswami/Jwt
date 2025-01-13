@@ -1,16 +1,3 @@
-   private void sendNotification(MerchantUser merchantUser, String password) {
-        NotificationManagement notificationMgmt = buildNotificationManagement(merchantUser.getId());
-        sendEmail(merchantUser, notificationMgmt);
-        sendSms(merchantUser, notificationMgmt);
-        sendPasswordEmail(merchantUser, password, notificationMgmt);
-    }
-
-  private void sendNotification(RequestType requestType, UUID entityId, MerchantUserDto merchantUser, String password) {
-        NotificationManagement notificationMgmt = buildNotificationManagement(requestType, entityId);
-        sendSms(merchantUser, notificationMgmt);
-        sendEmail(requestType, merchantUser, password, notificationMgmt);
-    }
-
   public void sendEmailNotification(MerchantEmailDto merchantEmailDto, NotificationManagement notificationManagement) {
         sendEmail(merchantEmailDto);
         notificationManagement.setNotificationType(NotificationType.EMAIL);
@@ -26,49 +13,3 @@
         notificationManagement.setStatus(smsResponse);
         notificationManagementRepository.save(notificationManagement);
     }
-
-
-
-private void sendNotification(MerchantUser merchantUser, String password) {
-    // Create NotificationManagement for email
-    NotificationManagement emailNotification = buildNotificationManagement(merchantUser.getId());
-    sendEmail(merchantUser, emailNotification);
-
-    // Create NotificationManagement for SMS
-    NotificationManagement smsNotification = buildNotificationManagement(merchantUser.getId());
-    sendSms(merchantUser, smsNotification);
-
-    // Create NotificationManagement for password email
-    NotificationManagement passwordEmailNotification = buildNotificationManagement(merchantUser.getId());
-    sendPasswordEmail(merchantUser, password, passwordEmailNotification);
-}
-
-private void sendNotification(RequestType requestType, UUID entityId, MerchantUserDto merchantUser, String password) {
-    // Create NotificationManagement for SMS
-    NotificationManagement smsNotification = buildNotificationManagement(requestType, entityId);
-    sendSms(merchantUser, smsNotification);
-
-    // Create NotificationManagement for email
-    NotificationManagement emailNotification = buildNotificationManagement(requestType, entityId);
-    sendEmail(requestType, merchantUser, password, emailNotification);
-}
-
-public void sendEmailNotification(MerchantEmailDto merchantEmailDto, NotificationManagement notificationManagement) {
-    sendEmail(merchantEmailDto);
-
-    // Save email notification
-    notificationManagement.setNotificationType(NotificationType.EMAIL);
-    notificationManagement.setContent(merchantEmailDto.getContent().toString());
-    notificationManagement.setStatus(emailResponse);
-    notificationManagementRepository.save(notificationManagement);
-}
-
-public void sendSmsNotification(SmsRequest smsRequest, NotificationManagement notificationManagement) {
-    sendSMS(smsRequest);
-
-    // Save SMS notification
-    notificationManagement.setNotificationType(NotificationType.SMS);
-    notificationManagement.setContent(smsRequest.getMessage());
-    notificationManagement.setStatus(smsResponse);
-    notificationManagementRepository.save(notificationManagement);
-}
