@@ -129,3 +129,18 @@ public interface AlertManagementRepository extends JpaRepository<AlertManagement
     @Query("UPDATE AlertManagement a SET a.isViewed = true WHERE a.mId = :mId AND a.alertId = :alertId")
     void updateAlertViewedStatus(@Param("mId") String mId, @Param("alertId") UUID alertId);
 }
+
+
+
+
+            "errorMessage": "Expecting a SELECT Query [org.hibernate.query.sqm.tree.select.SqmSelectStatement], but found org.hibernate.query.sqm.tree.update.SqmUpdateStatement [UPDATE AlertManagement a SET a.isViewed = true WHERE a.mId = :mId AND a.alertId = :alertId]"
+
+
+   @Query("UPDATE AlertManagement a SET a.isViewed = true WHERE a.mId = :mId AND a.alertId = :alertId")
+    void updateAlertViewedStatus(@Param("mId") String mId, @Param("alertId") UUID alertId);
+
+  @Modifying
+    @Transactional
+    public void updateView(String mId, UUID alertId){
+        alertManagementRepository.updateAlertViewedStatus(mId, alertId);
+    }
