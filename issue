@@ -14,3 +14,8 @@ public interface AlertManagementRepository extends JpaRepository<AlertManagement
     @Query("SELECT a FROM AlertManagement a WHERE a.isViewed = false ORDER BY a.id ASC")
     List<AlertManagement> findTop50ByIsViewedFalse(Pageable pageable);
 }
+
+
+
+@Query("SELECT a FROM AlertManagement a WHERE a.isViewed = false AND a.mId = :mId ORDER BY a.id ASC")
+List<AlertManagement> findTop50ByIsViewedFalseAndMId(@Param("mId") String mId, Pageable pageable);
