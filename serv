@@ -107,3 +107,25 @@ public class AlertManagementService {
                 .build();
     }
 }
+
+
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.UUID;
+
+public interface AlertManagementRepository extends JpaRepository<AlertManagement, UUID> {
+
+    /**
+     * Update the 'isViewed' field to true for a specific merchant ID and alert ID.
+     *
+     * @param mId      the merchant ID
+     * @param alertId  the alert ID
+     */
+    @Modifying
+    @Transactional
+    @Query("UPDATE AlertManagement a SET a.isViewed = true WHERE a.mId = :mId AND a.alertId = :alertId")
+    void updateAlertViewedStatus(@Param("mId") String mId, @Param("alertId") UUID alertId);
+}
