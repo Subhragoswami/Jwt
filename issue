@@ -13,3 +13,36 @@
         notificationManagement.setStatus(smsResponse);
         notificationManagementRepository.save(notificationManagement);
     }
+
+
+public void sendEmailNotification(MerchantEmailDto merchantEmailDto, NotificationManagement notificationManagement) {
+    sendEmail(merchantEmailDto);
+    
+    // Create a new NotificationManagement instance for email
+    NotificationManagement emailNotification = NotificationManagement.builder()
+            .requestType(notificationManagement.getRequestType())
+            .entityId(notificationManagement.getEntityId())
+            .entityName(notificationManagement.getEntityName())
+            .notificationType(NotificationType.EMAIL)
+            .content(merchantEmailDto.getContent())
+            .status(emailResponse)
+            .build();
+    
+    notificationManagementRepository.save(emailNotification);
+}
+
+public void sendSmsNotification(SmsRequest smsRequest, NotificationManagement notificationManagement) {
+    sendSMS(smsRequest);
+    
+    // Create a new NotificationManagement instance for SMS
+    NotificationManagement smsNotification = NotificationManagement.builder()
+            .requestType(notificationManagement.getRequestType())
+            .entityId(notificationManagement.getEntityId())
+            .entityName(notificationManagement.getEntityName())
+            .notificationType(NotificationType.SMS)
+            .content(smsRequest.getMessage())
+            .status(smsResponse)
+            .build();
+    
+    notificationManagementRepository.save(smsNotification);
+}
