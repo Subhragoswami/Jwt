@@ -1,21 +1,11 @@
-public class AlertManagement extends AuditEntity {
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
-    private UUID alertId;
-    @Column(name = "MID")
-    private String mId;
-    private boolean isViewed;
-
-
-@Repository
-public interface AlertManagementRepository extends JpaRepository<AlertManagement, UUID> {
-
-    @Query("SELECT a FROM AlertManagement a WHERE a.isViewed = false ORDER BY a.id ASC")
-    List<AlertManagement> findTop50ByIsViewedFalse(Pageable pageable);
-}
-
-
-
-@Query("SELECT a FROM AlertManagement a WHERE a.isViewed = false AND a.mId = :mId ORDER BY a.id ASC")
-List<AlertManagement> findTop50ByIsViewedFalseAndMId(@Param("mId") String mId, Pageable pageable);
+    ID RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+    ALERT_ID RAW(16) NOT NULL,
+    MID	VARCHAR2(50 CHAR) NOT NULL,
+    IS_VIEWED NUMBER(1),
+    CREATED_BY	VARCHAR2(50 CHAR),
+    CREATED_AT	NUMBER,
+    UPDATED_BY	VARCHAR2(50 CHAR),
+    UPDATED_AT	NUMBER,
+    CONSTRAINT FK_MERCHANT_ALERT_MANAGEMENT_ALTER_ID  FOREIGN KEY (ALERT_ID) REFERENCES ALERT_MASTER(ID), -- Foreign Key to `Alert Master` table
+    CONSTRAINT FK_MERCHANT_ALERT_MANAGEMENT_MID  FOREIGN KEY (MID) REFERENCES MERCHANT_INFO(MID) -- Foreign Key to `MERCHANT Info` table
+);
