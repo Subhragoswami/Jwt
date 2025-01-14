@@ -1,39 +1,45 @@
-{
-    "status": 0,
-    "errors": [
-        {
-            "errorCode": "400",
-            "errorMessage": "JSON parse error: Cannot construct instance of `com.epay.merchant.model.request.MerchantUserUpdateRequest` (although at least one Creator exists): cannot deserialize from Object value (no delegate- or property-based Creator)"
-        }
-    ]
-}
+ @Query("SELECT a FROM AlertManagement a WHERE a.isViewed = false AND a.mId = :mId order by a.created_at desc")
+    List<AlertManagement> findLatestAlerts(Pageable pageable, @Param("mId") String mId);
 
-{
-    "remark" : "test"
-}
-
-merchant/v1/user/user_01/ACTIVE
-
-  @PutMapping("/{userName}/{userStatus}")
-    @Operation(summary = "Update User Status", description = "Updates the status of a Merchant User (e.g., ACTIVE, INACTIVE, BLOCKED, EXPIRED). Only Admins or Super Admins can perform this action.")
-    //@PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
-    public MerchantResponse<MerchantUserResponse> updateUserStatus(@PathVariable String userName, @PathVariable UserStatus userStatus, @RequestBody MerchantUserUpdateRequest merchantUserUpdateRequest) {
-        log.info("received request for Updating user status. userName: {}, status: {}", userName, userStatus);
-        return merchantUserService.updateUserStatus(userName, userStatus, merchantUserUpdateRequest);
+ public List<AlertManagementResponse> getUnreadAlerts(String mid){
+        return alertManagementMapper.alertManagementEntityToResponse(alertManagementRepository.findLatestAlerts(PageRequest.of(0, 50), mid));
     }
 
-package com.epay.merchant.model.request;
+package com.epay.merchant.entity;
 
-import com.epay.merchant.util.enums.UserStatus;
-import com.fasterxml.jackson.annotation.JsonInclude;
-import lombok.Builder;
-import lombok.Data;
+import jakarta.persistence.*;
+import lombok.*;
 
-@Builder
+import java.util.UUID;
+
+/**
+ * Class Name: AlertManagement
+ * *
+ * Description:
+ * *
+ * Author: V1018344
+ * Copyright (c) 2025 [State Bank of India]
+ * ALl rights reserved
+ * *
+ * Version: 1.0
+ */
+
+@EqualsAndHashCode(callSuper = true)
 @Data
-@JsonInclude(JsonInclude.Include.NON_NULL)
-public class MerchantUserUpdateRequest {
-
-    private String remark;
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Entity
+@Table(name = "ALERT_MANAGEMENT")
+public class AlertManagement extends AuditEntity {
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+    private UUID alertId;
+    @Column(name = "MID")
+    private String mId;
+    private boolean isViewed;
 
 }
+
+Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'alertManagementService' defined in file [C:\Users\v1014352\E-Pay\epay_merchant_service\build\classes\java\main\com\epay\merchant\service\AlertManagementService.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'alertManagementDao' defined in file [C:\Users\v1014352\E-Pay\epay_merchant_service\build\classes\java\main\com\epay\merchant\dao\AlertManagementDao.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'alertManagementRepository' defined in com.epay.merchant.repository.AlertManagementRepository defined in @EnableJpaRepositories declared on EpayMerchantServiceApplication: Could not create query for public abstract java.util.List com.epay.merchant.repository.AlertManagementRepository.findLatestAlerts(org.springframework.data.domain.Pageable,java.lang.String); Reason: Validation failed for query for method public abstract java.util.List com.epay.merchant.repository.AlertManagementRepository.findLatestAlerts(org.springframework.data.domain.Pageable,java.lang.String)
