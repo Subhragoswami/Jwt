@@ -1,49 +1,8 @@
- ReportSchedulerManagement.builder()
-                .mId(scheduleManagementRequest.getMId())
-                .reportId()
-                .frequency(scheduleManagementRequest.getFrequency())
-                .scheduledTime(scheduleManagementRequest.getScheduledTime())
-                .nextScheduledTime()
-                .ScheduledDate(scheduleManagementRequest.getScheduledDate())
-                .plannedScheduledDate()
-                .build();
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-@Entity
-//@Table(name = "REPORT_SCHEDULER_MANAGEMENT")
-public class ReportSchedulerManagement {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
-    private UUID reportId;
-    private String mId;
-    private String frequency;
-    private String scheduledTime;
-    private String nextScheduledTime;
-    private long ScheduledDate;
-    private long plannedScheduledDate;
-    private long lastExecutionDate;
-}
-
-
-
-
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
-
-public void updateNextScheduledTime(ReportSchedulerManagement scheduler, String time, int hoursToAdd) {
-    // Parse the input time into a LocalTime object
-    DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("h:mm a");
-    LocalTime originalTime = LocalTime.parse(time, timeFormatter);
-
-    // Add the specified number of hours to the original time
-    LocalTime updatedTime = originalTime.plusHours(hoursToAdd);
-
-    // Format the updated time and set it to the scheduler
-    scheduler.setNextScheduledTime(updatedTime.format(timeFormatter));
-}
-
+  public static long updateNextScheduledTime(String time, Frequency frequency) {
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("h:mm a");
+        LocalTime originalTime = LocalTime.parse(time, timeFormatter);
+       // return originalTime.plusHours(hoursToAdd).format(timeFormatter);
+        if(frequency.equals(Frequency.DAILY)){
+            return originalTime.plusHours(24).format(timeFormatter);
+        }
+    }
