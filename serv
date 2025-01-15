@@ -29,3 +29,21 @@ public class ReportSchedulerManagement {
     private long lastExecutionDate;
 }
 
+
+
+
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+
+public void updateNextScheduledTime(ReportSchedulerManagement scheduler, String time, int hoursToAdd) {
+    // Parse the input time into a LocalTime object
+    DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("h:mm a");
+    LocalTime originalTime = LocalTime.parse(time, timeFormatter);
+
+    // Add the specified number of hours to the original time
+    LocalTime updatedTime = originalTime.plusHours(hoursToAdd);
+
+    // Format the updated time and set it to the scheduler
+    scheduler.setNextScheduledTime(updatedTime.format(timeFormatter));
+}
+
