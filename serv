@@ -6,3 +6,72 @@
             return originalTime.plusHours(24).format(timeFormatter);
         }
     }
+
+
+
+import java.time.*;
+import java.time.format.DateTimeFormatter;
+
+public static long updateNextScheduledTime(String time, Frequency frequency) {
+    DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("h:mm a"); // 12-hour format with AM/PM
+    LocalTime originalTime = LocalTime.parse(time, timeFormatter); // Parse the time string
+
+    // Combine time with today's date
+    LocalDateTime nextScheduledTime = LocalDate.now().atTime(originalTime);
+
+    // Add time based on the frequency
+    switch (frequency) {
+        case DAILY:
+            nextScheduledTime = nextScheduledTime.plusDays(1); // Add 1 day for DAILY
+            break;
+        case MONTHLY:
+            nextScheduledTime = nextScheduledTime.plusMonths(1); // Add 1 month for MONTHLY
+            break;
+        case YEARLY:
+            nextScheduledTime = nextScheduledTime.plusYears(1); // Add 1 year for YEARLY
+            break;
+        default:
+            throw new IllegalArgumentException("Unsupported frequency: " + frequency);
+    }
+
+    // Convert to milliseconds since epoch
+    return nextScheduledTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+}
+
+
+
+
+
+import java.time.*;
+import java.time.format.DateTimeFormatter;
+
+public class Scheduler {
+
+    public static long updateNextScheduledTime(long currentDateInMillis, Frequency frequency) {
+        // Convert milliseconds to LocalDate (strip time part)
+        LocalDate currentDate = Instant.ofEpochMilli(currentDateInMillis)
+                                        .atZone(ZoneId.systemDefault())
+                                        .toLocalDate();
+
+        // Initialize the next scheduled date
+        LocalDate nextScheduledDate = currentDate;
+
+        // Adjust the date based on the frequency
+        switch (frequency) {
+            case DAILY:
+                nextScheduledDate = nextScheduledDate.plusDays(1);
+                break;
+            case MONTHLY:
+                nextScheduledDate = nextScheduledDate.plusMonths(1);
+                break;
+            case YEARLY:
+                nextScheduledDate = nextScheduledDate.plusYears(1);
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported frequency: " + frequency);
+        }
+
+        // Convert the next scheduled date to the start of the day in milliseconds
+        return nextScheduledDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+    }
+}
