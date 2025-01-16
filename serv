@@ -1,77 +1,69 @@
-  public static long updateNextScheduledTime(String time, Frequency frequency) {
-        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("h:mm a");
-        LocalTime originalTime = LocalTime.parse(time, timeFormatter);
-       // return originalTime.plusHours(hoursToAdd).format(timeFormatter);
-        if(frequency.equals(Frequency.DAILY)){
-            return originalTime.plusHours(24).format(timeFormatter);
-        }
-    }
+System.currentTimeMillis()
+
+file\:/C://Users/v1014352/Downloads/gradle-8.9-bin.zip
 
 
 
-import java.time.*;
-import java.time.format.DateTimeFormatter;
+com.epay.merchant.exception.MerchantException: Invalid Captcha.. Reason : Captcha Expired, Invalid Request	
 
-public static long updateNextScheduledTime(String time, Frequency frequency) {
-    DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("h:mm a"); // 12-hour format with AM/PM
-    LocalTime originalTime = LocalTime.parse(time, timeFormatter); // Parse the time string
 
-    // Combine time with today's date
-    LocalDateTime nextScheduledTime = LocalDate.now().atTime(originalTime);
+- Report Scheduler need to create which need to be run in every 30 min time and read the data from REPORT_SCHEDULER_MANAGMENT
+- As per Data recived from Table it need to insert the record in Report Managmenet table for report creation and push the event to Kafka for report generation
 
-    // Add time based on the frequency
-    switch (frequency) {
-        case DAILY:
-            nextScheduledTime = nextScheduledTime.plusDays(1); // Add 1 day for DAILY
-            break;
-        case MONTHLY:
-            nextScheduledTime = nextScheduledTime.plusMonths(1); // Add 1 month for MONTHLY
-            break;
-        case YEARLY:
-            nextScheduledTime = nextScheduledTime.plusYears(1); // Add 1 year for YEARLY
-            break;
-        default:
-            throw new IllegalArgumentException("Unsupported frequency: " + frequency);
-    }
+@EqualsAndHashCode(callSuper = true)
+@Data
+@Entity
+@Table(name = "REPORT_MANAGEMENT")
+public class ReportManagement extends AuditEntity {
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "ID", nullable = false, updatable = false, unique = true)
+    private UUID id;
 
-    // Convert to milliseconds since epoch
-    return nextScheduledTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+    private UUID reportId;
+
+    @Column(name="MID")
+    private String mId;
+
+    private Long durationFromDate;
+    private Long durationToDate;
+    @Enumerated(EnumType.STRING)
+    private ReportFormat format;
+    @Enumerated(EnumType.STRING)
+    private ReportStatus status;
+    private String filePath;
+    private String remarks;
+    private UUID scheduledId;
+
 }
 
+@EqualsAndHashCode(callSuper = true)
+@Data
+@Entity
+@Table(name = "REPORT_SCHEDULE_MANAGEMENT")
+public class ReportScheduleManagement extends AuditEntity {
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "ID", nullable = false, updatable = false, unique = true)
+    private UUID id;
 
+    private UUID reportId;
+    
+    @Column(name="MID")
+    private String mId;
 
+    @Enumerated(EnumType.STRING)
+    private Frequency frequency;
+    @Enumerated(EnumType.STRING)
+    private ReportFormat format;
 
+    private String scheduleExecutionTime;
+    private Long nextScheduleExecutionTime;
+    private Long lastScheduleExecutionTime;
 
-import java.time.*;
-import java.time.format.DateTimeFormatter;
+    @Enumerated(EnumType.STRING)
+    private ReportScheduledStatus status;
 
-public class Scheduler {
-
-    public static long updateNextScheduledTime(long currentDateInMillis, Frequency frequency) {
-        // Convert milliseconds to LocalDate (strip time part)
-        LocalDate currentDate = Instant.ofEpochMilli(currentDateInMillis)
-                                        .atZone(ZoneId.systemDefault())
-                                        .toLocalDate();
-
-        // Initialize the next scheduled date
-        LocalDate nextScheduledDate = currentDate;
-
-        // Adjust the date based on the frequency
-        switch (frequency) {
-            case DAILY:
-                nextScheduledDate = nextScheduledDate.plusDays(1);
-                break;
-            case MONTHLY:
-                nextScheduledDate = nextScheduledDate.plusMonths(1);
-                break;
-            case YEARLY:
-                nextScheduledDate = nextScheduledDate.plusYears(1);
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported frequency: " + frequency);
-        }
-
-        // Convert the next scheduled date to the start of the day in milliseconds
-        return nextScheduledDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
-    }
-}
+ }
+here I've to get all ReportScheduleManagement data and check status of it it's is TO_BE_START then need to pick that data and update lastScheduleExecutionTime as currentTime and but we have to pick those data which's nextScheduleExecutionTime 
+is ahead 30 minitues when shceduler is calling and every behind data which one's status is TO_BE_START and update data in ReportManagement and insert scheduledId as ReportScheduleManagement id and update ReportScheduleManagement table.
