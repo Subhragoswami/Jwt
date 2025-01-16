@@ -1,34 +1,16 @@
-    ID RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
-    ALERT_ID RAW(16) NOT NULL,
-    MID	VARCHAR2(50 CHAR) NOT NULL,
-    IS_VIEWED NUMBER(1),
-    CREATED_BY	VARCHAR2(50 CHAR),
-    CREATED_AT	NUMBER,
-    UPDATED_BY	VARCHAR2(50 CHAR),
-    UPDATED_AT	NUMBER,
-    CONSTRAINT FK_MERCHANT_ALERT_MANAGEMENT_ALTER_ID  FOREIGN KEY (ALERT_ID) REFERENCES ALERT_MASTER(ID), -- Foreign Key to `Alert Master` table
-    CONSTRAINT FK_MERCHANT_ALERT_MANAGEMENT_MID  FOREIGN KEY (MID) REFERENCES MERCHANT_INFO(MID) -- Foreign Key to `MERCHANT Info` table
-);
+   public void saveReportManagement(List<ReportScheduleManagement> reportScheduleManagement){
+        
+        List<ReportManagement> reportManagementList = 
+        reportScheduleManagement.setLastScheduleExecutionTime(DateTimeUtils.getCurrentTimeInMills());
 
-
-
-INSERT INTO ALERT_MANAGEMENT (
-    ID, 
-    ALERT_ID, 
-    MID, 
-    IS_VIEWED, 
-    CREATED_BY, 
-    CREATED_AT, 
-    UPDATED_BY, 
-    UPDATED_AT
-) 
-VALUES (
-    SYS_GUID(), -- Generates a unique ID
-    HEXTORAW('your_alert_id_hex'), -- Replace with the ALERT_ID as a HEX string
-    'your_mid_value', -- Replace with the MID value
-    0, -- Set IS_VIEWED to 0 (false)
-    'creator_name', -- Replace with the creator's name
-    TO_NUMBER(TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')), -- Current timestamp as a number
-    'updater_name', -- Replace with the updater's name
-    TO_NUMBER(TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')) -- Current timestamp as a number
-);
+        ReportManagement reportManagement = ReportManagement.builder()
+                .reportId(reportScheduleManagement.getReportId())
+                .mId(reportScheduleManagement.getMId())
+                .format(reportScheduleManagement.getFormat())
+                .scheduledId(reportScheduleManagement.getId())
+                .durationFromDate(DateTimeUtils.getCurrentTimeInMills())
+                .durationToDate(DateTimeUtils.calculateDateByFrequency(reportScheduleManagement.getFrequency(), DateTimeUtils.getCurrentTimeInMills()))
+                .scheduledId(reportScheduleManagement.)
+                .build();
+        reportManagementDao.saveAll();
+    }
