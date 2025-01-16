@@ -136,3 +136,21 @@ public class ReportScheduler {
         return System.currentTimeMillis(); // Example: current time
     }
 }
+
+
+@Repository
+public interface ReportScheduleManagementRepository extends JpaRepository<ReportScheduleManagement, UUID> {
+
+    @Query("SELECT r FROM ReportScheduleManagement r " +
+           "WHERE r.status = :status " +
+           "AND r.nextScheduleExecutionTime BETWEEN :currentTime AND :endTime")
+    List<ReportScheduleManagement> findByStatusAndNextScheduleExecutionTime(
+        @Param("status") String status,
+        @Param("currentTime") Long currentTime,
+        @Param("endTime") Long endTime
+    );
+}
+
+@Repository
+public interface ReportManagementRepository extends JpaRepository<ReportManagement, UUID> {
+}
