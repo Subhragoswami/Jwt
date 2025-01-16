@@ -13,3 +13,36 @@ CREATE TABLE REPORT_SCHEDULE_MANAGEMENT (
     UPDATED_AT NUMBER,
     UPDATED_BY VARCHAR2(50)
 )
+
+
+
+
+INSERT INTO REPORT_SCHEDULE_MANAGEMENT (
+    ID,
+    REPORT_ID,
+    MID,
+    FREQUENCY,
+    FORMAT,
+    SCHEDULE_EXECUTION_TIME,
+    NEXT_SCHEDULE_EXECUTION_TIME,
+    LAST_SCHEDULE_EXECUTION_TIME,
+    STATUS,
+    CREATED_AT,
+    CREATED_BY,
+    UPDATED_AT,
+    UPDATED_BY
+) VALUES (
+    SYS_GUID(), -- Generates a unique identifier
+    SYS_GUID(), -- Replace with an actual REPORT_ID if necessary
+    'Merchant_001', -- Example MID
+    'DAILY', -- Frequency (e.g., DAILY, MONTHLY, YEARLY)
+    'PDF', -- Report format (e.g., PDF, CSV)
+    '9:00 AM', -- Schedule execution time
+    1672531200000, -- NEXT_SCHEDULE_EXECUTION_TIME (Epoch timestamp in milliseconds)
+    NULL, -- LAST_SCHEDULE_EXECUTION_TIME (nullable)
+    'TO_BE_START', -- Status
+    1672444800000, -- CREATED_AT (Epoch timestamp in milliseconds)
+    'Admin', -- CREATED_BY
+    NULL, -- UPDATED_AT (nullable)
+    NULL -- UPDATED_BY (nullable)
+);
