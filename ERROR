@@ -1,13 +1,15 @@
-Caused by: org.hibernate.query.QueryArgumentException: Argument [TO_BE_START] of type [java.lang.String] did not match parameter type [com.epay.reporting.util.enums.ReportScheduledStatus (n/a)]
-  @Query("SELECT r FROM ReportScheduleManagement r " +
-            "WHERE r.status = :status " +
-            "AND r.nextScheduleExecutionTime BETWEEN :currentTime AND :endTime")
-    List<ReportScheduleManagement> findByStatusAndNextScheduleExecutionTime(
-            @Param("status") String status,
-            @Param("currentTime") Long currentTime,
-            @Param("endTime") Long endTime
-    );
-  public List<ReportScheduleManagement> findByStatusAndNextScheduleExecutionTime(long currentTime, long thirtyMinutesAhead) {
-         return reportScheduleManagementRepository
-                .findByStatusAndNextScheduleExecutionTime(ReportScheduledStatus.TO_BE_START.name(), currentTime, thirtyMinutesAhead);
-    }
+CREATE TABLE REPORT_SCHEDULE_MANAGEMENT (
+    ID RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+    REPORT_ID RAW(16) NOT NULL,
+    MID VARCHAR2(100) NOT NULL,
+    FREQUENCY VARCHAR2(20) NOT NULL,
+    FORMAT VARCHAR2(10) NOT NULL,
+    SCHEDULE_EXECUTION_TIME VARCHAR2(20) NOT NULL,
+    NEXT_SCHEDULE_EXECUTION_TIME NUMBER NOT NULL,
+    LAST_SCHEDULE_EXECUTION_TIME NUMBER,
+    STATUS VARCHAR2(20) NOT NULL,
+    CREATED_AT NUMBER,
+    CREATED_BY VARCHAR2(50),
+    UPDATED_AT NUMBER,
+    UPDATED_BY VARCHAR2(50)
+)
