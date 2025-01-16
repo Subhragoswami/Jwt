@@ -1,1 +1,13 @@
-update role_id = '2A409F4DA2244945E0637C86B10AE991' from merchant_user where m.id = '79A77F67CCFB438DAF8445C62273692C';
+Caused by: org.hibernate.query.QueryArgumentException: Argument [TO_BE_START] of type [java.lang.String] did not match parameter type [com.epay.reporting.util.enums.ReportScheduledStatus (n/a)]
+  @Query("SELECT r FROM ReportScheduleManagement r " +
+            "WHERE r.status = :status " +
+            "AND r.nextScheduleExecutionTime BETWEEN :currentTime AND :endTime")
+    List<ReportScheduleManagement> findByStatusAndNextScheduleExecutionTime(
+            @Param("status") String status,
+            @Param("currentTime") Long currentTime,
+            @Param("endTime") Long endTime
+    );
+  public List<ReportScheduleManagement> findByStatusAndNextScheduleExecutionTime(long currentTime, long thirtyMinutesAhead) {
+         return reportScheduleManagementRepository
+                .findByStatusAndNextScheduleExecutionTime(ReportScheduledStatus.TO_BE_START.name(), currentTime, thirtyMinutesAhead);
+    }
