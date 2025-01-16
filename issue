@@ -1,16 +1,1 @@
-   public void saveReportManagement(List<ReportScheduleManagement> reportScheduleManagement){
-        
-        List<ReportManagement> reportManagementList = 
-        reportScheduleManagement.setLastScheduleExecutionTime(DateTimeUtils.getCurrentTimeInMills());
-
-        ReportManagement reportManagement = ReportManagement.builder()
-                .reportId(reportScheduleManagement.getReportId())
-                .mId(reportScheduleManagement.getMId())
-                .format(reportScheduleManagement.getFormat())
-                .scheduledId(reportScheduleManagement.getId())
-                .durationFromDate(DateTimeUtils.getCurrentTimeInMills())
-                .durationToDate(DateTimeUtils.calculateDateByFrequency(reportScheduleManagement.getFrequency(), DateTimeUtils.getCurrentTimeInMills()))
-                .scheduledId(reportScheduleManagement.)
-                .build();
-        reportManagementDao.saveAll();
-    }
+scheduled.cron.time: * 1 * * * *
