@@ -1,9 +1,9 @@
-2025-01-17 16:45:24.907 INFO | com.epay.merchant.service.KafkaProducer:46 | principal=  | scenario=/merchant/v1/otp/generation | operation=POST | correlation=4a65593e-7591-4d70-9076-388afe8bad5f | publishEmail | initializing Kafka metrics collector
-2025-01-17 16:45:24.908 INFO | com.epay.merchant.service.KafkaProducer:46 | principal=  | scenario=/merchant/v1/otp/generation | operation=POST | correlation=4a65593e-7591-4d70-9076-388afe8bad5f | publishEmail | [Producer clientId=epay_merchant_service-producer-3] Closing the Kafka producer with timeoutMillis = 0 ms.
-2025-01-17 16:45:24.909 INFO | com.epay.merchant.service.KafkaProducer:46 | principal=  | scenario=/merchant/v1/otp/generation | operation=POST | correlation=4a65593e-7591-4d70-9076-388afe8bad5f | publishEmail | Metrics scheduler closed
-2025-01-17 16:45:24.909 INFO | com.epay.merchant.service.KafkaProducer:46 | principal=  | scenario=/merchant/v1/otp/generation | operation=POST | correlation=4a65593e-7591-4d70-9076-388afe8bad5f | publishEmail | Closing reporter org.apache.kafka.common.metrics.JmxReporter
-2025-01-17 16:45:24.909 INFO | com.epay.merchant.service.KafkaProducer:46 | principal=  | scenario=/merchant/v1/otp/generation | operation=POST | correlation=4a65593e-7591-4d70-9076-388afe8bad5f | publishEmail | Closing reporter org.apache.kafka.common.telemetry.internals.ClientTelemetryReporter
-2025-01-17 16:45:24.909 INFO | com.epay.merchant.service.KafkaProducer:46 | principal=  | scenario=/merchant/v1/otp/generation | operation=POST | correlation=4a65593e-7591-4d70-9076-388afe8bad5f | publishEmail | Metrics reporters closed
-2025-01-17 16:45:24.909 INFO | com.epay.merchant.service.KafkaProducer:46 | principal=  | scenario=/merchant/v1/otp/generation | operation=POST | correlation=4a65593e-7591-4d70-9076-388afe8bad5f | publishEmail | App info kafka.producer for epay_merchant_service-producer-3 unregistered
-2025-01-17 16:45:24.926 ERROR | com.epay.merchant.exceptionhandlers.MerchantExceptionHandler:117 | principal=  | scenario=/merchant/v1/otp/generation | operation=POST | correlation=4a65593e-7591-4d70-9076-388afe8bad5f | handleGenericException | Error in handleGenericException 
-2025-01-17 16:45:24.927 WARN | com.epay.merchant.exceptionhandlers.MerchantExceptionHandler:117 | principal=  | scenario=/merchant/v1/otp/generation | operation=POST | correlation=4a65593e-7591-4d70-9076-388afe8bad5f | handleGenericException | Resolved [org.apache.kafka.common.KafkaException: Failed to construct kafka producer]
+{
+    "status": 0,
+    "errors": [
+        {
+            "errorCode": "500",
+            "errorMessage": "Can't convert value of class com.epay.merchant.dto.MerchantEmailDto to class org.apache.kafka.common.serialization.StringSerializer specified in value.serializer"
+        }
+    ]
+}
