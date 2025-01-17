@@ -25,3 +25,26 @@ public ProducerFactory<String, MerchantEmailDto> producerFactory() {
 public KafkaTemplate<String, MerchantEmailDto> kafkaTemplate() {
     return new KafkaTemplate<>(producerFactory());
 }
+
+
+@Component
+@RequiredArgsConstructor
+public class KafkaProducer {
+
+    private final KafkaTemplate<String, MerchantEmailDto> kafkaTemplate; // Updated type
+
+    private final LoggerUtility log = LoggerFactoryUtility.getLogger(this.getClass());
+
+    public void sendEmail(MerchantEmailDto emailDto) {
+        sendMessage(producerConfig.getTopicEmail(), emailDto);
+    }
+
+    private void sendMessage(String topic, MerchantEmailDto message) {
+        log.info("Publishing message on Kafka topic: {}", topic);
+        kafkaTemplate.send(topic, message)
+            .addCallback(
+                result -> log.info("Message [{}] sent to topic [{}] with offset [{}]", message, topic, result.getRecordMetadata().offset()),
+                ex -> log.error("Unable to send message [{}] to topic [{}]: {}", message, topic, ex.getMessage())
+            );
+    }
+}
