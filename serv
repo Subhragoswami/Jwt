@@ -1,156 +1,255 @@
-System.currentTimeMillis()
-
-file\:/C://Users/v1014352/Downloads/gradle-8.9-bin.zip
-
-
-
-com.epay.merchant.exception.MerchantException: Invalid Captcha.. Reason : Captcha Expired, Invalid Request	
-
-
-- Report Scheduler need to create which need to be run in every 30 min time and read the data from REPORT_SCHEDULER_MANAGMENT
-- As per Data recived from Table it need to insert the record in Report Managmenet table for report creation and push the event to Kafka for report generation
-
-@EqualsAndHashCode(callSuper = true)
-@Data
-@Entity
-@Table(name = "REPORT_MANAGEMENT")
-public class ReportManagement extends AuditEntity {
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "ID", nullable = false, updatable = false, unique = true)
-    private UUID id;
-
-    private UUID reportId;
-
-    @Column(name="MID")
-    private String mId;
-
-    private Long durationFromDate;
-    private Long durationToDate;
-    @Enumerated(EnumType.STRING)
-    private ReportFormat format;
-    @Enumerated(EnumType.STRING)
-    private ReportStatus status;
-    private String filePath;
-    private String remarks;
-    private UUID scheduledId;
-
-}
-
-@EqualsAndHashCode(callSuper = true)
-@Data
-@Entity
-@Table(name = "REPORT_SCHEDULE_MANAGEMENT")
-public class ReportScheduleManagement extends AuditEntity {
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "ID", nullable = false, updatable = false, unique = true)
-    private UUID id;
-
-    private UUID reportId;
-    
-    @Column(name="MID")
-    private String mId;
-
-    @Enumerated(EnumType.STRING)
-    private Frequency frequency;
-    @Enumerated(EnumType.STRING)
-    private ReportFormat format;
-
-    private String scheduleExecutionTime;
-    private Long nextScheduleExecutionTime;
-    private Long lastScheduleExecutionTime;
-
-    @Enumerated(EnumType.STRING)
-    private ReportScheduledStatus status;
-
- }
-here I've to get all ReportScheduleManagement data and check status of it it's is TO_BE_START then need to pick that data and update lastScheduleExecutionTime as currentTime and but we have to pick those data which's nextScheduleExecutionTime 
-is ahead 30 minitues when shceduler is calling and every behind data which one's status is TO_BE_START and update data in ReportManagement and insert scheduledId as ReportScheduleManagement id and update ReportScheduleManagement table.
-
-
-
-
-
-
-
-
-
-
-.......................::::::..........::::::.....
-
 @Service
-public class ReportScheduler {
+public class NotificationListener {
+    private final LoggerUtility log = LoggerFactoryUtility.getLogger(this.getClass());
 
-    @Autowired
-    private ReportScheduleManagementRepository reportScheduleManagementRepository;
+    @KafkaListener(topics = "${kafka.topics.email}")
+    public void listenEmailTopic(@Payload String notificationDto, @Header(KafkaHeaders.RECEIVED_TOPIC) String topic) {
+        log.info("Received email message[id: {}] on  topic : ", notificationDto, topic);
+    }
 
-    @Autowired
-    private ReportManagementRepository reportManagementRepository;
+    @KafkaListener(topics = "${kafka.topics.sms}")
+    public void listenSmsTopic(@Payload String notificationDto, @Header(KafkaHeaders.RECEIVED_TOPIC) String topic) {
+        log.info("Received SMS message[id: {}] on  topic : ", notificationDto, topic);
+    }
+}
 
-    @Scheduled(fixedRate = 1800000) // 30 minutes in milliseconds
-    public void scheduleReportGeneration() {
-        long currentTime = System.currentTimeMillis();
-        long thirtyMinutesAhead = currentTime + 30 * 60 * 1000;
+@RestController
+@RequestMapping("/kafka")
+@RequiredArgsConstructor
+public class KafkaTestController {
 
-        // Fetch the data
-        List<ReportScheduleManagement> schedulesToProcess = reportScheduleManagementRepository
-                .findByStatusAndNextScheduleExecutionTime("TO_BE_START", currentTime, thirtyMinutesAhead);
+    LoggerUtility log = LoggerFactoryUtility.getLogger(KafkaTestController.class);
+    private final KafkaProducer kafkaProducer;
 
-        for (ReportScheduleManagement schedule : schedulesToProcess) {
-            processSchedule(schedule);
+    @GetMapping("/send/{msg}")
+    @Operation(summary = "Merchant User Login API", description = "Merchant User Validation during Login via userName,Email or MobileNumber fields ans captcha info")
+    public void kafkaTest(@PathVariable String msg) {
+        kafkaProducer.sendEmail(msg);
+        kafkaProducer.sendSMS(msg);
+    }
+}
+
+@Component
+@RequiredArgsConstructor
+public class KafkaProducer {
+    private final LoggerUtility log = LoggerFactoryUtility.getLogger(this.getClass());
+    private final KafkaProducerConfig producerConfig;
+    private final KafkaTemplate<String, String> kafkaTemplate;
+
+    public void sendEmail(String notificationId) {
+        sendMessage(producerConfig.getTopicEmail(), notificationId);
+    }
+    public void sendSMS(String notificationId) {
+        sendMessage(producerConfig.getTopicSMS(), notificationId);
+    }
+
+    private void sendMessage(String topic, String message) {
+        log.info("Publishing message on Kafka topic: {}", topic);
+        CompletableFuture<SendResult<String, String>> future = kafkaTemplate.send(topic, message);
+        future.whenComplete((result, ex) -> {
+            if (ex == null) {
+                log.info("Sent message [{}] on topic[{}] with offset:{}", message, topic, result.getRecordMetadata().offset());
+            } else {
+                log.error("Unable to send message [{}] on topic[{}] due to: ", message, topic, ex.getMessage());
+            }
+        });
+    }
+}
+@Configuration
+@Getter
+public class KafkaProducerConfig {
+    @Value("${spring.kafka.bootstrap-servers}")
+    private String bootstrapServers;
+    @Value("${spring.kafka.properties.security.protocol}")
+    private String securityProtocol;
+    @Value("${spring.kafka.properties.ssl.truststore.location}")
+    private String trustLocation;
+    @Value("${spring.kafka.properties.ssl.truststore.password}")
+    private String trustPassword;
+    @Value("${spring.kafka.properties.ssl.truststore.type}")
+    private String trustType;
+    @Value("${spring.kafka.properties.ssl.keystore.location}")
+    private String keyLocation;
+    @Value("${spring.kafka.properties.ssl.keystore.password}")
+    private String keyPassword;
+    @Value("${spring.kafka.properties.ssl.keystore.type}")
+    private String keyType;
+
+    @Value("${kafka.topics.email}")
+    private String topicEmail;
+    @Value("${kafka.topics.sms}")
+    private String topicSMS;
+
+    /**
+     * Setting Kafka Producer configuration
+     * @return ProducerFactory
+     */
+    @Bean
+    public ProducerFactory<String, String> producerFactoryString() {
+        Map<String, Object> configProps = new HashMap<>();
+        configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        configProps.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, securityProtocol);
+        configProps.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, trustLocation);
+        configProps.put(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG, trustPassword);
+        configProps.put(SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG, trustType);
+        configProps.put(SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG, keyLocation);
+        configProps.put(SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG, keyPassword);
+        configProps.put(SslConfigs.SSL_KEYSTORE_TYPE_CONFIG, keyType);
+//        configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+        //configProps.put(JsonSerializer.TYPE_MAPPINGS,
+        //      "notification:com.epay.merchant.dto.NotificationDto, abc:epay.merchant.dto.AbcDto"// ProducerFactory<String, Object>
+        return new DefaultKafkaProducerFactory<>(configProps); //method name: ProducerFactory<String, ClassName> and also need to update kafkaTemplate<String, ClassName>
+    }
+
+    /**
+     *  Creating KafkaTemplate for NotificationDto
+     * @return KafkaTemplate
+     */
+    @Bean
+    public KafkaTemplate<String, String> kafkaTemplateString() {
+        return new KafkaTemplate<>(producerFactoryString());
+    }
+}
+
+using this type we need to implement kafka for email and sending sms
+
+@Component
+@RequiredArgsConstructor
+public class NotificationDao {
+
+    private final LoggerUtility log = LoggerFactoryUtility.getLogger(this.getClass());
+
+    private final EmailService emailService;
+    private final SmsService smsService;
+    private final MerchantConfig merchantConfig;
+    private final NotificationManagementRepository notificationManagementRepository;
+    private int emailResponse = MerchantConstant.RESPONSE_SUCCESS;
+    private int smsResponse = MerchantConstant.RESPONSE_SUCCESS;
+
+    /**
+     * Sends an email notification to the specified recipient and logs the notification details.
+     *
+     * @param merchantEmailDto       The email details, including content and recipient address.
+     * @param notificationManagement The notification entity to log the email sending activity.
+     */
+    public void sendEmailNotification(MerchantEmailDto merchantEmailDto, NotificationManagement notificationManagement) {
+        sendEmail(merchantEmailDto);
+        notificationManagement.setNotificationType(NotificationType.EMAIL);
+        notificationManagement.setContent(merchantEmailDto.getContent().toString());
+        notificationManagement.setStatus(emailResponse);
+        notificationManagementRepository.save(notificationManagement);
+    }
+
+    /**
+     * Sends an SMS notification to the specified recipient and logs the notification details.
+     *
+     * @param smsRequest             The SMS details, including the recipient's mobile number and message content.
+     * @param notificationManagement The notification entity to log the SMS sending activity.
+     */
+    public void sendSmsNotification(SmsRequest smsRequest, NotificationManagement notificationManagement) {
+        sendSMS(smsRequest);
+        notificationManagement.setNotificationType(NotificationType.SMS);
+        notificationManagement.setContent(smsRequest.getMessage());
+        notificationManagement.setStatus(smsResponse);
+        notificationManagementRepository.save(notificationManagement);
+    }
+
+    /**
+     * Asynchronously sends an email notification using the provided email details.
+     * Handles exceptions during email delivery and updates the response status.
+     *
+     * @param merchantEmailDto The email details, including content and recipient address.
+     */
+    private void sendEmail(MerchantEmailDto merchantEmailDto) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                EmailDto emailDto = getEmailDto(merchantEmailDto);
+                emailService.sendEmail(emailDto);
+            } catch (NotificationException n) {
+                log.error("Error in send Email, merchantEmailDto {}", merchantEmailDto, n);
+                emailResponse = MerchantConstant.RESPONSE_FAILURE;
+            } catch (Exception e) {
+                log.error("Error in send Email, merchantEmailDto {}", merchantEmailDto, e.getMessage());
+                emailResponse = MerchantConstant.RESPONSE_FAILURE;
+            }
+        });
+    }
+
+    /**
+     * Asynchronously sends an SMS notification using the provided SMS details.
+     * Handles exceptions during SMS delivery and updates the response status.
+     *
+     * @param smsRequest The SMS details, including the recipient's mobile number and message content.
+     */
+    private void sendSMS(SmsRequest smsRequest) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                SmsDto smsDto = SmsDto.builder().mobileNumber(smsRequest.getMobileNumber()).message(smsRequest.getMessage()).build();
+                smsService.sendSMS(smsDto);
+            } catch (NotificationException n) {
+                log.error("Error in send SMS, smsRequest {}", smsRequest, n);
+                smsResponse = MerchantConstant.RESPONSE_FAILURE;
+            } catch (Exception e) {
+                log.error("Error in send SMS, smsRequest {}", smsRequest, e.getMessage());
+                smsResponse = MerchantConstant.RESPONSE_FAILURE;
+            }
+        });
+    }
+
+    /**
+     * Constructs an EmailDto object using the provided merchant email details.
+     * Supports custom recipient and CC configurations.
+     *
+     * @param merchantEmailDto The merchant email details, including content and type.
+     * @return EmailDto The constructed email object to be sent.
+     */
+    private EmailDto getEmailDto(MerchantEmailDto merchantEmailDto) {
+        EmailDto emailDto = EmailDto.builder()
+                .subject(merchantEmailDto.getEMailType().getSubjectName())
+                .from(merchantConfig.getFrom())
+                .body(merchantEmailDto.getContent())
+                .emailTemplate(merchantEmailDto.getEMailType().getTemplateName()).build();
+        if (!merchantConfig.getRecipient().isEmpty()) {
+            emailDto.setRecipient(merchantConfig.getRecipient());
+            emailDto.setCc(merchantEmailDto.getToEmail());
+        } else {
+            emailDto.setRecipient(merchantEmailDto.getToEmail());
         }
+        return emailDto;
     }
+}	
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+public class MerchantEmailDto {
 
-    private void processSchedule(ReportScheduleManagement schedule) {
-        long currentTime = System.currentTimeMillis();
+    private String toEmail;
+    private Map<String, Object> content;
+    private EMailType eMailType;
 
-        // Update lastScheduleExecutionTime
-        schedule.setLastScheduleExecutionTime(currentTime);
-
-        // Create new ReportManagement record
-        ReportManagement report = new ReportManagement();
-        report.setReportId(schedule.getReportId());
-        report.setMId(schedule.getMId());
-        report.setDurationFromDate(calculateDurationFromDate(schedule)); // Add logic for duration calculation
-        report.setDurationToDate(calculateDurationToDate(schedule));
-        report.setFormat(schedule.getFormat());
-        report.setStatus(ReportStatus.PENDING);
-        report.setScheduledId(schedule.getId());
-
-        // Save to ReportManagement table
-        reportManagementRepository.save(report);
-
-        // Update ReportScheduleManagement status
-        schedule.setStatus(ReportScheduledStatus.IN_PROGRESS);
-        reportScheduleManagementRepository.save(schedule);
-    }
-
-    private Long calculateDurationFromDate(ReportScheduleManagement schedule) {
-        // Logic to calculate durationFromDate based on schedule or current context
-        return System.currentTimeMillis() - 86400000; // Example: 1 day before current time
-    }
-
-    private Long calculateDurationToDate(ReportScheduleManagement schedule) {
-        // Logic to calculate durationToDate based on schedule or current context
-        return System.currentTimeMillis(); // Example: current time
-    }
 }
 
+like that we're calling sendSms and sendEmail from other class
 
-@Repository
-public interface ReportScheduleManagementRepository extends JpaRepository<ReportScheduleManagement, UUID> {
+   private void sendNotification(MerchantUser merchantUser, String password) {
+        sendEmail(merchantUser);
+        sendSms(merchantUser);
+        sendPasswordEmail(merchantUser, password);
+    }
 
-    @Query("SELECT r FROM ReportScheduleManagement r " +
-           "WHERE r.status = :status " +
-           "AND r.nextScheduleExecutionTime BETWEEN :currentTime AND :endTime")
-    List<ReportScheduleManagement> findByStatusAndNextScheduleExecutionTime(
-        @Param("status") String status,
-        @Param("currentTime") Long currentTime,
-        @Param("endTime") Long endTime
-    );
-}
+    private void sendEmail(MerchantUser merchantUser) {
+        NotificationManagement notificationMgmt = buildNotificationManagement(merchantUser.getId());
+        MerchantEmailDto merchantEmailDto = MerchantEmailDto.builder().toEmail(merchantUser.getEmail()).content(EmailUtil.generateUserCreationContent(merchantUser)).eMailType(EMailType.USER_CREATION).build();
+        notificationDao.sendEmailNotification(merchantEmailDto, notificationMgmt);
+    }
 
-@Repository
-public interface ReportManagementRepository extends JpaRepository<ReportManagement, UUID> {
-}
+    private void sendSms(MerchantUser merchantUser) {
+        NotificationManagement notificationMgmt = buildNotificationManagement(merchantUser.getId());
+        SmsRequest smsRequest = SmsRequest.builder().mobileNumber(merchantUser.getMobilePhone()).message(MessageFormat.format(SmsUtil.USER_ONBOARDING, merchantUser.getUserName())).build();
+        notificationDao.sendSmsNotification(smsRequest, notificationMgmt);
+    }
+
+
