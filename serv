@@ -18,3 +18,41 @@
         System.out.println(nextDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
         return nextDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
     }
+
+
+
+
+public static Long calculateBackDateByFrequency(Frequency frequency, Long timeInMillis) {
+    LocalDateTime inputDateTime = Instant.ofEpochMilli(timeInMillis)
+            .atZone(ZoneId.systemDefault())
+            .toLocalDateTime();
+    LocalTime reqTime = inputDateTime.toLocalTime();
+
+    LocalDateTime now = LocalDateTime.now();
+    LocalDateTime nextDateTime;
+
+    switch (frequency) {
+        case DAILY -> 
+            nextDateTime = now.toLocalTime().isBefore(reqTime)
+                    ? LocalDateTime.of(now.toLocalDate().minusDays(1), reqTime)
+                    : LocalDateTime.of(now.toLocalDate(), reqTime);
+        
+        case MONTHLY -> {
+            LocalDate nextMonthDate = now.toLocalDate().minusMonths(1);
+            int dayOfMonth = Math.min(inputDateTime.getDayOfMonth(), nextMonthDate.lengthOfMonth());
+            nextDateTime = now.toLocalTime().isBefore(reqTime)
+                    ? LocalDateTime.of(nextMonthDate.withDayOfMonth(dayOfMonth), reqTime)
+                    : LocalDateTime.of(now.toLocalDate().withDayOfMonth(dayOfMonth), reqTime);
+        }
+
+        case YEARLY -> 
+            nextDateTime = now.toLocalTime().isBefore(reqTime)
+                    ? LocalDateTime.of(now.toLocalDate().minusYears(1).withDayOfYear(inputDateTime.getDayOfYear()), reqTime)
+                    : LocalDateTime.of(now.toLocalDate().withDayOfYear(inputDateTime.getDayOfYear()), reqTime);
+        
+        default -> throw new IllegalArgumentException("Invalid Frequency: " + frequency);
+    }
+
+    System.out.println(nextDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
+    return nextDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+}
