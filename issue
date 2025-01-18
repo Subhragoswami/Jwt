@@ -1,50 +1,60 @@
+  public void getDecryptKey(String mId, HttpServletResponse response){
+        String key = kmsClient.getDecryptedKey(mId);
+        String password = passwordGenerator.generatePassword();
+        PDFService.generatePDF(new APIKeyPDFBuilder(), key, password);
+    }
+
+public class PDFService {
+    /**
+     * Generates a password-protected PDF using a specified builder and data.
+     *
+     * @param pdfBuilder The PDF builder for generating content.
+     * @param data       The data to populate the PDF content.
+     * @param password   The password to secure the PDF.
+     * @return ByteArrayOutputStream containing the generated PDF.
+     */
+    public static ByteArrayOutputStream generatePDF(PDFBuilder pdfBuilder, Object data, String password) {
+
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        WriterProperties writerProperties = new WriterProperties().setStandardEncryption(password.getBytes(), null, EncryptionConstants.ALLOW_PRINTING, EncryptionConstants.ENCRYPTION_AES_256);
+
+        try (PdfWriter writer = new PdfWriter(byteArrayOutputStream, writerProperties); PdfDocument pdfDocument = new PdfDocument(writer); Document document = new Document(pdfDocument)) {
+            // Delegate content creation to the builder
+            pdfBuilder.buildContent(document, data);
+        } catch (Exception e) {
+            throw new RuntimeException("Error generating PDF", e);
+        }
+        return byteArrayOutputStream;
+    }
+
+}
+
+    private void fileResponse(KeyType type, KeyGenerationRequest keyGenerationRequest, HttpServletResponse response, ByteArrayOutputStream pdfStream) {
+        logger.info("Started fileResponse for type: {}, request: {}", type, keyGenerationRequest);
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            ContentDisposition contentDisposition = ContentDisposition.attachment().filename(type.name() + "_" + keyGenerationRequest.getMId() + "_" + System.currentTimeMillis() + ".pdf").build();
+            headers.setContentDisposition(contentDisposition);
+            response.setContentType(MediaType.APPLICATION_PDF_VALUE);
+            response.setHeader(HttpHeaders.CONTENT_DISPOSITION, headers.getFirst(HttpHeaders.CONTENT_DISPOSITION));
+            response.getOutputStream().write(pdfStream.toByteArray());
+            response.getOutputStream().flush();
+            logger.info("Completed fileResponse for type: {}, request: {}", type, keyGenerationRequest);
+        } catch (IOException e) {
+            logger.error("Error in PDF File Generation ", e);
+            throw new MerchantException(ErrorConstants.GENERATION_ERROR_CODE, MessageFormat.format(ErrorConstants.GENERATION_ERROR_MESSAGE, type.name() + "Key"));
+        }
+    }
+
+
+I'm getting this error
+
 {
     "status": 0,
     "errors": [
         {
             "errorCode": "500",
-            "errorMessage": "Can't convert value of class com.epay.merchant.dto.MerchantEmailDto to class org.apache.kafka.common.serialization.StringSerializer specified in value.serializer"
+            "errorMessage": "Error generating PDF"
         }
     ]
-}
-
-
-
-
-
-@Bean
-public ProducerFactory<String, MerchantEmailDto> producerFactory() {
-    Map<String, Object> configProps = new HashMap<>();
-    configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-    configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-    configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class); // Use JSON serializer
-    return new DefaultKafkaProducerFactory<>(configProps);
-}
-
-@Bean
-public KafkaTemplate<String, MerchantEmailDto> kafkaTemplate() {
-    return new KafkaTemplate<>(producerFactory());
-}
-
-
-@Component
-@RequiredArgsConstructor
-public class KafkaProducer {
-
-    private final KafkaTemplate<String, MerchantEmailDto> kafkaTemplate; // Updated type
-
-    private final LoggerUtility log = LoggerFactoryUtility.getLogger(this.getClass());
-
-    public void sendEmail(MerchantEmailDto emailDto) {
-        sendMessage(producerConfig.getTopicEmail(), emailDto);
-    }
-
-    private void sendMessage(String topic, MerchantEmailDto message) {
-        log.info("Publishing message on Kafka topic: {}", topic);
-        kafkaTemplate.send(topic, message)
-            .addCallback(
-                result -> log.info("Message [{}] sent to topic [{}] with offset [{}]", message, topic, result.getRecordMetadata().offset()),
-                ex -> log.error("Unable to send message [{}] to topic [{}]: {}", message, topic, ex.getMessage())
-            );
-    }
 }
