@@ -1,13 +1,20 @@
-   case MONTHLY ->
-                  // nextDateTime = LocalDateTime.of(now.toLocalDate().minusMonths(1), reqTime);
-                    nextDateTime = now.toLocalTime().isBefore(reqTime) ?
-                            LocalDateTime.of(now.toLocalDate().minusMonths(1), reqTime) :
-                            LocalDateTime.of(now.toLocalDate().withDayOfMonth(Math.min(now.toLocalDate().lengthOfMonth(), 30)), reqTime);
+Exception in thread "main" java.time.DateTimeException: Invalid date 'FEBRUARY 30'
 
-for monthly 1738246936532 Thu Jan 30 2025 19:52:16.532 coming like this
+   Long time = calculateDateByFrequency(MONTHLY , "8:28 pm");
+        System.out.println(time);
+    }
+    public static Long calculateDateByFrequency(Frequency frequency, String time) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("h:mm a");
+        LocalTime reqTime = LocalTime.parse(time.trim().toLowerCase(Locale.ROOT), formatter);
 
-
-case MONTHLY ->
-    nextDateTime = now.toLocalTime().isBefore(reqTime)
-            ? LocalDateTime.of(now.toLocalDate().minusMonths(1).withDayOfMonth(Math.min(inputDateTime.getDayOfMonth(), now.minusMonths(1).toLocalDate().lengthOfMonth())), reqTime)
-            : LocalDateTime.of(now.toLocalDate().withDayOfMonth(Math.min(inputDateTime.getDayOfMonth(), now.toLocalDate().lengthOfMonth())), reqTime).minusMonths(1);
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime nextDateTime;
+        switch (frequency) {
+            case Frequency.DAILY ->
+                    nextDateTime = now.toLocalTime().isAfter(reqTime) ? LocalDateTime.of(now.toLocalDate().plusDays(1), reqTime) : LocalDateTime.of(now.toLocalDate(), reqTime);
+            case Frequency.MONTHLY ->
+                    nextDateTime = now.toLocalTime().isAfter(reqTime) ? LocalDateTime.of(now.toLocalDate().plusMonths(1).withDayOfMonth(30), reqTime) : LocalDateTime.of(now.toLocalDate().withDayOfMonth(30), reqTime);
+            case YEARLY ->
+                    nextDateTime = now.toLocalTime().isAfter(reqTime) ? LocalDateTime.of(now.toLocalDate().plusYears(1), reqTime) : LocalDateTime.of(now.toLocalDate().withDayOfYear(1), reqTime);
+            default -> throw new IllegalArgumentException("Invalid Frequency :" + frequency);
+        }
