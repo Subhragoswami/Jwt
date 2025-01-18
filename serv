@@ -1,89 +1,20 @@
+    public static Long calculateBackDateByFrequency(Frequency frequency, Long timeInMillis) {
+        LocalDateTime inputDateTime = Instant.ofEpochMilli(timeInMillis).atZone(ZoneId.systemDefault()).toLocalDateTime();
+        LocalTime reqTime = inputDateTime.toLocalTime();
 
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime nextDateTime;
 
-@AllArgsConstructor
-@Data
-@Builder
-@JsonInclude(JsonInclude.Include.NON_NULL)
-public class MerchantResponse<T> {
-
-    private Integer status;
-    private List<T> data;
-    private Long count;
-    private Long total;
-    private List<ErrorDto> errors;
-
-    @Override
-    public String toString() {
-        return "ResponseDto{" +
-                "status=" + status +
-                ", data=" + data +
-                ", count=" + count +
-                ", total=" + total +
-                ", errors=" + errors +
-                '}';
-    }
-}
-
-   public void getDecryptKey(String mId, HttpServletResponse response){
-
-        MerchantResponse<String> key = kmsClient.getDecryptedKey(mId);
-        String password = passwordGenerator.generatePassword();
-        log.info("pass : {}", password);
-
-    }
-
-here I need to generate PDF password protected
-in key I'm getting data like this by calling another service
-{
-    "data": [
-        "ZLdXGslhgVbfaXOoZvaSdgsVGRpbZlNpUZD1pVDCkiA="
-    ],
-    "status": 1,
-    "count": 1
-}
-
-here is the reference
-  public void generateKey(KeyType type, KeyGenerationRequest keyGenerationRequest, HttpServletResponse response) {
-        logger.info("Started generateKey for type: {}", type);
-        ByteArrayOutputStream pdfStream;
-        // Step 1 : Validate the KMSKeyGenerationRequest
-        keyValidator.validateKeyGenerationRequest(keyGenerationRequest);
-        switch (type) {
-            case API -> pdfStream = apiKeyGeneration(keyGenerationRequest);
-            case ENCRYPTION -> pdfStream = encryptionKeyGeneration(keyGenerationRequest);
-            default -> {
-                    logger.error("Invalid KeyType provided: {}", type);
-                    throw new MerchantException(ErrorConstants.INVALID_ERROR_CODE, MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "KeyType", "Valid Key Type are " + Arrays.toString(KeyType.values())));
+        switch (frequency) {
+            case DAILY ->
+                    nextDateTime = now.toLocalTime().isBefore(reqTime) ? LocalDateTime.of(now.toLocalDate().minusDays(1), reqTime) : LocalDateTime.of(now.toLocalDate(), reqTime);
+            case MONTHLY ->
+                    nextDateTime = now.toLocalTime().isBefore(reqTime) ? LocalDateTime.of(now.toLocalDate().minusMonths(1).withDayOfMonth(Math.min(now.toLocalDate().lengthOfMonth(), 30)), reqTime) : LocalDateTime.of(now.toLocalDate().withDayOfMonth(Math.min(now.toLocalDate().lengthOfMonth(), 30)), reqTime);
+            case YEARLY ->
+                    nextDateTime = now.toLocalTime().isBefore(reqTime) ? LocalDateTime.of(now.toLocalDate().minusYears(1).withDayOfYear(1), reqTime) : LocalDateTime.of(now.toLocalDate().withDayOfYear(1), reqTime);
+            default -> throw new IllegalArgumentException("Invalid Frequency: " + frequency);
         }
-        }
-        fileResponse(type, keyGenerationRequest, response, pdfStream);
-        logger.info("Completed generateKey for type: {}", type);
-    }
-   private ByteArrayOutputStream apiKeyGeneration(KeyGenerationRequest keyGenerationRequest) {
-        logger.info("Started apiKeyGeneration for request: {}", keyGenerationRequest);
-        // Step 1 : Call the KMS APIs
-        KMSAPIKeysResponse kmsapiKeysResponse = keyDao.generateApiKey(keyGenerationRequest.getMId());
-        // Step 2 : Generate the Password-protected PDF File
-        String password = passwordGenerator.generatePassword();
-        ByteArrayOutputStream byteArrayOutputStream = PDFService.generatePDF(new APIKeyPDFBuilder(), kmsapiKeysResponse, password);
-        // Step 3 : Send Notification to Merchant
-        keyDao.saveNotification(KeyType.API, kmsapiKeysResponse.getId(), "API Key PDF File Password is :" + password, keyGenerationRequest.getMId());
-        logger.info("Completed apiKeyGeneration for request: {}", keyGenerationRequest);
-        return byteArrayOutputStream;
-    }
-    private void fileResponse(KeyType type, KeyGenerationRequest keyGenerationRequest, HttpServletResponse response, ByteArrayOutputStream pdfStream) {
-        logger.info("Started fileResponse for type: {}, request: {}", type, keyGenerationRequest);
-        try {
-            HttpHeaders headers = new HttpHeaders();
-            ContentDisposition contentDisposition = ContentDisposition.attachment().filename(type.name() + "_" + keyGenerationRequest.getMId() + "_" + System.currentTimeMillis() + ".pdf").build();
-            headers.setContentDisposition(contentDisposition);
-            response.setContentType(MediaType.APPLICATION_PDF_VALUE);
-            response.setHeader(HttpHeaders.CONTENT_DISPOSITION, headers.getFirst(HttpHeaders.CONTENT_DISPOSITION));
-            response.getOutputStream().write(pdfStream.toByteArray());
-            response.getOutputStream().flush();
-            logger.info("Completed fileResponse for type: {}, request: {}", type, keyGenerationRequest);
-        } catch (IOException e) {
-            logger.error("Error in PDF File Generation ", e);
-            throw new MerchantException(ErrorConstants.GENERATION_ERROR_CODE, MessageFormat.format(ErrorConstants.GENERATION_ERROR_MESSAGE, type.name() + "Key"));
-        }
+
+        System.out.println(nextDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
+        return nextDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
     }
