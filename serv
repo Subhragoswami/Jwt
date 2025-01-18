@@ -45,3 +45,57 @@ add logger and method description like this
         logger.info("Completed encryptionKeyGeneration for request: {}", keyGenerationRequest);
         return byteArrayOutputStream;
     }
+
+
+/**
+ * Endpoint to generate and download a password-protected decryption key PDF for a given Merchant ID.
+ *
+ * @param mId      Merchant ID for which the decryption key is to be generated.
+ * @param response HttpServletResponse object to send the PDF as a downloadable response.
+ */
+@GetMapping("/encryptionDownload/{mId}")
+@Operation(summary = "Download Decryption Key PDF", description = "Generate and download a password-protected PDF containing the decryption key for the given Merchant ID.")
+public void getDecryptKey(@PathVariable String mId, HttpServletResponse response) {
+    logger.info("Received request to download decryption key PDF for mId: {}", mId);
+    keyService.getDecryptKey(mId, response);
+    logger.info("Completed request to download decryption key PDF for mId: {}", mId);
+}
+
+
+
+/**
+ * This method retrieves a decrypted key for the given Merchant ID (mId), 
+ * generates a password-protected PDF, and sends it as a downloadable response.
+ *
+ * @param mId      Merchant ID for which the decryption key is to be fetched.
+ * @param response HttpServletResponse object to send the generated PDF as a response.
+ */
+public void getDecryptKey(String mId, HttpServletResponse response) {
+    logger.info("Started getDecryptKey process for mId: {}", mId);
+
+    // Step 1: Fetch the decrypted key
+    MerchantResponse<String> keyResponse = kmsClient.getDecryptedKey(mId);
+    if (keyResponse == null || keyResponse.getData() == null || keyResponse.getData().isEmpty()) {
+        logger.error("No decryption key found for mId: {}", mId);
+        throw new MerchantException(ErrorConstants.KEY_NOT_FOUND_ERROR_CODE, "Decryption key not found for mId: " + mId);
+    }
+    String decryptedKey = keyResponse.getData().get(0); // Get the first key
+    logger.info("Decryption key fetched successfully for mId: {}", mId);
+
+    // Step 2: Generate a password for the PDF
+    String password = passwordGenerator.generatePassword();
+    logger.info("Generated password for PDF: {}", password);
+
+    // Step 3: Create the password-protected PDF
+    ByteArrayOutputStream pdfStream = PDFService.generatePDF(new DecryptionPdfBuilder(), decryptedKey, password);
+
+    // Step 4: Send the PDF as a response
+    fileResponse(
+        KeyType.DECRYPTION,
+        KeyGenerationRequest.builder().mId(mId).build(),
+        response,
+        pdfStream
+    );
+
+    logger.info("Completed getDecryptKey process for mId: {}", mId);
+}
