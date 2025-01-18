@@ -1,255 +1,41 @@
-@Service
-public class NotificationListener {
-    private final LoggerUtility log = LoggerFactoryUtility.getLogger(this.getClass());
-
-    @KafkaListener(topics = "${kafka.topics.email}")
-    public void listenEmailTopic(@Payload String notificationDto, @Header(KafkaHeaders.RECEIVED_TOPIC) String topic) {
-        log.info("Received email message[id: {}] on  topic : ", notificationDto, topic);
-    }
-
-    @KafkaListener(topics = "${kafka.topics.sms}")
-    public void listenSmsTopic(@Payload String notificationDto, @Header(KafkaHeaders.RECEIVED_TOPIC) String topic) {
-        log.info("Received SMS message[id: {}] on  topic : ", notificationDto, topic);
-    }
+{
+    "data": [
+        "ZLdXGslhgVbfaXOoZvaSdgsVGRpbZlNpUZD1pVDCkiA="
+    ],
+    "status": 1,
+    "count": 1
 }
 
-@RestController
-@RequestMapping("/kafka")
-@RequiredArgsConstructor
-public class KafkaTestController {
-
-    LoggerUtility log = LoggerFactoryUtility.getLogger(KafkaTestController.class);
-    private final KafkaProducer kafkaProducer;
-
-    @GetMapping("/send/{msg}")
-    @Operation(summary = "Merchant User Login API", description = "Merchant User Validation during Login via userName,Email or MobileNumber fields ans captcha info")
-    public void kafkaTest(@PathVariable String msg) {
-        kafkaProducer.sendEmail(msg);
-        kafkaProducer.sendSMS(msg);
-    }
-}
-
-@Component
-@RequiredArgsConstructor
-public class KafkaProducer {
-    private final LoggerUtility log = LoggerFactoryUtility.getLogger(this.getClass());
-    private final KafkaProducerConfig producerConfig;
-    private final KafkaTemplate<String, String> kafkaTemplate;
-
-    public void sendEmail(String notificationId) {
-        sendMessage(producerConfig.getTopicEmail(), notificationId);
-    }
-    public void sendSMS(String notificationId) {
-        sendMessage(producerConfig.getTopicSMS(), notificationId);
-    }
-
-    private void sendMessage(String topic, String message) {
-        log.info("Publishing message on Kafka topic: {}", topic);
-        CompletableFuture<SendResult<String, String>> future = kafkaTemplate.send(topic, message);
-        future.whenComplete((result, ex) -> {
-            if (ex == null) {
-                log.info("Sent message [{}] on topic[{}] with offset:{}", message, topic, result.getRecordMetadata().offset());
-            } else {
-                log.error("Unable to send message [{}] on topic[{}] due to: ", message, topic, ex.getMessage());
-            }
-        });
-    }
-}
-@Configuration
-@Getter
-public class KafkaProducerConfig {
-    @Value("${spring.kafka.bootstrap-servers}")
-    private String bootstrapServers;
-    @Value("${spring.kafka.properties.security.protocol}")
-    private String securityProtocol;
-    @Value("${spring.kafka.properties.ssl.truststore.location}")
-    private String trustLocation;
-    @Value("${spring.kafka.properties.ssl.truststore.password}")
-    private String trustPassword;
-    @Value("${spring.kafka.properties.ssl.truststore.type}")
-    private String trustType;
-    @Value("${spring.kafka.properties.ssl.keystore.location}")
-    private String keyLocation;
-    @Value("${spring.kafka.properties.ssl.keystore.password}")
-    private String keyPassword;
-    @Value("${spring.kafka.properties.ssl.keystore.type}")
-    private String keyType;
-
-    @Value("${kafka.topics.email}")
-    private String topicEmail;
-    @Value("${kafka.topics.sms}")
-    private String topicSMS;
-
-    /**
-     * Setting Kafka Producer configuration
-     * @return ProducerFactory
-     */
-    @Bean
-    public ProducerFactory<String, String> producerFactoryString() {
-        Map<String, Object> configProps = new HashMap<>();
-        configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-        configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-        configProps.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, securityProtocol);
-        configProps.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, trustLocation);
-        configProps.put(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG, trustPassword);
-        configProps.put(SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG, trustType);
-        configProps.put(SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG, keyLocation);
-        configProps.put(SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG, keyPassword);
-        configProps.put(SslConfigs.SSL_KEYSTORE_TYPE_CONFIG, keyType);
-//        configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
-        //configProps.put(JsonSerializer.TYPE_MAPPINGS,
-        //      "notification:com.epay.merchant.dto.NotificationDto, abc:epay.merchant.dto.AbcDto"// ProducerFactory<String, Object>
-        return new DefaultKafkaProducerFactory<>(configProps); //method name: ProducerFactory<String, ClassName> and also need to update kafkaTemplate<String, ClassName>
-    }
-
-    /**
-     *  Creating KafkaTemplate for NotificationDto
-     * @return KafkaTemplate
-     */
-    @Bean
-    public KafkaTemplate<String, String> kafkaTemplateString() {
-        return new KafkaTemplate<>(producerFactoryString());
-    }
-}
-
-using this type we need to implement kafka for email and sending sms
-
-@Component
-@RequiredArgsConstructor
-public class NotificationDao {
-
-    private final LoggerUtility log = LoggerFactoryUtility.getLogger(this.getClass());
-
-    private final EmailService emailService;
-    private final SmsService smsService;
-    private final MerchantConfig merchantConfig;
-    private final NotificationManagementRepository notificationManagementRepository;
-    private int emailResponse = MerchantConstant.RESPONSE_SUCCESS;
-    private int smsResponse = MerchantConstant.RESPONSE_SUCCESS;
-
-    /**
-     * Sends an email notification to the specified recipient and logs the notification details.
-     *
-     * @param merchantEmailDto       The email details, including content and recipient address.
-     * @param notificationManagement The notification entity to log the email sending activity.
-     */
-    public void sendEmailNotification(MerchantEmailDto merchantEmailDto, NotificationManagement notificationManagement) {
-        sendEmail(merchantEmailDto);
-        notificationManagement.setNotificationType(NotificationType.EMAIL);
-        notificationManagement.setContent(merchantEmailDto.getContent().toString());
-        notificationManagement.setStatus(emailResponse);
-        notificationManagementRepository.save(notificationManagement);
-    }
-
-    /**
-     * Sends an SMS notification to the specified recipient and logs the notification details.
-     *
-     * @param smsRequest             The SMS details, including the recipient's mobile number and message content.
-     * @param notificationManagement The notification entity to log the SMS sending activity.
-     */
-    public void sendSmsNotification(SmsRequest smsRequest, NotificationManagement notificationManagement) {
-        sendSMS(smsRequest);
-        notificationManagement.setNotificationType(NotificationType.SMS);
-        notificationManagement.setContent(smsRequest.getMessage());
-        notificationManagement.setStatus(smsResponse);
-        notificationManagementRepository.save(notificationManagement);
-    }
-
-    /**
-     * Asynchronously sends an email notification using the provided email details.
-     * Handles exceptions during email delivery and updates the response status.
-     *
-     * @param merchantEmailDto The email details, including content and recipient address.
-     */
-    private void sendEmail(MerchantEmailDto merchantEmailDto) {
-        CompletableFuture.runAsync(() -> {
-            try {
-                EmailDto emailDto = getEmailDto(merchantEmailDto);
-                emailService.sendEmail(emailDto);
-            } catch (NotificationException n) {
-                log.error("Error in send Email, merchantEmailDto {}", merchantEmailDto, n);
-                emailResponse = MerchantConstant.RESPONSE_FAILURE;
-            } catch (Exception e) {
-                log.error("Error in send Email, merchantEmailDto {}", merchantEmailDto, e.getMessage());
-                emailResponse = MerchantConstant.RESPONSE_FAILURE;
-            }
-        });
-    }
-
-    /**
-     * Asynchronously sends an SMS notification using the provided SMS details.
-     * Handles exceptions during SMS delivery and updates the response status.
-     *
-     * @param smsRequest The SMS details, including the recipient's mobile number and message content.
-     */
-    private void sendSMS(SmsRequest smsRequest) {
-        CompletableFuture.runAsync(() -> {
-            try {
-                SmsDto smsDto = SmsDto.builder().mobileNumber(smsRequest.getMobileNumber()).message(smsRequest.getMessage()).build();
-                smsService.sendSMS(smsDto);
-            } catch (NotificationException n) {
-                log.error("Error in send SMS, smsRequest {}", smsRequest, n);
-                smsResponse = MerchantConstant.RESPONSE_FAILURE;
-            } catch (Exception e) {
-                log.error("Error in send SMS, smsRequest {}", smsRequest, e.getMessage());
-                smsResponse = MerchantConstant.RESPONSE_FAILURE;
-            }
-        });
-    }
-
-    /**
-     * Constructs an EmailDto object using the provided merchant email details.
-     * Supports custom recipient and CC configurations.
-     *
-     * @param merchantEmailDto The merchant email details, including content and type.
-     * @return EmailDto The constructed email object to be sent.
-     */
-    private EmailDto getEmailDto(MerchantEmailDto merchantEmailDto) {
-        EmailDto emailDto = EmailDto.builder()
-                .subject(merchantEmailDto.getEMailType().getSubjectName())
-                .from(merchantConfig.getFrom())
-                .body(merchantEmailDto.getContent())
-                .emailTemplate(merchantEmailDto.getEMailType().getTemplateName()).build();
-        if (!merchantConfig.getRecipient().isEmpty()) {
-            emailDto.setRecipient(merchantConfig.getRecipient());
-            emailDto.setCc(merchantEmailDto.getToEmail());
-        } else {
-            emailDto.setRecipient(merchantEmailDto.getToEmail());
-        }
-        return emailDto;
-    }
-}	
+@AllArgsConstructor
 @Data
 @Builder
-@AllArgsConstructor
-@NoArgsConstructor
-public class MerchantEmailDto {
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class MerchantResponse<T> {
 
-    private String toEmail;
-    private Map<String, Object> content;
-    private EMailType eMailType;
+    private Integer status;
+    private List<T> data;
+    private Long count;
+    private Long total;
+    private List<ErrorDto> errors;
 
+    @Override
+    public String toString() {
+        return "ResponseDto{" +
+                "status=" + status +
+                ", data=" + data +
+                ", count=" + count +
+                ", total=" + total +
+                ", errors=" + errors +
+                '}';
+    }
 }
 
-like that we're calling sendSms and sendEmail from other class
+   public void getDecryptKey(String mId, HttpServletResponse response){
 
-   private void sendNotification(MerchantUser merchantUser, String password) {
-        sendEmail(merchantUser);
-        sendSms(merchantUser);
-        sendPasswordEmail(merchantUser, password);
+        MerchantResponse<String> key = kmsClient.getDecryptedKey(mId);
+        String password = passwordGenerator.generatePassword();
+        log.info("pass : {}", password);
+
     }
 
-    private void sendEmail(MerchantUser merchantUser) {
-        NotificationManagement notificationMgmt = buildNotificationManagement(merchantUser.getId());
-        MerchantEmailDto merchantEmailDto = MerchantEmailDto.builder().toEmail(merchantUser.getEmail()).content(EmailUtil.generateUserCreationContent(merchantUser)).eMailType(EMailType.USER_CREATION).build();
-        notificationDao.sendEmailNotification(merchantEmailDto, notificationMgmt);
-    }
-
-    private void sendSms(MerchantUser merchantUser) {
-        NotificationManagement notificationMgmt = buildNotificationManagement(merchantUser.getId());
-        SmsRequest smsRequest = SmsRequest.builder().mobileNumber(merchantUser.getMobilePhone()).message(MessageFormat.format(SmsUtil.USER_ONBOARDING, merchantUser.getUserName())).build();
-        notificationDao.sendSmsNotification(smsRequest, notificationMgmt);
-    }
-
-
+here I need to generate PDF 
