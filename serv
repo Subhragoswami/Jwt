@@ -1,85 +1,9 @@
-public static Long calculateBackDateByFrequency(Frequency frequency, Long timeInMillis) {
-        LocalDateTime inputDateTime = Instant.ofEpochMilli(timeInMillis).atZone(ZoneId.systemDefault()).toLocalDateTime();
-        LocalTime reqTime = inputDateTime.toLocalTime();
-
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime nextDateTime;
-
-        switch (frequency) {
+      switch (frequency) {
             case DAILY ->
                     nextDateTime = now.toLocalTime().isBefore(reqTime) ? LocalDateTime.of(now.toLocalDate().minusDays(1), reqTime) : LocalDateTime.of(now.toLocalDate(), reqTime);
             case MONTHLY ->
-                    nextDateTime = now.toLocalTime().isBefore(reqTime) ? LocalDateTime.of(now.toLocalDate().minusMonths(1).withDayOfMonth(Math.min(now.toLocalDate().lengthOfMonth(), 30)), reqTime) : LocalDateTime.of(now.toLocalDate().withDayOfMonth(Math.min(now.toLocalDate().lengthOfMonth(), 30)), reqTime);
+                    nextDateTime = now.toLocalTime().isBefore(reqTime) ? LocalDateTime.of(now.toLocalDate().minusMonths(1), reqTime) : LocalDateTime.of(now.toLocalDate().withDayOfMonth(Math.min(now.toLocalDate().lengthOfMonth(), 30)), reqTime);
             case YEARLY ->
                     nextDateTime = now.toLocalTime().isBefore(reqTime) ? LocalDateTime.of(now.toLocalDate().minusYears(1), reqTime) : LocalDateTime.of(now.toLocalDate().withDayOfYear(1), reqTime);
             default -> throw new IllegalArgumentException("Invalid Frequency: " + frequency);
-       }
-
-import org.joda.time.*;
-
-public static Long calculateBackDateByFrequency(Frequency frequency, Long timeInMillis) {
-    // Convert input time in milliseconds to a Joda LocalDateTime
-    LocalDateTime inputDateTime = new LocalDateTime(timeInMillis);
-    LocalTime reqTime = inputDateTime.toLocalTime();
-
-    // Get current date and time
-    LocalDateTime now = LocalDateTime.now();
-    LocalDateTime nextDateTime;
-
-    switch (frequency) {
-        case DAILY:
-            nextDateTime = now.toLocalTime().isBefore(reqTime)
-                    ? now.minusDays(1).withTime(reqTime.getHourOfDay(), reqTime.getMinuteOfHour(), reqTime.getSecondOfMinute(), 0)
-                    : now.withTime(reqTime.getHourOfDay(), reqTime.getMinuteOfHour(), reqTime.getSecondOfMinute(), 0);
-            break;
-        case MONTHLY:
-            LocalDate adjustedMonthDate = now.toLocalDate().minusMonths(1).dayOfMonth()
-                    .withMaximumValue().isBeforeDay(now.toLocalDate().withDayOfMonth(30))
-                    ? now.toLocalDate().minusMonths(1).withDayOfMonth()
-            break;
-
-            **to reflect user choosing org.jodaTime logic s``
-
-Here is the fully implemented code using Joda-Time, addressing `DAILY`, `MONTHLY`, and `YEARLY` frequencies:
-
-```java
-import org.joda.time.*;
-
-public static Long calculateBackDateByFrequency(Frequency frequency, Long timeInMillis) {
-    // Convert input time in milliseconds to a Joda LocalDateTime
-    LocalDateTime inputDateTime = new LocalDateTime(timeInMillis);
-    LocalTime reqTime = inputDateTime.toLocalTime();
-
-    // Get current date and time
-    LocalDateTime now = LocalDateTime.now();
-    LocalDateTime nextDateTime;
-
-    switch (frequency) {
-        case DAILY:
-            nextDateTime = now.toLocalTime().isBefore(reqTime)
-                    ? now.minusDays(1).withTime(reqTime.getHourOfDay(), reqTime.getMinuteOfHour(), reqTime.getSecondOfMinute(), 0)
-                    : now.withTime(reqTime.getHourOfDay(), reqTime.getMinuteOfHour(), reqTime.getSecondOfMinute(), 0);
-            break;
-
-        case MONTHLY:
-            LocalDate previousMonthDate = now.toLocalDate().minusMonths(1);
-            int dayOfMonth = Math.min(previousMonthDate.dayOfMonth().getMaximumValue(), 30);
-            nextDateTime = now.toLocalTime().isBefore(reqTime)
-                    ? previousMonthDate.withDayOfMonth(dayOfMonth).toLocalDateTime(reqTime)
-                    : now.toLocalDate().withDayOfMonth(Math.min(now.dayOfMonth().getMaximumValue(), 30)).toLocalDateTime(reqTime);
-            break;
-
-        case YEARLY:
-            LocalDate previousYearDate = now.toLocalDate().minusYears(1);
-            nextDateTime = now.toLocalTime().isBefore(reqTime)
-                    ? previousYearDate.toLocalDateTime(reqTime)
-                    : now.toLocalDate().withDayOfYear(1).toLocalDateTime(reqTime);
-            break;
-
-        default:
-            throw new IllegalArgumentException("Invalid Frequency: " + frequency);
-    }
-
-    // Convert the result back to milliseconds
-    return nextDateTime.toDateTime().getMillis();
-}
+        }
