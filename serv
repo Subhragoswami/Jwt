@@ -5,3 +5,9 @@
                             LocalDateTime.of(now.toLocalDate().withDayOfMonth(Math.min(now.toLocalDate().lengthOfMonth(), 30)), reqTime);
 
 for monthly 1738246936532 Thu Jan 30 2025 19:52:16.532 coming like this
+
+
+case MONTHLY ->
+    nextDateTime = now.toLocalTime().isBefore(reqTime)
+            ? LocalDateTime.of(now.toLocalDate().minusMonths(1).withDayOfMonth(Math.min(inputDateTime.getDayOfMonth(), now.minusMonths(1).toLocalDate().lengthOfMonth())), reqTime)
+            : LocalDateTime.of(now.toLocalDate().withDayOfMonth(Math.min(inputDateTime.getDayOfMonth(), now.toLocalDate().lengthOfMonth())), reqTime).minusMonths(1);
