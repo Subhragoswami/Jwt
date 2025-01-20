@@ -1,10 +1,8 @@
-    @Transactional
-    public void cancelScheduler(UUID id){
-        if(reportScheduleManagementRepository.existsById(id)) {
-            reportScheduleManagementRepository.updateCancelById(id);
+    public Page<ReportManagementDto> searchAndGetReportManagement(ReportManagementRequest reportManagementRequest, Pageable pageable) {
+        UUID reportId = null;
+        if (ObjectUtils.isNotEmpty(reportManagementRequest.getReport())) {
+            reportId = reportMasterDao.getReportIdByName(reportManagementRequest.getReport());
         }
+        Specification<ReportManagement> specification = ReportManagementSpecification.searchReportManagement(reportId, reportManagementRequest);
+        return reportManagementRepository.findAll(specification, pageable).map(this::convertEntityToDTO);
     }
-
-@Modifying
-    @Query("UPDATE ReportScheduleManagement r SET r.cancel = false WHERE r.id = id")
-    void updateCancelById(@Param("id") UUID id);
