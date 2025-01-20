@@ -7,3 +7,47 @@
         ReportScheduleManagementResponse reportScheduleManagementResponse = reportScheduleManagementDao.update(id, request);
         return ReportingResponse.<ReportScheduleManagementResponse>builder().data(List.of(reportScheduleManagementResponse)).build();
     }
+
+
+
+
+
+............::.::.::.:..:...:.............
+
+
+
+
+@PutMapping("/update/{id}")
+@Operation(summary = "Update Schedule Management", description = "Updates a schedule management entry based on the provided ID and update request.")
+public ReportingResponse<ReportScheduleManagementResponse> updateScheduleManagement(
+        @PathVariable UUID id, 
+        @RequestBody ReportScheduleManagementUpdateRequest reportScheduleManagementUpdateRequest) {
+
+    logger.info("Started updateScheduleManagement for ID: {}, Request: {}", id, reportScheduleManagementUpdateRequest);
+
+    ReportingResponse<ReportScheduleManagementResponse> response = reportSchedulerManagementService.updateScheduleManagement(id, reportScheduleManagementUpdateRequest);
+
+    logger.info("Completed updateScheduleManagement for ID: {}", id);
+    return response;
+}
+
+
+/**
+ * Updates a schedule management entry in the database.
+ *
+ * @param id      UUID ID of the schedule management entry to be updated.
+ * @param request ReportScheduleManagementUpdateRequest Update request containing new details.
+ * @return ReportingResponse containing the updated schedule management details.
+ */
+public ReportingResponse<ReportScheduleManagementResponse> updateScheduleManagement(UUID id, ReportScheduleManagementUpdateRequest request) {
+
+    logger.info("Started updating schedule management entry for ID: {}, Request: {}", id, request);
+
+    ReportScheduleManagementResponse reportScheduleManagementResponse = reportScheduleManagementDao.update(id, request);
+
+    logger.info("Completed updating schedule management entry for ID: {}. Response: {}", id, reportScheduleManagementResponse);
+
+    return ReportingResponse.<ReportScheduleManagementResponse>builder()
+            .data(List.of(reportScheduleManagementResponse))
+            .build();
+}
