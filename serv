@@ -1,47 +1,26 @@
 
-    ReportScheduleManagementDto mapEntityToDto(ReportScheduleManagement reportScheduleManagement);
-
-    ReportScheduleManagement mapDtoToEntity(ReportScheduleManagementDto reportScheduleManagementDto);
-
-    @Mapping(source = "id", target = "scheduleRequestId")
-    List<ReportScheduleManagementResponse> mapDtoListToResponseList(List<ReportScheduleManagementDto> reportScheduleManagementDto);
-
-    ReportScheduleManagementDto mapRequestToDto(ReportScheduleManagementRequest reportScheduleManagementRequest);
-
-}
-
-package com.epay.reporting.dto;
-
-import com.epay.reporting.util.enums.Frequency;
-import com.epay.reporting.util.enums.Report;
-import com.epay.reporting.util.enums.ReportFormat;
-import com.epay.reporting.util.enums.ReportScheduledStatus;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonInclude;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import java.util.UUID;
-
-@Data
-@AllArgsConstructor
-@NoArgsConstructor
-@Builder
-@JsonInclude(JsonInclude.Include.NON_NULL)
-public class ReportScheduleManagementDto {
-
-    @JsonIgnore
+public class ReportScheduleManagement extends AuditEntity {
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "ID", nullable = false, updatable = false, unique = true)
     private UUID id;
-    @JsonIgnore
+
     private UUID reportId;
-    private Report report;
+    
+    @Column(name="MID")
     private String mId;
+
+    @Enumerated(EnumType.STRING)
     private Frequency frequency;
+    @Enumerated(EnumType.STRING)
     private ReportFormat format;
+
     private String scheduleExecutionTime;
     private Long nextScheduleExecutionTime;
     private Long lastScheduleExecutionTime;
+
+    @Enumerated(EnumType.STRING)
     private ReportScheduledStatus status;
+
+    private boolean cancel;
 }
