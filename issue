@@ -1,60 +1,113 @@
-  public void getDecryptKey(String mId, HttpServletResponse response){
-        String key = kmsClient.getDecryptedKey(mId);
-        String password = passwordGenerator.generatePassword();
-        PDFService.generatePDF(new APIKeyPDFBuilder(), key, password);
-    }
+package com.epay.reporting.mapper;
 
-public class PDFService {
-    /**
-     * Generates a password-protected PDF using a specified builder and data.
-     *
-     * @param pdfBuilder The PDF builder for generating content.
-     * @param data       The data to populate the PDF content.
-     * @param password   The password to secure the PDF.
-     * @return ByteArrayOutputStream containing the generated PDF.
-     */
-    public static ByteArrayOutputStream generatePDF(PDFBuilder pdfBuilder, Object data, String password) {
+import com.epay.reporting.dto.ReportScheduleManagementDto;
+import com.epay.reporting.entity.ReportScheduleManagement;
+import com.epay.reporting.model.request.ReportScheduleManagementRequest;
+import com.epay.reporting.model.response.ReportScheduleManagementResponse;
+import org.mapstruct.AfterMapping;
+import org.mapstruct.Builder;
+import org.mapstruct.Mapper;
 
-        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        WriterProperties writerProperties = new WriterProperties().setStandardEncryption(password.getBytes(), null, EncryptionConstants.ALLOW_PRINTING, EncryptionConstants.ENCRYPTION_AES_256);
+import java.util.List;
 
-        try (PdfWriter writer = new PdfWriter(byteArrayOutputStream, writerProperties); PdfDocument pdfDocument = new PdfDocument(writer); Document document = new Document(pdfDocument)) {
-            // Delegate content creation to the builder
-            pdfBuilder.buildContent(document, data);
-        } catch (Exception e) {
-            throw new RuntimeException("Error generating PDF", e);
-        }
-        return byteArrayOutputStream;
-    }
+/**
+ * Class Name: ReportMasterMapper
+ * *
+ * Description:
+ * *
+ * Author: V1018344
+ * Copyright (c) 2025 [State Bank of India]
+ * ALl rights reserved
+ * *
+ * Version: 1.0
+ */
+
+@Mapper(builder = @Builder(disableBuilder = true), componentModel = "spring")
+public interface ReportScheduleManagementMapper {
+
+    ReportScheduleManagementDto mapEntityToDto(ReportScheduleManagement reportScheduleManagement);
+
+    ReportScheduleManagement mapDtoToEntity(ReportScheduleManagementDto reportScheduleManagementDto);
+
+    List<ReportScheduleManagementResponse> mapDtoListToResponseList(List<ReportScheduleManagementDto> reportScheduleManagementDto);
+
+    ReportScheduleManagementDto mapRequestToDto(ReportScheduleManagementRequest reportScheduleManagementRequest);
+
+    ReportScheduleManagementResponse mapEntityToResponse(ReportScheduleManagement reportScheduleManagement);
+}
+
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class ReportScheduleManagementDto {
+
+    @JsonIgnore
+    private UUID id;
+    @JsonIgnore
+    private UUID reportId;
+    private Report report;
+    private String mId;
+    private Frequency frequency;
+    private ReportFormat format;
+    private String scheduleExecutionTime;
+    private Long nextScheduleExecutionTime;
+    private Long lastScheduleExecutionTime;
+    private ReportScheduledStatus status;
+}
+
+
+@EqualsAndHashCode(callSuper = true)
+@Data
+@Entity
+@Table(name = "REPORT_SCHEDULE_MANAGEMENT")
+public class ReportScheduleManagement extends AuditEntity {
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "ID", nullable = false, updatable = false, unique = true)
+    private UUID id;
+
+    private UUID reportId;
+
+    @Column(name = "MID")
+    private String mId;
+
+    @Enumerated(EnumType.STRING)
+    private Frequency frequency;
+    @Enumerated(EnumType.STRING)
+    private ReportFormat format;
+
+    private String scheduleExecutionTime;
+    private Long nextScheduleExecutionTime;
+    private Long lastScheduleExecutionTime;
+
+    @Enumerated(EnumType.STRING)
+    private ReportScheduledStatus status;
+
+    private boolean scheduleCheck;
+}
+
+@AllArgsConstructor
+@Getter
+@Setter
+@ToString
+@Builder
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class ReportScheduleManagementResponse {
+
+    private UUID scheduleRequestId;
+    private Report report;
+    private String mId;
+    private Frequency frequency;
+    private String scheduleExecutionTime;
+    private Long nextScheduleExecutionTime;
+    private Long lastScheduleExecutionTime;
+    private ReportScheduledStatus status;
 
 }
 
-    private void fileResponse(KeyType type, KeyGenerationRequest keyGenerationRequest, HttpServletResponse response, ByteArrayOutputStream pdfStream) {
-        logger.info("Started fileResponse for type: {}, request: {}", type, keyGenerationRequest);
-        try {
-            HttpHeaders headers = new HttpHeaders();
-            ContentDisposition contentDisposition = ContentDisposition.attachment().filename(type.name() + "_" + keyGenerationRequest.getMId() + "_" + System.currentTimeMillis() + ".pdf").build();
-            headers.setContentDisposition(contentDisposition);
-            response.setContentType(MediaType.APPLICATION_PDF_VALUE);
-            response.setHeader(HttpHeaders.CONTENT_DISPOSITION, headers.getFirst(HttpHeaders.CONTENT_DISPOSITION));
-            response.getOutputStream().write(pdfStream.toByteArray());
-            response.getOutputStream().flush();
-            logger.info("Completed fileResponse for type: {}, request: {}", type, keyGenerationRequest);
-        } catch (IOException e) {
-            logger.error("Error in PDF File Generation ", e);
-            throw new MerchantException(ErrorConstants.GENERATION_ERROR_CODE, MessageFormat.format(ErrorConstants.GENERATION_ERROR_MESSAGE, type.name() + "Key"));
-        }
-    }
 
-
-I'm getting this error
-
-{
-    "status": 0,
-    "errors": [
-        {
-            "errorCode": "500",
-            "errorMessage": "Error generating PDF"
-        }
-    ]
-}
+here while converting to ReportScheduleManagementResponse I need to set id as scheduleRequestId ;  
