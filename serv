@@ -1,53 +1,47 @@
-   @PutMapping("/update/{id}")
-    public ReportingResponse<ReportScheduleManagementResponse> updateScheduleManagement(@PathVariable UUID id, @RequestBody ReportScheduleManagementUpdateRequest ReportScheduleManagementUpdateRequest) {
-        return reportSchedulerManagementService.updateScheduleManagement(id, ReportScheduleManagementUpdateRequest);
-    }
 
-    public ReportingResponse<ReportScheduleManagementResponse> updateScheduleManagement(UUID id, ReportScheduleManagementUpdateRequest request){
-        ReportScheduleManagementResponse reportScheduleManagementResponse = reportScheduleManagementDao.update(id, request);
-        return ReportingResponse.<ReportScheduleManagementResponse>builder().data(List.of(reportScheduleManagementResponse)).build();
-    }
+    ReportScheduleManagementDto mapEntityToDto(ReportScheduleManagement reportScheduleManagement);
 
+    ReportScheduleManagement mapDtoToEntity(ReportScheduleManagementDto reportScheduleManagementDto);
 
+    @Mapping(source = "id", target = "scheduleRequestId")
+    List<ReportScheduleManagementResponse> mapDtoListToResponseList(List<ReportScheduleManagementDto> reportScheduleManagementDto);
 
+    ReportScheduleManagementDto mapRequestToDto(ReportScheduleManagementRequest reportScheduleManagementRequest);
 
-
-............::.::.::.:..:...:.............
-
-
-
-
-@PutMapping("/update/{id}")
-@Operation(summary = "Update Schedule Management", description = "Updates a schedule management entry based on the provided ID and update request.")
-public ReportingResponse<ReportScheduleManagementResponse> updateScheduleManagement(
-        @PathVariable UUID id, 
-        @RequestBody ReportScheduleManagementUpdateRequest reportScheduleManagementUpdateRequest) {
-
-    logger.info("Started updateScheduleManagement for ID: {}, Request: {}", id, reportScheduleManagementUpdateRequest);
-
-    ReportingResponse<ReportScheduleManagementResponse> response = reportSchedulerManagementService.updateScheduleManagement(id, reportScheduleManagementUpdateRequest);
-
-    logger.info("Completed updateScheduleManagement for ID: {}", id);
-    return response;
 }
 
+package com.epay.reporting.dto;
 
-/**
- * Updates a schedule management entry in the database.
- *
- * @param id      UUID ID of the schedule management entry to be updated.
- * @param request ReportScheduleManagementUpdateRequest Update request containing new details.
- * @return ReportingResponse containing the updated schedule management details.
- */
-public ReportingResponse<ReportScheduleManagementResponse> updateScheduleManagement(UUID id, ReportScheduleManagementUpdateRequest request) {
+import com.epay.reporting.util.enums.Frequency;
+import com.epay.reporting.util.enums.Report;
+import com.epay.reporting.util.enums.ReportFormat;
+import com.epay.reporting.util.enums.ReportScheduledStatus;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-    logger.info("Started updating schedule management entry for ID: {}, Request: {}", id, request);
+import java.util.UUID;
 
-    ReportScheduleManagementResponse reportScheduleManagementResponse = reportScheduleManagementDao.update(id, request);
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class ReportScheduleManagementDto {
 
-    logger.info("Completed updating schedule management entry for ID: {}. Response: {}", id, reportScheduleManagementResponse);
-
-    return ReportingResponse.<ReportScheduleManagementResponse>builder()
-            .data(List.of(reportScheduleManagementResponse))
-            .build();
+    @JsonIgnore
+    private UUID id;
+    @JsonIgnore
+    private UUID reportId;
+    private Report report;
+    private String mId;
+    private Frequency frequency;
+    private ReportFormat format;
+    private String scheduleExecutionTime;
+    private Long nextScheduleExecutionTime;
+    private Long lastScheduleExecutionTime;
+    private ReportScheduledStatus status;
 }
