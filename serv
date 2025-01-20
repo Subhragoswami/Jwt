@@ -1,26 +1,10 @@
+    @Transactional
+    public void cancelScheduler(UUID id){
+        if(reportScheduleManagementRepository.existsById(id)) {
+            reportScheduleManagementRepository.updateCancelById(id);
+        }
+    }
 
-public class ReportScheduleManagement extends AuditEntity {
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "ID", nullable = false, updatable = false, unique = true)
-    private UUID id;
-
-    private UUID reportId;
-    
-    @Column(name="MID")
-    private String mId;
-
-    @Enumerated(EnumType.STRING)
-    private Frequency frequency;
-    @Enumerated(EnumType.STRING)
-    private ReportFormat format;
-
-    private String scheduleExecutionTime;
-    private Long nextScheduleExecutionTime;
-    private Long lastScheduleExecutionTime;
-
-    @Enumerated(EnumType.STRING)
-    private ReportScheduledStatus status;
-
-    private boolean cancel;
-}
+@Modifying
+    @Query("UPDATE ReportScheduleManagement r SET r.cancel = false WHERE r.id = id")
+    void updateCancelById(@Param("id") UUID id);
