@@ -1,1 +1,2 @@
 java.lang.reflect.InaccessibleObjectException: Unable to make field private final long java.util.UUID.mostSigBits accessible: module java.base does not "opens java.util" to unnamed module @6ff29830
+set JDK_JAVA_OPTIONS=--add-opens=java.base/java.util=ALL-UNNAMED
