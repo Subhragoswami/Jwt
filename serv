@@ -40,3 +40,22 @@ public interface ReportScheduleManagementMapper {
     }
 
 now while sendind response also we need to convert createdAt to  requestStateTime  and updatedAt to executionTime
+
+
+@PostMapping("/search")
+@Operation(summary = "Search/GetAll request for getting ReportScheduleManagement")
+public ReportingResponse<ReportScheduleManagementResponse> searchScheduleManagement(
+        @RequestBody ReportScheduleManagementSearchRequest searchRequest,
+        @PageableDefault(size = ReportingConstant.PAGE_SIZE, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+    log.info("search searchRequest for {} and pageable {}", searchRequest, pageable);
+
+    // Dynamically map the sort field using a ternary operator
+    Pageable updatedPageable = PageRequest.of(
+            pageable.getPageNumber(),
+            pageable.getPageSize(),
+            Sort.by(searchRequest.getSortField() != null && searchRequest.getSortField().equals("executionTime") ? "updatedAt" : "createdAt")
+                    .descending() // Default direction is descending
+    );
+
+    return reportSchedulerManagementService.searchAndGetAll(searchRequest, updatedPageable);
+}
