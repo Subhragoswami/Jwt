@@ -11,3 +11,20 @@ public interface ReportScheduleManagementRepository extends JpaRepository<Report
             @Param("endTime") Long endTime,
             @Param("cancel") boolean cancel
     );
+
+   public void executeReportBySchedule() {
+        Long scheduleStartTime = DateTimeUtils.getCurrentTimeInMills();
+        Long scheduleEndTime = DateTimeUtils.addMinutes(reportingConfig.getReportScheduleExecutionWindow());
+        List<ReportScheduleManagement> reportScheduleManagement = findByStatusAndNextScheduleExecutionTime(scheduleStartTime, scheduleEndTime);
+        List<ReportManagement> reportManagementList = reportScheduleManagement.stream().map(schedule -> {
+            schedule.setLastScheduleExecutionTime(DateTimeUtils.getCurrentTimeInMills());
+            return ReportManagement.builder().reportId(schedule.getReportId()).mId(schedule.getMId()).format(schedule.getFormat()).scheduledId(schedule.getId()).durationFromDate(DateTimeUtils.calculateBackDateByFrequency(schedule.getFrequency(), scheduleEndTime)).durationToDate(scheduleStartTime).scheduledId(schedule.getId()).status(ReportStatus.TO_BE_GENERATE).build();
+        }).toList();
+        reportScheduleManagementRepository.saveAll(reportScheduleManagement);
+        reportManagementDao.saveAll(reportManagementList);
+    }
+
+ private List<ReportScheduleManagement> findByStatusAndNextScheduleExecutionTime(long scheduleStartTime, long scheduleEndTime) {
+        // TODO : Spring Batch need to user here
+        return reportScheduleManagementRepository.findByStatusAndNextScheduleExecutionTime(ReportScheduledStatus.TO_BE_START, scheduleStartTime, scheduleEndTime, true);
+    }
