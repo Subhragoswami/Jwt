@@ -1,1 +1,13 @@
-            "errorMessage": "JSON parse error: Unexpected character ('/' (code 47)): maybe a (non-standard) comment? (not recognized as one since Feature 'ALLOW_COMMENTS' not enabled for parser)"
+@Repository
+public interface ReportScheduleManagementRepository extends JpaRepository<ReportScheduleManagement, UUID> {
+
+    @Query("SELECT r FROM ReportScheduleManagement r " +
+            "WHERE r.status = :status " +
+            "AND r.nextScheduleExecutionTime BETWEEN :currentTime AND :endTime " +
+            "AND r.cancel = :cancel")
+    List<ReportScheduleManagement> findByStatusAndNextScheduleExecutionTime(
+            @Param("status") ReportScheduledStatus status,
+            @Param("currentTime") Long currentTime,
+            @Param("endTime") Long endTime,
+            @Param("cancel") boolean cancel
+    );
