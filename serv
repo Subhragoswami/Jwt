@@ -1,8 +1,42 @@
-    public Page<ReportManagementDto> searchAndGetReportManagement(ReportManagementRequest reportManagementRequest, Pageable pageable) {
-        UUID reportId = null;
-        if (ObjectUtils.isNotEmpty(reportManagementRequest.getReport())) {
-            reportId = reportMasterDao.getReportIdByName(reportManagementRequest.getReport());
-        }
-        Specification<ReportManagement> specification = ReportManagementSpecification.searchReportManagement(reportId, reportManagementRequest);
-        return reportManagementRepository.findAll(specification, pageable).map(this::convertEntityToDTO);
+ public ReportingResponse<ReportScheduleManagementResponse> searchScheduleManagement(@RequestBody ReportScheduleManagementSearchRequest searchRequest, @PageableDefault(size = ReportingConstant.PAGE_SIZE, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+
+
+       here instead of createdAt they will provide requestStateTime or executionTime means update date from the entity now how to do that	
+  @PostMapping("/search")
+    @Operation(summary = "Search/GetAll request for getting ReportScheduleManagement")
+    public ReportingResponse<ReportScheduleManagementResponse> searchScheduleManagement(@RequestBody ReportScheduleManagementSearchRequest searchRequest, @PageableDefault(size = ReportingConstant.PAGE_SIZE, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        log.info("search searchRequest for {} and pageable {}", searchRequest, pageable);
+        return reportSchedulerManagementService.searchAndGetAll(searchRequest, pageable);
     }
+
+ public ReportingResponse<ReportScheduleManagementResponse> searchAndGetAll(ReportScheduleManagementSearchRequest searchRequest, Pageable pageable) {
+        validator.validateRequest(searchRequest);
+        Page<ReportScheduleManagementDto> reportManagementDTOs = reportScheduleManagementDao.searchAndGetAll(searchRequest, pageable);
+        List<ReportScheduleManagementResponse> reportManagementResponses = mapper.mapDtoListToResponseList(reportManagementDTOs.getContent());
+        return ReportingResponse.<ReportScheduleManagementResponse>builder().data(reportManagementResponses).count(reportManagementDTOs.stream().count()).total(reportManagementDTOs.getTotalElements()).status(ReportingConstant.RESPONSE_SUCCESS).build();
+    }
+@Mapper(builder = @Builder(disableBuilder = true), componentModel = "spring")
+public interface ReportScheduleManagementMapper {
+
+    ReportScheduleManagementDto mapEntityToDto(ReportScheduleManagement reportScheduleManagement);
+
+    ReportScheduleManagement mapDtoToEntity(ReportScheduleManagementDto reportScheduleManagementDto);
+
+    List<ReportScheduleManagementResponse> mapDtoListToResponseList(List<ReportScheduleManagementDto> reportScheduleManagementDto);
+
+    ReportScheduleManagementDto mapRequestToDto(ReportScheduleManagementRequest reportScheduleManagementRequest);
+
+}
+
+
+
+    public Page<ReportScheduleManagementDto> searchAndGetAll(ReportScheduleManagementSearchRequest searchRequest, Pageable pageable) {
+        UUID reportId = null;
+        if (ObjectUtils.isNotEmpty(searchRequest.getReport())) {
+            reportId = reportMasterDao.getReportIdByName(searchRequest.getReport());
+        }
+        Specification<ReportScheduleManagement> specification = ReportScheduleManagementSpecification.searchSchedulerManagement(reportId, searchRequest);
+        return reportScheduleManagementRepository.findAll(specification, pageable).map(this::convertEntityToDTO);
+    }
+
+now while sendind response also we need to convert createdAt to  requestStateTime  and updatedAt to executionTime
