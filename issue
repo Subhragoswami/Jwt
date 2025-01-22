@@ -1,17 +1,8 @@
-gfsh>list regions
-List of regions
-------------------
-Captcha_Management
-
-gfsh>query --query="select * from /Captcha_Management"
-Result : true
-Limit  : 100
-Rows   : 0
-
-
-gfsh>query --query="select * from /Captcha_Management"
-Result  : false
-Message : Could not create an instance of a class com.epay.merchant.entity.cache.CaptchaCacheEntity
-
 gfsh>query --query="select * from /Captcha_Management" --bind-address=127.0.0.1
 Option 'bind-address' is not available for this command. Use tab assist or the "help" command to see the legal options
+gfsh>List deployed
+Command 'List deployed' not found (for assistance press TAB)
+gfsh>list deployed
+No JAR Files Found
+
+gfsh>
