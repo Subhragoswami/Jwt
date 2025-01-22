@@ -1,61 +1,137 @@
- public ReportingResponse<ReportScheduleManagementResponse> searchScheduleManagement(@RequestBody ReportScheduleManagementSearchRequest searchRequest, @PageableDefault(size = ReportingConstant.PAGE_SIZE, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-
-
-       here instead of createdAt they will provide requestStateTime or executionTime means update date from the entity now how to do that	
-  @PostMapping("/search")
-    @Operation(summary = "Search/GetAll request for getting ReportScheduleManagement")
-    public ReportingResponse<ReportScheduleManagementResponse> searchScheduleManagement(@RequestBody ReportScheduleManagementSearchRequest searchRequest, @PageableDefault(size = ReportingConstant.PAGE_SIZE, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        log.info("search searchRequest for {} and pageable {}", searchRequest, pageable);
-        return reportSchedulerManagementService.searchAndGetAll(searchRequest, pageable);
+ @PostMapping
+    @Operation(summary = "Create Captcha creation API.", description = "Create Captcha creation API for given Request Type")
+    public MerchantResponse<CaptchaResponse> createCaptcha(@RequestBody CaptchaRequest captchaRequest) {
+        logger.info("Received request to generate captcha with requestId: {}", captchaRequest.getRequestId());
+        return captchaService.generateCaptcha(captchaRequest);
     }
 
- public ReportingResponse<ReportScheduleManagementResponse> searchAndGetAll(ReportScheduleManagementSearchRequest searchRequest, Pageable pageable) {
-        validator.validateRequest(searchRequest);
-        Page<ReportScheduleManagementDto> reportManagementDTOs = reportScheduleManagementDao.searchAndGetAll(searchRequest, pageable);
-        List<ReportScheduleManagementResponse> reportManagementResponses = mapper.mapDtoListToResponseList(reportManagementDTOs.getContent());
-        return ReportingResponse.<ReportScheduleManagementResponse>builder().data(reportManagementResponses).count(reportManagementDTOs.stream().count()).total(reportManagementDTOs.getTotalElements()).status(ReportingConstant.RESPONSE_SUCCESS).build();
+public MerchantResponse<CaptchaResponse> generateCaptcha(CaptchaRequest captchaRequest) {
+        logger.info("generate captcha for RequestId: {}", captchaRequest.getRequestId());
+        //Step 1 : Validate Captcha Request
+        captchaValidator.requestValidator(captchaRequest);
+        RequestType requestType = RequestType.getRequestType(captchaRequest.getRequestType());
+        //Step 2 : Generate Captcha Text
+        String captchaText = captchaProducer.createText();
+        //Step 3 : Generate Captcha Image and convert into Base 64
+        String base64Image = generateCaptchaImage(captchaText);
+        //Step 3 : Save the Captcha into DB
+        CaptchaDto captchaDto = captchaDao.save(captchaText, base64Image, captchaRequest.getRequestId(), requestType);
+        //Step 4 : Build the Merchant Response
+        logger.info("generate captcha completed for RequestId: {}", captchaRequest.getRequestId());
+        return MerchantResponse.<CaptchaResponse>builder().data(List.of(captchaMapper.mapCaptchaDtoToCaptchaResponse(captchaDto))).status(RESPONSE_SUCCESS).build();
     }
-@Mapper(builder = @Builder(disableBuilder = true), componentModel = "spring")
-public interface ReportScheduleManagementMapper {
-
-    ReportScheduleManagementDto mapEntityToDto(ReportScheduleManagement reportScheduleManagement);
-
-    ReportScheduleManagement mapDtoToEntity(ReportScheduleManagementDto reportScheduleManagementDto);
-
-    List<ReportScheduleManagementResponse> mapDtoListToResponseList(List<ReportScheduleManagementDto> reportScheduleManagementDto);
-
-    ReportScheduleManagementDto mapRequestToDto(ReportScheduleManagementRequest reportScheduleManagementRequest);
-
-}
 
 
+public class CaptchaValidator extends BaseValidator {
 
-    public Page<ReportScheduleManagementDto> searchAndGetAll(ReportScheduleManagementSearchRequest searchRequest, Pageable pageable) {
-        UUID reportId = null;
-        if (ObjectUtils.isNotEmpty(searchRequest.getReport())) {
-            reportId = reportMasterDao.getReportIdByName(searchRequest.getReport());
+    private final CaptchaDao captchaDao;
+
+    /**
+     * Validates all mandatory fields and checks for duplicate Request ID in the CAPTCHA request.
+     *
+     * @param captchaRequest CaptchaRequest
+     */
+    public void requestValidator(CaptchaRequest captchaRequest) {
+        errorDtoList = new ArrayList<>();
+        validateMandatoryFields(captchaRequest);
+        duplicateCheck(captchaRequest);
+    }
+
+    /**
+     * Validates the CAPTCHA text and checks if it is expired.
+     *
+     * @param requestId   UUID
+     * @param captchaText Hash String
+     */
+    public void captchaValueValidation(UUID requestId, String captchaText) {
+        errorDtoList = new ArrayList<>();
+        Captcha captchaDetails = captchaDao.getCaptchaByRequestId(requestId);
+        isCaptchaExpiry(DateTimeUtils.isPastDate(captchaDetails.getExpiryTime()));
+        matchCaptcha(captchaText, captchaDetails.getCaptchaText());
+    }
+
+    /**
+     * Validates the mandatory fields in the CAPTCHA request.
+     *
+     * @param captchaRequest CaptchaRequest
+     */
+    private void validateMandatoryFields(CaptchaRequest captchaRequest) {
+        checkMandatoryField(captchaRequest.getRequestId(), "RequestId");
+        checkMandatoryField(captchaRequest.getRequestType(), "Request Type");
+        throwIfErrors();
+    }
+
+    /**
+     * Checks if the Request ID is a duplicate in the database.
+     *
+     * @param captchaRequest CaptchaRequest
+     */
+    private void duplicateCheck(CaptchaRequest captchaRequest) {
+        if (captchaDao.existsByRequestId(captchaRequest.getRequestId())) {
+            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "RequestId", "Reason : Duplicate RequestId")).build());
         }
-        Specification<ReportScheduleManagement> specification = ReportScheduleManagementSpecification.searchSchedulerManagement(reportId, searchRequest);
-        return reportScheduleManagementRepository.findAll(specification, pageable).map(this::convertEntityToDTO);
+        throwIfErrors();
     }
 
-now while sendind response also we need to convert createdAt to  requestStateTime  and updatedAt to executionTime
+    /**
+     * Checks if the CAPTCHA has expired.
+     *
+     * @param captchaDetails boolean
+     */
+    private void isCaptchaExpiry(boolean captchaDetails) {
+        if (captchaDetails) {
+            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.EXPIRY_TIME_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.EXPIRY_TIME_ERROR_MESSAGE, "Captcha")).build());
+        }
+        throwIfErrors();
+    }
+
+    /**
+     * Validates the provided CAPTCHA text against the text stored in the database.
+     *
+     * @param loginCaptchaImage String
+     * @param dbCaptchaTextHash String
+     */
+    private void matchCaptcha(String loginCaptchaImage, String dbCaptchaTextHash) {
+        if (!StringUtils.equals(loginCaptchaImage, dbCaptchaTextHash)) {
+            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.NOT_FOUND_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.NOT_FOUND_ERROR_MESSAGE, "Captcha")).build());
+        }
+        throwIfErrors();
+    }
 
 
-@PostMapping("/search")
-@Operation(summary = "Search/GetAll request for getting ReportScheduleManagement")
-public ReportingResponse<ReportScheduleManagementResponse> searchScheduleManagement(
-        @RequestBody ReportScheduleManagementSearchRequest searchRequest,
-        @PageableDefault(size = ReportingConstant.PAGE_SIZE, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-    log.info("search searchRequest for {} and pageable {}", searchRequest, pageable);
+    public CaptchaDto save(String captchaText, String captchaImage, UUID requestId, RequestType requestType) {
+        Captcha captcha = Captcha.builder()
+                .captchaText(EncryptionDecryptionUtil.hashValue(captchaText)).captchaImage(captchaImage)
+                .requestId(requestId).requestType(requestType)
+                .expiryTime(DateTimeUtils.addMinutes(merchantConfig.getExpiryTime())).build();
+        captcha.setCreatedAt(DateTimeUtils.getCurrentTimeInMills());
+        captcha.setUpdatedAt(DateTimeUtils.getCurrentTimeInMills());
+        captcha = captchaRepository.save(captcha);
+        return captchaMapper.mapCaptchaEntityToCaptchaDto(captcha);
+    
 
-    // Dynamically map the sort field using a ternary operator
-    Pageable updatedPageable = PageRequest.of(
-            pageable.getPageNumber(),
-            pageable.getPageSize(),
-            Sort.by(searchRequest.getSortField() != null && searchRequest.getSortField().equals("executionTime") ? "updatedAt" : "createdAt")
-                    .descending() // Default direction is descending
-    );
+@Entity
+@Getter
+@Setter
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@EqualsAndHashCode(callSuper = true)
+@Table(name = "captcha_management")
+public class Captcha extends AuditEntityByDate {
 
-    return reportSchedulerManagementService.searchAndGetAll(searchRequest, updatedPageable);
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+    @Version
+    private int version;
+
+    private String captchaImage;
+    private String captchaText;
+    private Long expiryTime;
+    private UUID requestId;
+    @Enumerated(EnumType.STRING)
+    private RequestType requestType;
+    private boolean isVerified;
+
 }
