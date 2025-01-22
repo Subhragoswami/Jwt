@@ -33,3 +33,51 @@ public class CaptchaCacheEntity implements Serializable {
 
 
 here I need to delete data which are behind or equal to currentTime minus 30 minutes based on createdAt in gemfire.
+
+
+
+
+.....,?!&(079).6.(.(:86:86:69;),),.)&.).).).'v. vjzvxvmxkgxgx
+
+
+
+
+
+
+
+
+
+import java.time.Instant;
+import java.util.List;
+
+@Service
+public class CaptchaService {
+
+    @Autowired
+    private CaptchaCacheRepository captchaCacheRepository;
+
+    public void clearCaptchaRecord() {
+        // Calculate the timestamp for 30 minutes ago
+        long thresholdTime = Instant.now().toEpochMilli() - (30 * 60 * 1000);
+
+        // Query for entries older than the threshold time
+        List<CaptchaCacheEntity> outdatedCaptchas = captchaCacheRepository.findByCreatedAtLessThanEqual(thresholdTime);
+
+        // Delete the outdated entries
+        captchaCacheRepository.deleteAll(outdatedCaptchas);
+    }
+}
+
+
+
+
+
+@Repository
+public interface CaptchaCacheRepository extends CrudRepository<CaptchaCacheEntity, String> {
+
+    @Query("SELECT * FROM /Captcha_Management WHERE createdAt <= $1")
+    List<CaptchaCacheEntity> findByCreatedAtLessThanEqual(Long thresholdTime);
+
+    @Query("SELECT * FROM /Captcha_Management WHERE requestId = $1")
+    Optional<CaptchaCacheEntity> existsByRequestId(String requestId);
+}
