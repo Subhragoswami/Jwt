@@ -1,77 +1,17 @@
-import com.epay.merchant.entity.cache.CaptchaCacheEntity;
-import org.apache.geode.cache.client.ClientRegionShortcut;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.data.gemfire.cache.GemfireCache;
-import org.springframework.data.gemfire.client.ClientRegionFactoryBean;
-import org.springframework.data.gemfire.config.annotation.ClientCacheApplication;
-import org.springframework.data.gemfire.config.annotation.EnableEntityDefinedRegions;
-import org.springframework.data.gemfire.mapping.annotation.Region;
-import org.springframework.data.gemfire.repository.config.EnableGemfireRepositories;
+gfsh>list regions
+List of regions
+------------------
+Captcha_Management
 
-import java.util.UUID;
+gfsh>query --query="select * from /Captcha_Management"
+Result : true
+Limit  : 100
+Rows   : 0
 
 
-@Configuration
-@ClientCacheApplication
-@EnableEntityDefinedRegions(basePackages = "com.epay.merchant.entity.cache" )
-@EnableGemfireRepositories(basePackages = "com.epay.merchant.repository.cache" )
-public class GemFireConfiguration  {
+gfsh>query --query="select * from /Captcha_Management"
+Result  : false
+Message : Could not create an instance of a class com.epay.merchant.entity.cache.CaptchaCacheEntity
 
-    @Bean
-    public Region<UUID, CaptchaCacheEntity> captchaRegion(GemfireCache gemfireCache) throws Exception {
-        ClientRegionFactoryBean<UUID, CaptchaCacheEntity> regionFactory = new ClientRegionFactoryBean<>();
-        regionFactory.setCache(gemfireCache);
-        regionFactory.setName("captcha_region");
-        regionFactory.setShortcut(ClientRegionShortcut.PROXY);
-        return regionFactory.getObject();
-    }
-}
-package com.epay.merchant.entity.cache;
-
-import com.epay.merchant.util.enums.RequestType;
-import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import org.springframework.data.gemfire.mapping.annotation.Region;
-
-import java.util.UUID;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class CaptchaCacheEntity {
-
-    private UUID id;
-    private String captchaText;
-    private Long expiryTime;
-    private UUID requestId;
-    private RequestType requestType;
-    private boolean isVerified;
-}
-
-
-
-
-
-getting this errors here
-Type 'org. springframework. data. gemfire. mapping. annotation. Region' does not have type parameters
-
-Required type:
-ClientCache
-Provided:
-GemfireCache
-
-
-
-Required type:
-Region<UUID, CaptchaCacheEntity>
-
-
-Provided:
-Region
-<java. util. UUID,
-com. epay. merchant. entity. cache. CaptchaCacheEntity>
+gfsh>query --query="select * from /Captcha_Management" --bind-address=127.0.0.1
+Option 'bind-address' is not available for this command. Use tab assist or the "help" command to see the legal options
