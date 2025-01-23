@@ -1,26 +1,26 @@
---liquibase formatted sql
---changeset Hrishikesh:1
-CREATE TABLE REPORT_SCHEDULE_MANAGEMENT (
-    ID RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
-    REPORT_ID RAW(16) NOT NULL,
-    MID VARCHAR2(100) NOT NULL,
-    FREQUENCY VARCHAR2(20) NOT NULL,
-    FORMAT VARCHAR2(10) NOT NULL,
-    SCHEDULE_EXECUTION_TIME VARCHAR2(20) NOT NULL,
-    NEXT_SCHEDULE_EXECUTION_TIME NUMBER NOT NULL,
-    LAST_SCHEDULE_EXECUTION_TIME NUMBER,
-    STATUS VARCHAR2(20) NOT NULL,
-    CREATED_AT NUMBER,
-    CREATED_BY VARCHAR2(50),
-    UPDATED_AT NUMBER,
-    UPDATED_BY VARCHAR2(50)
-);
+package com.epay.reporting;
 
--- changeset Subhra:2
-ALTER TABLE REPORT_SCHEDULE_MANAGEMENT ADD CANCELLED NUMBER(1) DEFAULT 0;
-ALTER TABLE REPORT_SCHEDULE_MANAGEMENT MODIFY (NEXT_SCHEDULE_EXECUTION_TIME NULL);
+import com.epay.reporting.util.enums.Frequency;
+import org.apache.commons.collections4.bag.SynchronizedSortedBag;
+import org.joda.time.DateTime;
 
---changeset Subhra:3
+public class Test {
 
+    public static void main(String[] args) {
+        calculateBackDateByFrequency(Frequency.MONTHLY , 1709145300000L);
+    }
 
-here need to write a script to remove cancelled
+    public static Long calculateBackDateByFrequency(Frequency frequency, Long timeInMillis) {
+        DateTime backDate = new DateTime(timeInMillis);
+
+        switch (frequency) {
+            case Frequency.DAILY -> backDate = backDate.minusDays(1);
+            case Frequency.MONTHLY -> backDate = backDate.minusMonths(1);
+            case Frequency.YEARLY -> backDate = backDate.minusYears(1);
+            default -> throw new IllegalArgumentException("Invalid Frequency :" + frequency);
+        }
+        System.out.println(backDate.getMillis());
+        return backDate.getMillis();
+    }
+
+here if I pass feb 29th 2024 it's giving jan 29th as output but I need one month 
