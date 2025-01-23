@@ -24,3 +24,23 @@ public class Test {
     }
 
 here if I pass feb 29th 2024 it's giving jan 29th as output but I need one month 
+
+
+public static Long calculateBackDateByFrequency(Frequency frequency, Long timeInMillis) {
+    DateTime backDate = new DateTime(timeInMillis);
+
+    switch (frequency) {
+        case Frequency.DAILY -> backDate = backDate.minusDays(1);
+        case Frequency.MONTHLY -> {
+            backDate = backDate.minusMonths(1);
+            // Adjust to the last day of the month if needed
+            if (backDate.getDayOfMonth() != backDate.dayOfMonth().getMaximumValue()) {
+                backDate = backDate.withDayOfMonth(Math.min(backDate.dayOfMonth().getMaximumValue(), 29));
+            }
+        }
+        case Frequency.YEARLY -> backDate = backDate.minusYears(1);
+        default -> throw new IllegalArgumentException("Invalid Frequency :" + frequency);
+    }
+    System.out.println(backDate.getMillis());
+    return backDate.getMillis();
+}
