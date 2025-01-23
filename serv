@@ -1,46 +1,48 @@
-package com.epay.reporting;
-
-import com.epay.reporting.util.enums.Frequency;
-import org.apache.commons.collections4.bag.SynchronizedSortedBag;
-import org.joda.time.DateTime;
-
-public class Test {
-
-    public static void main(String[] args) {
-        calculateBackDateByFrequency(Frequency.MONTHLY , 1709145300000L);
+public MerchantResponse<CaptchaResponse> generateCaptcha(CaptchaRequest captchaRequest) {
+        logger.info("generate captcha for RequestId: {}", captchaRequest.getRequestId());
+        //Step 1 : Validate Captcha Request
+        captchaValidator.requestValidator(captchaRequest);
+        RequestType requestType = RequestType.getRequestType(captchaRequest.getRequestType());
+        //Step 2 : Generate Captcha Text
+        String captchaText = captchaProducer.createText();
+        //Step 3 : Generate Captcha Image and convert into Base 64
+        String base64Image = generateCaptchaImage(captchaText);
+        //Step 3 : Save the Captcha into DB
+        CaptchaDto captchaDto = captchaDao.save(captchaText, captchaRequest.getRequestId(), requestType);
+        //Step 4 : Build the Merchant Response
+        logger.info("generate captcha completed for RequestId: {}", captchaRequest.getRequestId());
+        return MerchantResponse.<CaptchaResponse>builder().data(List.of(captchaMapper.mapCaptchaDtoToCaptchaResponse(captchaDto))).status(RESPONSE_SUCCESS).build();
     }
 
-    public static Long calculateBackDateByFrequency(Frequency frequency, Long timeInMillis) {
-        DateTime backDate = new DateTime(timeInMillis);
+ CaptchaResponse mapCaptchaDtoToCaptchaResponse(CaptchaDto captchaDto);
 
-        switch (frequency) {
-            case Frequency.DAILY -> backDate = backDate.minusDays(1);
-            case Frequency.MONTHLY -> backDate = backDate.minusMonths(1);
-            case Frequency.YEARLY -> backDate = backDate.minusYears(1);
-            default -> throw new IllegalArgumentException("Invalid Frequency :" + frequency);
-        }
-        System.out.println(backDate.getMillis());
-        return backDate.getMillis();
-    }
+@Data
+public class CaptchaDto {
 
-here if I pass feb 29th 2024 it's giving jan 29th as output but I need one month 
-
-
-public static Long calculateBackDateByFrequency(Frequency frequency, Long timeInMillis) {
-    DateTime backDate = new DateTime(timeInMillis);
-
-    switch (frequency) {
-        case Frequency.DAILY -> backDate = backDate.minusDays(1);
-        case Frequency.MONTHLY -> {
-            backDate = backDate.minusMonths(1);
-            // Adjust to the last day of the month if needed
-            if (backDate.getDayOfMonth() != backDate.dayOfMonth().getMaximumValue()) {
-                backDate = backDate.withDayOfMonth(Math.min(backDate.dayOfMonth().getMaximumValue(), 29));
-            }
-        }
-        case Frequency.YEARLY -> backDate = backDate.minusYears(1);
-        default -> throw new IllegalArgumentException("Invalid Frequency :" + frequency);
-    }
-    System.out.println(backDate.getMillis());
-    return backDate.getMillis();
+    private UUID requestId;
+    @JsonIgnore
+    private int version;
+    private String captchaImage;
+    private Long expiryTime;
+    private RequestType requestType;
+    @Transient
+    private String captchaText;
 }
+
+@AllArgsConstructor
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class CaptchaResponse {
+
+    private UUID requestId;
+    private String captchaImage;
+    private Long expiryTime;
+    private String requestType;
+
+}
+
+here I  need to set captchaImage as base64Image in response 
+in this method captchaMapper.mapCaptchaDtoToCaptchaResponse(captchaDto)
