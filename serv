@@ -1,3 +1,11 @@
 C:\Users\v1014352\E-Pay\epay_merchant_service\src\main\java\com\epay\merchant\mapper\CaptchaMapper.java:20: error: The type of parameter "captchaDto" has no property named "request.name".
     CaptchaResponse mapCaptchaDtoToCaptchaResponse(CaptchaDto captchaDto, String base64Image);
                     ^
+
+@Mapper(componentModel = "spring")
+public interface CaptchaMapper {
+
+    @Mapping(target = "captchaImage", source = "base64Image")
+    @Mapping(target = "requestType", expression = "java(captchaDto.getRequestType().name())")
+    CaptchaResponse mapCaptchaDtoToCaptchaResponse(CaptchaDto captchaDto, String base64Image);
+}
