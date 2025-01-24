@@ -75,3 +75,33 @@ public class TokenManagement extends AuditEntity {
 
 }
 
+
+
+import com.epay.merchant.entity.cache.TokenManagementCache;
+import org.springframework.data.gemfire.repository.Query;
+import org.springframework.data.repository.CrudRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
+
+@Repository
+public interface TokenManagementCacheRepository extends CrudRepository<TokenManagementCache, String> {
+
+    /**
+     * Find a valid token for a specific user ID.
+     *
+     * @param userId User ID to search for.
+     * @return Optional<TokenManagementCache> containing the token details if found.
+     */
+    @Query("SELECT * FROM /Token_Management WHERE userId = $1 AND isValid = true")
+    Optional<TokenManagementCache> findTokenByUserIdAndIsValidTrue(String userId);
+
+    /**
+     * Check if a token exists and is valid.
+     *
+     * @param token Token to check.
+     * @return boolean indicating if the token exists and is valid.
+     */
+    @Query("SELECT count(*) > 0 FROM /Token_Management WHERE token = $1 AND isValid = true")
+    boolean existsByTokenAndIsValidTrue(String token);
+}
