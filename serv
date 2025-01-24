@@ -22,3 +22,14 @@ public class UniqueIdGenerator {
         return uniqueId;
     }
 }
+
+
+
+  public UUID generateUniqueUUID() {
+        return UniqueIdGenerator.generateUniqueId(
+                id -> tokenManagementCacheRepository.existsById(id.toString()), // Uniqueness check
+                ignored -> UUID.randomUUID() // ID generator
+        );
+    }
+
+    /**
