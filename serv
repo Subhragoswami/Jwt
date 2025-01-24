@@ -1,1 +1,24 @@
+import java.util.UUID;
+import java.util.function.Function;
 
+public class UniqueIdGenerator {
+
+    /**
+     * Generic method to generate a unique ID and check its uniqueness.
+     *
+     * @param idExistsFunction A function that checks if the ID already exists.
+     * @param <T>              The type of the ID (e.g., String, UUID).
+     * @return A unique ID of type T.
+     */
+    public static <T> T generateUniqueId(Function<T, Boolean> idExistsFunction, Function<Void, T> idGenerator) {
+        T uniqueId;
+        boolean exists;
+
+        do {
+            uniqueId = idGenerator.apply(null); // Generate ID
+            exists = idExistsFunction.apply(uniqueId); // Check uniqueness
+        } while (exists);
+
+        return uniqueId;
+    }
+}
