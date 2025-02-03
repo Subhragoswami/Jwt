@@ -18,3 +18,20 @@
 
 here if profile is local then it should save in my local but for dev it should remain same
 String s3FileName = s3Service.uploadFile(reportFile.getName(), reportFile.getContent());
+
+spring:
+  profiles:
+    active: local
+  application.name: epay_reporting_service
+# Db connectivity
+  jpa:
+    show-sql: true
+    properties.hibernate.show_sql: true
+  datasource:
+    url: jdbc:oracle:thin:@10.177.134.124:1590:epaydbdev1
+    username:
+    password:
+    driver-class-name: oracle.jdbc.OracleDriver
+
+we're defining like this
+
