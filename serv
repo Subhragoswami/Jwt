@@ -35,3 +35,86 @@ spring:
 
 we're defining like this
 
+
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
+import org.springframework.stereotype.Service;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.util.UUID;
+
+@Service
+public class ReportService {
+
+    private final FileGeneratorService fileGeneratorService;
+    private final S3Service s3Service;
+    private final ReportManagementDao reportManagementDao;
+    private final Environment environment;
+
+    @Value("${report.local.storage.path:./reports}")  // Default local path
+    private String localStoragePath;
+
+    public ReportService(FileGeneratorService fileGeneratorService, 
+                         S3Service s3Service, 
+                         ReportManagementDao reportManagementDao, 
+                         Environment environment) {
+        this.fileGeneratorService = fileGeneratorService;
+        this.s3Service = s3Service;
+        this.reportManagementDao = reportManagementDao;
+        this.environment = environment;
+    }
+
+    private void buildReport(UUID reportManagementId, ReportManagementDto reportManagementDto, List<String> header, List<List<Object>> fileData) {
+        log.info("Building report for ReportManagementId: {} and format: {}", reportManagementId, reportManagementDto.getFormat());
+
+        // Generate File Model
+        FileModel fileModel = fileGeneratorService.buildFileModel(
+                reportManagementDto.getFormat(), header, fileData, 
+                Map.of("headers", header, "rows", fileData)
+        );
+
+        log.info("File model created, generating file for report.");
+        ReportFile reportFile = fileGeneratorService.generateFile(
+                reportManagementDto.getFormat(), 
+                reportManagementDto.getReport(), 
+                reportManagementDto.getMId(), 
+                fileModel
+        );
+
+        String s3FileName;
+        if (isLocalProfile()) {
+            // Save the file locally
+            s3FileName = saveFileLocally(reportFile);
+        } else {
+            // Upload to S3
+            s3FileName = s3Service.uploadFile(reportFile.getName(), reportFile.getContent());
+        }
+
+        reportManagementDao.updateStatusAndFilePath(reportManagementId, ReportStatus.GENERATED, s3FileName);
+        log.info("Report generated and file path [{}] updated for ReportManagementId: {}", s3FileName, reportManagementId);
+    }
+
+    private boolean isLocalProfile() {
+        return environment.acceptsProfiles("local");
+    }
+
+    private String saveFileLocally(ReportFile reportFile) {
+        try {
+            Path directory = Path.of(localStoragePath);
+            if (!Files.exists(directory)) {
+                Files.createDirectories(directory);
+            }
+
+            Path filePath = directory.resolve(reportFile.getName());
+            Files.write(filePath, reportFile.getContent(), StandardOpenOption.CREATE);
+            log.info("File saved locally at {}", filePath.toAbsolutePath());
+            return filePath.toAbsolutePath().toString();
+        } catch (Exception e) {
+            log.error("Failed to save report locally", e);
+            throw new RuntimeException("Error saving report locally", e);
+        }
+    }
+}
+
