@@ -1,36 +1,20 @@
-{
-    "status": 0,
-    "errors": [
-        {
-            "errorCode": "409",
-            "errorMessage": "Invalid format: \"1738675800\" is malformed at \"38675800\""
-        }
-    ]
-}
+    private void buildReport(UUID reportManagementId, ReportManagementDto reportManagementDto, List<String> header, List<List<Object>> fileData) {
+        log.info("Building report for ReportManagementId: {} and format: {}", reportManagementId, reportManagementDto.getFormat());
+        FileModel fileModel = fileGeneratorService.buildFileModel(reportManagementDto.getFormat(), header, fileData, Map.of("headers", header, "rows", fileData));
+        log.info("File model created, generating file for report.");
+        ReportFile reportFile = fileGeneratorService.generateFile(reportManagementDto.getFormat(), reportManagementDto.getReport(), reportManagementDto.getMId(), fileModel);
+        String s3FileName = s3Service.uploadFile(reportFile.getName(), reportFile.getContent());
+        reportManagementDao.updateStatusAndFilePath(reportManagementId, ReportStatus.GENERATED, s3FileName);
+        log.info("Report generated and file path [{}] updated for ReportManagementId: {}", s3FileName, reportManagementId);
+    }
 
+ private void generateOrderReport(ReportManagementDto reportManagementDto) {
+        log.info("Fetching Order Report Data for MerchantId: {} from {} to {}", reportManagementDto.getMId(), reportManagementDto.getDurationFromDate(), reportManagementDto.getDurationToDate());
+        List<OrderReport> list = reportDao.getOrderReportData(reportManagementDto.getMId(), reportManagementDto.getDurationFromDate(), reportManagementDto.getDurationToDate());
+        log.info("Fetched {} records for Order Report", list.size());
+        List<List<Object>> fileData = list.stream().map(this::convertToListOfObject).toList();
+        buildReport(reportManagementDto.getId(), reportManagementDto, orderHeader, fileData);
+    }
 
-public class ReportScheduleManagementRequest {
-
-    private String report;
-    private String mId;
-    private String frequency;
-    private String format;
-    private String scheduleExecutionTime;
-
-}
-
-format
-: 
-"CSV"
-frequency
-: 
-"MONTHLY"
-mid
-: 
-"1000003"
-report
-: 
-"TRANSACTION"
-scheduleExecutionTime
-: 
-1738675800
+here if profile is local then it should save in my local but for dev it should remain same
+String s3FileName = s3Service.uploadFile(reportFile.getName(), reportFile.getContent());
