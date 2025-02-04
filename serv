@@ -1,35 +1,7 @@
-@EqualsAndHashCode(callSuper = true)
-@Data
-@AllArgsConstructor
-@NoArgsConstructor
-@Entity
-@Builder
-@Table(name = "REPORT_MANAGEMENT")
-public class ReportManagement extends AuditEntity {
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "ID", nullable = false, updatable = false, unique = true)
-    private UUID id;
+ @Query("select r from ReportManagement where r.createdAt <= :time and r.status =:status")
+    List<ReportManagement> findByStatus(@Param("status") ReportStatus status,
+                                        @Param("endTime") Long time);
 
-    private UUID reportId;
+reportManagementRepository.findByStatus(ReportStatus.TO_BE_GENERATE, DateTimeUtils.subtractMinutes(1))
 
-    @Column(name="MID")
-    private String mId;
-
-    private Long durationFromDate;
-    private Long durationToDate;
-    @Enumerated(EnumType.STRING)
-    private ReportFormat format;
-    @Enumerated(EnumType.STRING)
-    private ReportStatus status;
-    private String filePath;
-    private String remarks;
-    private UUID scheduledId;
-
-}
-
-public enum ReportStatus {
-    TO_BE_GENERATE, GENERATED, GENERATION_STARTED, GENERATION_FAILED
-}
-
-please write a Jpa query for I need to get all data based on whosever createdAt is behind currenttime minus 1 hour and status is TO_BE_GENERATE
+Caused by: java.lang.IllegalStateException: Using named parameters for method public abstract java.util.List com.epay.reporting.repository.ReportManagementRepository.findByStatus(com.epay.reporting.util.enums.ReportStatus,java.lang.Long) but parameter 'Optional[endTime]' not found in annotated query 'select r from ReportManagement where r.createdAt <= :time and r.status =:status'
