@@ -1,120 +1,35 @@
-    private void buildReport(UUID reportManagementId, ReportManagementDto reportManagementDto, List<String> header, List<List<Object>> fileData) {
-        log.info("Building report for ReportManagementId: {} and format: {}", reportManagementId, reportManagementDto.getFormat());
-        FileModel fileModel = fileGeneratorService.buildFileModel(reportManagementDto.getFormat(), header, fileData, Map.of("headers", header, "rows", fileData));
-        log.info("File model created, generating file for report.");
-        ReportFile reportFile = fileGeneratorService.generateFile(reportManagementDto.getFormat(), reportManagementDto.getReport(), reportManagementDto.getMId(), fileModel);
-        String s3FileName = s3Service.uploadFile(reportFile.getName(), reportFile.getContent());
-        reportManagementDao.updateStatusAndFilePath(reportManagementId, ReportStatus.GENERATED, s3FileName);
-        log.info("Report generated and file path [{}] updated for ReportManagementId: {}", s3FileName, reportManagementId);
-    }
+@EqualsAndHashCode(callSuper = true)
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Entity
+@Builder
+@Table(name = "REPORT_MANAGEMENT")
+public class ReportManagement extends AuditEntity {
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "ID", nullable = false, updatable = false, unique = true)
+    private UUID id;
 
- private void generateOrderReport(ReportManagementDto reportManagementDto) {
-        log.info("Fetching Order Report Data for MerchantId: {} from {} to {}", reportManagementDto.getMId(), reportManagementDto.getDurationFromDate(), reportManagementDto.getDurationToDate());
-        List<OrderReport> list = reportDao.getOrderReportData(reportManagementDto.getMId(), reportManagementDto.getDurationFromDate(), reportManagementDto.getDurationToDate());
-        log.info("Fetched {} records for Order Report", list.size());
-        List<List<Object>> fileData = list.stream().map(this::convertToListOfObject).toList();
-        buildReport(reportManagementDto.getId(), reportManagementDto, orderHeader, fileData);
-    }
+    private UUID reportId;
 
-here if profile is local then it should save in my local but for dev it should remain same
-String s3FileName = s3Service.uploadFile(reportFile.getName(), reportFile.getContent());
+    @Column(name="MID")
+    private String mId;
 
-spring:
-  profiles:
-    active: local
-  application.name: epay_reporting_service
-# Db connectivity
-  jpa:
-    show-sql: true
-    properties.hibernate.show_sql: true
-  datasource:
-    url: jdbc:oracle:thin:@10.177.134.124:1590:epaydbdev1
-    username:
-    password:
-    driver-class-name: oracle.jdbc.OracleDriver
+    private Long durationFromDate;
+    private Long durationToDate;
+    @Enumerated(EnumType.STRING)
+    private ReportFormat format;
+    @Enumerated(EnumType.STRING)
+    private ReportStatus status;
+    private String filePath;
+    private String remarks;
+    private UUID scheduledId;
 
-we're defining like this
-
-
-
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.env.Environment;
-import org.springframework.stereotype.Service;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
-import java.util.UUID;
-
-@Service
-public class ReportService {
-
-    private final FileGeneratorService fileGeneratorService;
-    private final S3Service s3Service;
-    private final ReportManagementDao reportManagementDao;
-    private final Environment environment;
-
-    @Value("${report.local.storage.path:./reports}")  // Default local path
-    private String localStoragePath;
-
-    public ReportService(FileGeneratorService fileGeneratorService, 
-                         S3Service s3Service, 
-                         ReportManagementDao reportManagementDao, 
-                         Environment environment) {
-        this.fileGeneratorService = fileGeneratorService;
-        this.s3Service = s3Service;
-        this.reportManagementDao = reportManagementDao;
-        this.environment = environment;
-    }
-
-    private void buildReport(UUID reportManagementId, ReportManagementDto reportManagementDto, List<String> header, List<List<Object>> fileData) {
-        log.info("Building report for ReportManagementId: {} and format: {}", reportManagementId, reportManagementDto.getFormat());
-
-        // Generate File Model
-        FileModel fileModel = fileGeneratorService.buildFileModel(
-                reportManagementDto.getFormat(), header, fileData, 
-                Map.of("headers", header, "rows", fileData)
-        );
-
-        log.info("File model created, generating file for report.");
-        ReportFile reportFile = fileGeneratorService.generateFile(
-                reportManagementDto.getFormat(), 
-                reportManagementDto.getReport(), 
-                reportManagementDto.getMId(), 
-                fileModel
-        );
-
-        String s3FileName;
-        if (isLocalProfile()) {
-            // Save the file locally
-            s3FileName = saveFileLocally(reportFile);
-        } else {
-            // Upload to S3
-            s3FileName = s3Service.uploadFile(reportFile.getName(), reportFile.getContent());
-        }
-
-        reportManagementDao.updateStatusAndFilePath(reportManagementId, ReportStatus.GENERATED, s3FileName);
-        log.info("Report generated and file path [{}] updated for ReportManagementId: {}", s3FileName, reportManagementId);
-    }
-
-    private boolean isLocalProfile() {
-        return environment.acceptsProfiles("local");
-    }
-
-    private String saveFileLocally(ReportFile reportFile) {
-        try {
-            Path directory = Path.of(localStoragePath);
-            if (!Files.exists(directory)) {
-                Files.createDirectories(directory);
-            }
-
-            Path filePath = directory.resolve(reportFile.getName());
-            Files.write(filePath, reportFile.getContent(), StandardOpenOption.CREATE);
-            log.info("File saved locally at {}", filePath.toAbsolutePath());
-            return filePath.toAbsolutePath().toString();
-        } catch (Exception e) {
-            log.error("Failed to save report locally", e);
-            throw new RuntimeException("Error saving report locally", e);
-        }
-    }
 }
 
+public enum ReportStatus {
+    TO_BE_GENERATE, GENERATED, GENERATION_STARTED, GENERATION_FAILED
+}
+
+please write a Jpa query for I need to get all data based on whosever createdAt is behind currenttime minus 1 hour and status is TO_BE_GENERATE
