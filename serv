@@ -1,7 +1,4 @@
-Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'reportManagementService' defined in file [C:\Users\v1014352\E-Pay\epay_reports_service\build\classes\java\main\com\epay\reporting\service\ReportManagementService.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'reportManagementDao' defined in file [C:\Users\v1014352\E-Pay\epay_reports_service\build\classes\java\main\com\epay\reporting\dao\ReportManagementDao.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'reportManagementRepository' defined in com.epay.reporting.repository.ReportManagementRepository defined in @EnableJpaRepositories declared on JpaRepositoriesRegistrar.EnableJpaRepositoriesConfiguration: Could not create query for public abstract java.util.List com.epay.reporting.repository.ReportManagementRepository.findByStatus(com.epay.reporting.util.enums.ReportStatus,java.lang.Long); Reason: Validation failed for query for method public abstract java.util.List com.epay.reporting.repository.ReportManagementRepository.findByStatus(com.epay.reporting.util.enums.ReportStatus,java.lang.Long)
-@Query("select r from ReportManagement where r.createdAt <= :time and r.status =:status")
-    List<ReportManagement> findByStatus(@Param("status") ReportStatus status, @Param("time") Long time);
 
 
-@Query("SELECT r FROM ReportManagement r WHERE r.createdAt <= :time AND r.status = :status")
-List<ReportManagement> findByStatus(@Param("status") ReportStatus status, @Param("time") Long time);
+
+time: 0 */1 * * * *
