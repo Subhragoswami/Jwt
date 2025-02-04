@@ -1,4 +1,4 @@
-public void generateReReport(){
+ public void generateReReport(){
         List<ReportManagementDto> reportManagementDto = reportManagementDao.getReportManagementByStatus();
         reportManagementDto.forEach(reportManagement -> generateReport(reportManagement.getId()));
     }
@@ -37,3 +37,52 @@ add method defination and logger here like this
             throw new ReportingException(ErrorConstants.GENERATION_ERROR_CODE, MessageFormat.format(ErrorConstants.GENERATION_ERROR_MESSAGE, "Report"));
         }
     }
+
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * Service for managing report generation.
+ */
+@Slf4j
+@Service
+public class ReportManagementService {
+
+    private final ReportManagementDao reportManagementDao;
+
+    public ReportManagementService(ReportManagementDao reportManagementDao) {
+        this.reportManagementDao = reportManagementDao;
+    }
+
+    /**
+     * Method Name: generateReReport
+     *
+     * Description: This method fetches all reports that are scheduled for generation 
+     * and triggers their generation process.
+     */
+    public void generateReReport() {
+        log.info("Fetching reports with status TO_BE_GENERATE...");
+        List<ReportManagementDto> reportManagementDtos = reportManagementDao.getReportManagementByStatus();
+
+        if (reportManagementDtos.isEmpty()) {
+            log.info("No reports found with status TO_BE_GENERATE.");
+            return;
+        }
+
+        log.info("Found {} reports ready for generation.", reportManagementDtos.size());
+
+        reportManagementDtos.forEach(reportManagement -> {
+            log.info("Processing report with ID: {}", reportManagement.getId());
+            generateReport(reportManagement.getId());
+        });
+
+        log.info("Report generation process completed for all pending reports.");
+    }
+
+    /**
+     * Method Name: generateReport
+     *
+     * Description: This
