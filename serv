@@ -1,4 +1,39 @@
+public void generateReReport(){
+        List<ReportManagementDto> reportManagementDto = reportManagementDao.getReportManagementByStatus();
+        reportManagementDto.forEach(reportManagement -> generateReport(reportManagement.getId()));
+    }
 
+add method defination and logger here like this
+/**
+     * Method Name: generateReport
+     *
+     * Description: This method is the entry point for generating any report. It updates
+     * the report status to 'GENERATION_STARTED' and then delegates the report generation
+     * task to the appropriate method based on the report type. After completion, it
+     * updates the report status to 'GENERATED' or 'GENERATION_FAILED' in case of an error.
+     *
+     * @param reportManagementId UUID - The unique identifier for the report management task.
+     */
 
-
-time: 0 */1 * * * *
+    public void generateReport(UUID reportManagementId) {
+        log.info("Starting report generation for ReportManagementId: {}", reportManagementId);
+        ReportManagementDto reportManagementDto = reportManagementDao.updateReportStatus(reportManagementId, ReportStatus.GENERATION_STARTED);
+        try {
+            log.info("Report generation Request Received for {} with info reportManagementDto : {} ", reportManagementDto.getReport(), reportManagementDto);
+            switch (reportManagementDto.getReport()) {
+                case ORDER -> generateOrderReport(reportManagementDto);
+                case TRANSACTION -> generateTransactionReport(reportManagementDto);
+                case REFUNDS -> generateRefundReport(reportManagementDto);
+                default -> throw new ReportingException(ErrorConstants.INVALID_ERROR_CODE, MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE,"Report Generation Requst", "Implementation need to check"));
+            }
+            log.info("Report generation Request Completed for {} with info reportManagementDto : {} ", reportManagementDto.getReport(), reportManagementDto);
+        } catch (ReportingException e) {
+            reportManagementDao.updateStatusAndRemarks(reportManagementDto.getId(), ReportStatus.GENERATION_FAILED, "Report Generation Failed : " + MDC.get(EPayAuthenticationConstant.CORRELATION_ID));
+            log.error("Error in Report Generation for {} with info reportManagementDto : {} and error : {} ", reportManagementDto.getReport(), reportManagementDto, e.getErrorMessage());
+            throw e;
+        } catch (Exception e) {
+            reportManagementDao.updateStatusAndRemarks(reportManagementDto.getId(), ReportStatus.GENERATION_FAILED, "Report Generation Failed : " + MDC.get(EPayAuthenticationConstant.CORRELATION_ID));
+            log.error("Error in Report Generation for {} with info reportManagementDto : {} and error : {} ", reportManagementDto.getReport(), reportManagementDto, e.getMessage());
+            throw new ReportingException(ErrorConstants.GENERATION_ERROR_CODE, MessageFormat.format(ErrorConstants.GENERATION_ERROR_MESSAGE, "Report"));
+        }
+    }
