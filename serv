@@ -1,88 +1,13 @@
- public void generateReReport(){
-        List<ReportManagementDto> reportManagementDto = reportManagementDao.getReportManagementByStatus();
-        reportManagementDto.forEach(reportManagement -> generateReport(reportManagement.getId()));
+log.info("Building report for ReportManagementId: {} and format: {}", reportManagementId, reportManagementDto.getFormat());
+        FileModel fileModel = fileGeneratorService.buildFileModel(reportManagementDto.getFormat(), header, fileData, Map.of("headers", header, "rows", fileData));
+        log.info("File model created, generating file for report.");
+        ReportFile reportFile = fileGeneratorService.generateFile(reportManagementDto.getFormat(), reportManagementDto.getReport(), reportManagementDto.getMId(), fileModel);
+        String s3FileName = s3Service.uploadFile(reportFile.getName(), reportFile.getContent());
+        reportManagementDao.updateStatusAndFilePath(reportManagementId, ReportStatus.GENERATED, s3FileName);
+        log.info("Report generated and file path [{}] updated for ReportManagementId: {}", s3FileName, reportManagementId);
     }
 
-add method defination and logger here like this
-/**
-     * Method Name: generateReport
-     *
-     * Description: This method is the entry point for generating any report. It updates
-     * the report status to 'GENERATION_STARTED' and then delegates the report generation
-     * task to the appropriate method based on the report type. After completion, it
-     * updates the report status to 'GENERATED' or 'GENERATION_FAILED' in case of an error.
-     *
-     * @param reportManagementId UUID - The unique identifier for the report management task.
-     */
-
-    public void generateReport(UUID reportManagementId) {
-        log.info("Starting report generation for ReportManagementId: {}", reportManagementId);
-        ReportManagementDto reportManagementDto = reportManagementDao.updateReportStatus(reportManagementId, ReportStatus.GENERATION_STARTED);
-        try {
-            log.info("Report generation Request Received for {} with info reportManagementDto : {} ", reportManagementDto.getReport(), reportManagementDto);
-            switch (reportManagementDto.getReport()) {
-                case ORDER -> generateOrderReport(reportManagementDto);
-                case TRANSACTION -> generateTransactionReport(reportManagementDto);
-                case REFUNDS -> generateRefundReport(reportManagementDto);
-                default -> throw new ReportingException(ErrorConstants.INVALID_ERROR_CODE, MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE,"Report Generation Requst", "Implementation need to check"));
-            }
-            log.info("Report generation Request Completed for {} with info reportManagementDto : {} ", reportManagementDto.getReport(), reportManagementDto);
-        } catch (ReportingException e) {
-            reportManagementDao.updateStatusAndRemarks(reportManagementDto.getId(), ReportStatus.GENERATION_FAILED, "Report Generation Failed : " + MDC.get(EPayAuthenticationConstant.CORRELATION_ID));
-            log.error("Error in Report Generation for {} with info reportManagementDto : {} and error : {} ", reportManagementDto.getReport(), reportManagementDto, e.getErrorMessage());
-            throw e;
-        } catch (Exception e) {
-            reportManagementDao.updateStatusAndRemarks(reportManagementDto.getId(), ReportStatus.GENERATION_FAILED, "Report Generation Failed : " + MDC.get(EPayAuthenticationConstant.CORRELATION_ID));
-            log.error("Error in Report Generation for {} with info reportManagementDto : {} and error : {} ", reportManagementDto.getReport(), reportManagementDto, e.getMessage());
-            throw new ReportingException(ErrorConstants.GENERATION_ERROR_CODE, MessageFormat.format(ErrorConstants.GENERATION_ERROR_MESSAGE, "Report"));
-        }
-    }
-
-
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import java.util.List;
-import java.util.UUID;
-
-/**
- * Service for managing report generation.
- */
-@Slf4j
-@Service
-public class ReportManagementService {
-
-    private final ReportManagementDao reportManagementDao;
-
-    public ReportManagementService(ReportManagementDao reportManagementDao) {
-        this.reportManagementDao = reportManagementDao;
-    }
-
-    /**
-     * Method Name: generateReReport
-     *
-     * Description: This method fetches all reports that are scheduled for generation 
-     * and triggers their generation process.
-     */
-    public void generateReReport() {
-        log.info("Fetching reports with status TO_BE_GENERATE...");
-        List<ReportManagementDto> reportManagementDtos = reportManagementDao.getReportManagementByStatus();
-
-        if (reportManagementDtos.isEmpty()) {
-            log.info("No reports found with status TO_BE_GENERATE.");
-            return;
-        }
-
-        log.info("Found {} reports ready for generation.", reportManagementDtos.size());
-
-        reportManagementDtos.forEach(reportManagement -> {
-            log.info("Processing report with ID: {}", reportManagement.getId());
-            generateReport(reportManagement.getId());
-        });
-
-        log.info("Report generation process completed for all pending reports.");
-    }
-
-    /**
-     * Method Name: generateReport
-     *
-     * Description: This
+public class ReportFile {
+    private String name;
+    private byte[] content;
+}
