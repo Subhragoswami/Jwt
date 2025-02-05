@@ -1,13 +1,39 @@
-log.info("Building report for ReportManagementId: {} and format: {}", reportManagementId, reportManagementDto.getFormat());
+public class MerchantServiceClient extends ApiClient {
+
+    public static final String MID_VALIDATION = "/validation/access/";
+    public static final String ACTIVE_MID_VALIDATION = "/validation/access/active/";
+    public static final String USER_VALIDATION = "/validation/user";
+    public static final String TOKEN_VALIDATION = "/validation/token";
+    public static final String BEARER = "Bearer ";
+
+    private final EPayTokenProvider ePayTokenProvider;
+
+    public MerchantServiceClient(String baseUrl, EPayTokenProvider ePayTokenProvider) {
+        super(baseUrl);
+        this.ePayTokenProvider = ePayTokenProvider;
+    }
+
+    public ReportingResponse<String> validateMerchantUser(String userName) {
+        URI uri = URI.create(getBaseUrl() + USER_VALIDATION);
+        return getWebClient().post().uri(uri).bodyValue(UserValidationRequest.builder().requestType("LOGIN").userName(userName).build()).retrieve().onStatus(httpStatusCode -> httpStatusCode.is4xxClientError() || httpStatusCode.is5xxServerError(), clientResponse -> Mono.error(new ReportingException(ErrorConstants.GENERIC_ERROR_CODE, ErrorConstants.GENERIC_ERROR_MESSAGE))).bodyToMono(new ParameterizedTypeReference<ReportingResponse<String>>() {
+        }).block();
+    }
+
+    public ReportingResponse<String> validateMerchantToken(String token) {
+        HttpHeaders headers = prepareHttpHeaders();
+        headers.set(HttpHeaders.AUTHORIZATION, BEARER + token);
+        URI uri = URI.create(getBaseUrl() + TOKEN_VALIDATION);
+        return getWebClient().get().uri(uri).headers(httpHeaders -> httpHeaders.addAll(headers)).retrieve().onStatus(httpStatusCode -> httpStatusCode.is4xxClientError() || httpStatusCode.is5xxServerError(), clientResponse -> Mono.error(new ReportingException(ErrorConstants.GENERIC_ERROR_CODE, ErrorConstants.GENERIC_ERROR_MESSAGE))).bodyToMono(new ParameterizedTypeReference<ReportingResponse<String>>() {
+        }).block();
+    }
+
+private void buildReport(UUID reportManagementId, ReportManagementDto reportManagementDto, List<String> header, List<List<Object>> fileData) {
+        log.info("Building report for ReportManagementId: {} and format: {}", reportManagementId, reportManagementDto.getFormat());
         FileModel fileModel = fileGeneratorService.buildFileModel(reportManagementDto.getFormat(), header, fileData, Map.of("headers", header, "rows", fileData));
         log.info("File model created, generating file for report.");
         ReportFile reportFile = fileGeneratorService.generateFile(reportManagementDto.getFormat(), reportManagementDto.getReport(), reportManagementDto.getMId(), fileModel);
         String s3FileName = s3Service.uploadFile(reportFile.getName(), reportFile.getContent());
         reportManagementDao.updateStatusAndFilePath(reportManagementId, ReportStatus.GENERATED, s3FileName);
+        //send reportManagementDto.mid and reportFile.getName() in merchant service
         log.info("Report generated and file path [{}] updated for ReportManagementId: {}", s3FileName, reportManagementId);
     }
-
-public class ReportFile {
-    private String name;
-    private byte[] content;
-}
