@@ -1,56 +1,23 @@
-CREATE TABLE AGG_MERCHANT_ORDER_HYBRID_FEE_DTLS_TXN
-   (	MERCHANT_ID VARCHAR2(20 BYTE) NOT NULL ENABLE,
-	BEARABLE_ENTITY CHAR(1 BYTE) NOT NULL ENABLE,
-	BEARABLE_COMPONENT VARCHAR2(10 BYTE) NOT NULL ENABLE,
-	BEARABLE_AMOUNT_CUTOFF NUMBER(16,2) NOT NULL ENABLE,
-	BEARABLE_RATE_TYPE CHAR(1 BYTE) NOT NULL ENABLE,
-	BEARABLE_PERCENTAGE_RATE NUMBER(16,2),
-	BEARABLE_FLAT_RATE NUMBER(16,2),
-	MERCHANT_FEE_BEARABLE_ABS NUMBER(16,2) NOT NULL ENABLE,
-	CUSTOMER_FEE_BEARABLE_ABS NUMBER(16,2) NOT NULL ENABLE,
-	MERCHANT_ST_BEARABLE_ABS NUMBER(16,2) NOT NULL ENABLE,
-	CUSTOMER_ST_BEARABLE_ABS NUMBER(16,2) NOT NULL ENABLE,
-	BEARABLE_LIMIT VARCHAR2(10 BYTE) NOT NULL ENABLE,
-	CREATION_DATE DATE NOT NULL ENABLE,
-	CREATED_BY VARCHAR2(100 BYTE) NOT NULL ENABLE,
-	CREATED_BYSESSION_ID VARCHAR2(100 BYTE) NOT NULL ENABLE,
-	PROCESS_FLAG CHAR(1 BYTE),
-	ATRN_NUM VARCHAR2(50 BYTE),
-	 CHECK (BEARABLE_LIMIT IN ('LOWER','HIGHER' ,'NA')) ENABLE,
-	 CHECK (BEARABLE_COMPONENT in ('AMOUNT','FEE')) ENABLE,
-	 CHECK (BEARABLE_RATE_TYPE IN ('P','F' ,'B')) ENABLE,
-	 CHECK (BEARABLE_RATE_TYPE IN ('P','F' ,'B')) ENABLE,
-	 CHECK (BEARABLE_COMPONENT in ('AMOUNT','FEE')) ENABLE,
-	 CHECK (BEARABLE_LIMIT IN ('LOWER','HIGHER' ,'NA')) ENABLE,
-	 CHECK (BEARABLE_ENTITY in ('C','M')) ENABLE,
-	 CHECK (BEARABLE_RATE_TYPE IN ('P','F' ,'B')) ENABLE,
-	 CHECK (BEARABLE_COMPONENT in ('AMOUNT','FEE')) ENABLE,
-	 CHECK (BEARABLE_COMPONENT in ('AMOUNT','FEE')) ENABLE,
-	 CHECK (BEARABLE_RATE_TYPE IN ('P','F' ,'B')) ENABLE,
-	 CHECK (BEARABLE_RATE_TYPE IN ('P','F' ,'B')) ENABLE,
-	 CHECK (BEARABLE_ENTITY in ('C','M')) ENABLE,
-	 CHECK (BEARABLE_ENTITY in ('C','M')) ENABLE,
-	 CHECK (BEARABLE_COMPONENT in ('AMOUNT','FEE')) ENABLE,
-	 CHECK (BEARABLE_LIMIT IN ('LOWER','HIGHER' ,'NA')) ENABLE,
-	 CHECK (BEARABLE_ENTITY in ('C','M')) ENABLE,
-	 CHECK (BEARABLE_RATE_TYPE IN ('P','F' ,'B')) ENABLE,
-	 CHECK (BEARABLE_ENTITY in ('C','M')) ENABLE,
-	 CHECK (BEARABLE_ENTITY in ('C','M')) ENABLE,
-	 CHECK (BEARABLE_ENTITY in ('C','M')) ENABLE,
-	 CHECK (BEARABLE_RATE_TYPE IN ('P','F' ,'B')) ENABLE,
-	 CHECK (BEARABLE_LIMIT IN ('LOWER','HIGHER' ,'NA')) ENABLE,
-	 CHECK (BEARABLE_LIMIT IN ('LOWER','HIGHER' ,'NA')) ENABLE,
-	 CHECK (BEARABLE_LIMIT IN ('LOWER','HIGHER' ,'NA')) ENABLE,
-	 CHECK (BEARABLE_COMPONENT in ('AMOUNT','FEE')) ENABLE,
-	 CHECK (BEARABLE_COMPONENT in ('AMOUNT','FEE')) ENABLE,
-	 CHECK (BEARABLE_LIMIT IN ('LOWER','HIGHER' ,'NA')) ENABLE,
-	 SUPPLEMENTAL LOG DATA (UNIQUE INDEX) COLUMNS,
-	 SUPPLEMENTAL LOG DATA (ALL) COLUMNS,
-	 SUPPLEMENTAL LOG DATA (PRIMARY KEY) COLUMNS,
-	 SUPPLEMENTAL LOG DATA (FOREIGN KEY) COLUMNS
-   ) ;
+ private void buildReport(UUID reportManagementId, ReportManagementDto reportManagementDto, List<String> header, List<List<Object>> fileData) {
+        log.info("Building report for ReportManagementId: {} and format: {}", reportManagementId, reportManagementDto.getFormat());
+        FileModel fileModel = fileGeneratorService.buildFileModel(reportManagementDto.getFormat(), header, fileData, Map.of("headers", header, "rows", fileData));
+        log.info("File model created, generating file for report.");
+        ReportFile reportFile = fileGeneratorService.generateFile(reportManagementDto.getFormat(), reportManagementDto.getReport(), reportManagementDto.getMId(), fileModel);
+        String s3FileName = s3Service.uploadFile(reportFile.getName(), reportFile.getContent());
+        reportManagementDao.updateStatusAndFilePath(reportManagementId, ReportStatus.GENERATED, s3FileName);
+        try {
+            reportGeneratePublisher.publish(reportManagementDto.getReport().getName() + "_" + reportManagementDto.getId(),
+                    objectMapper.writeValueAsString(ReportAlertDto.builder().mid(reportManagementDto.getMId()).reportName(reportFile.getName()).alertType(ReportingConstant.REPORT_GENERATION).build()));
+        } catch (Exception e) {
+            log.error("Error in publish alert", e.getMessage());
+        }
+        log.info("Report generated and file path [{}] updated for ReportManagementId: {}", s3FileName, reportManagementId);
+    }
 
-
-
-2025-02-06 19:12:33.713 ERROR | com.epay.reporting.config.SwaggerConfig:37 | principal=  | scenario= | operation= | correlation= | log | ChangeSet db/changelog/scripts/1738848116066_create_table_AGG_MERCHANT_ORDER_HYBRID_FEE_DTLS_TXN.sql::raw::includeAll encountered an exception.
-liquibase.exception.DatabaseException: ORA-00922: missing or invalid option
+create a seperate method for this
+  try {
+            reportGeneratePublisher.publish(reportManagementDto.getReport().getName() + "_" + reportManagementDto.getId(),
+                    objectMapper.writeValueAsString(ReportAlertDto.builder().mid(reportManagementDto.getMId()).reportName(reportFile.getName()).alertType(ReportingConstant.REPORT_GENERATION).build()));
+        } catch (Exception e) {
+            log.error("Error in publish alert", e.getMessage());
+        }
