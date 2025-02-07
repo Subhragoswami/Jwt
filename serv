@@ -1,73 +1,16 @@
- private void buildReport(UUID reportManagementId, ReportManagementDto reportManagementDto, List<String> header, List<List<Object>> fileData) {
-        log.info("Building report for ReportManagementId: {} and format: {}", reportManagementId, reportManagementDto.getFormat());
-        FileModel fileModel = fileGeneratorService.buildFileModel(reportManagementDto.getFormat(), header, fileData, Map.of("headers", header, "rows", fileData));
-        log.info("File model created, generating file for report.");
-        ReportFile reportFile = fileGeneratorService.generateFile(reportManagementDto.getFormat(), reportManagementDto.getReport(), reportManagementDto.getMId(), fileModel);
-        String s3FileName = s3Service.uploadFile(reportFile.getName(), reportFile.getContent());
-        reportManagementDao.updateStatusAndFilePath(reportManagementId, ReportStatus.GENERATED, s3FileName);
+   @KafkaListener(topics = "${spring.kafka.topic.alert}")
+    public void onAlert(ConsumerRecord<String, String> consumerRecord) {
+        log.debug("alert request received for key : {} and value : {}", consumerRecord.key(), consumerRecord.value());
         try {
-            reportGeneratePublisher.publish(reportManagementDto.getReport().getName() + "_" + reportManagementDto.getId(),
-                    objectMapper.writeValueAsString(ReportAlertDto.builder().mid(reportManagementDto.getMId()).reportName(reportFile.getName()).alertType(ReportingConstant.REPORT_GENERATION).build()));
-        } catch (Exception e) {
-            log.error("Error in publish alert", e.getMessage());
+            MDC.put(EPayAuthenticationConstant.CORRELATION_ID, String.valueOf(UUID.randomUUID()));
+            MDC.put(EPayAuthenticationConstant.SCENARIO, "reportAlertListener");
+            ReportAlertDto reportAlertDto = objectMapper.readValue(consumerRecord.value(), ReportAlertDto.class);
+            alertService.generateAlertForReport(reportAlertDto);
+        } catch (MerchantException e) {
+            log.error("kafka listening message[key:{} and value: {}], error: {}", consumerRecord.key(), consumerRecord.value(), e.getErrorMessage());
+        } catch (JsonProcessingException e) {
+            log.error("kafka listening message[key:{} and value: {}], error: {}", consumerRecord.key(), consumerRecord.value(), e.getMessage());
         }
-        log.info("Report generated and file path [{}] updated for ReportManagementId: {}", s3FileName, reportManagementId);
     }
 
-create a seperate method for this
-  try {
-            reportGeneratePublisher.publish(reportManagementDto.getReport().getName() + "_" + reportManagementDto.getId(),
-                    objectMapper.writeValueAsString(ReportAlertDto.builder().mid(reportManagementDto.getMId()).reportName(reportFile.getName()).alertType(ReportingConstant.REPORT_GENERATION).build()));
-        } catch (Exception e) {
-            log.error("Error in publish alert", e.getMessage());
-        }
-
-
-
-
-
-
-private void buildReport(UUID reportManagementId, ReportManagementDto reportManagementDto, List<String> header, List<List<Object>> fileData) {
-    log.info("Building report for ReportManagementId: {} and format: {}", reportManagementId, reportManagementDto.getFormat());
-    
-    FileModel fileModel = fileGeneratorService.buildFileModel(
-            reportManagementDto.getFormat(), header, fileData, 
-            Map.of("headers", header, "rows", fileData)
-    );
-    
-    log.info("File model created, generating file for report.");
-    
-    ReportFile reportFile = fileGeneratorService.generateFile(
-            reportManagementDto.getFormat(), 
-            reportManagementDto.getReport(), 
-            reportManagementDto.getMId(), 
-            fileModel
-    );
-
-    String s3FileName = s3Service.uploadFile(reportFile.getName(), reportFile.getContent());
-    reportManagementDao.updateStatusAndFilePath(reportManagementId, ReportStatus.GENERATED, s3FileName);
-
-    // Extracted method for publishing report alert
-    publishReportGenerationAlert(reportManagementDto, reportFile);
-
-    log.info("Report generated and file path [{}] updated for ReportManagementId: {}", s3FileName, reportManagementId);
-}
-
-/**
- * Publishes an alert when a report is generated.
- */
-private void publishReportGenerationAlert(ReportManagementDto reportManagementDto, ReportFile reportFile) {
-    try {
-        String alertMessage = objectMapper.writeValueAsString(
-                ReportAlertDto.builder()
-                        .mid(reportManagementDto.getMId())
-                        .reportName(reportFile.getName())
-                        .alertType(ReportingConstant.REPORT_GENERATION)
-                        .build()
-        );
-
-        reportGeneratePublisher.publish(reportManagementDto.getReport().getName() + "_" + reportManagementDto.getId(), alertMessage);
-    } catch (Exception e) {
-        log.error("Error in publishing alert", e);
-    }
-}
+Please correct the error message log different as its parsing issue
