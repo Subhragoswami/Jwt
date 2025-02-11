@@ -1,34 +1,5 @@
-Transaction Number	VARCHAR2(50)	Yes		1		YES	YES	YES
-MID	VARCHAR2(20)	No		2		YES	YES	YES
-Merchant GST Charged	NUMBER(16,2)	No		3		YES	YES	YES
-Customer GST Charged	NUMBER(16,2)	No		4		YES	YES	YES
-Date	DATE	No		5		YES	YES	YES
-
-
-here reportIn is '07-01-25'  ,09-01-25 
-
-SELECT vgi.TRANSACTION_NUMBER AS transactionNumber,
-                    vgi.DATE AS Date,
-                    CASE
-                        WHEN vgi.MERCHANT_GST_CHARGED > 0 THEN vgi.MERCHANT_GST_CHARGED
-                        ELSE vgi.CUSTOMER_GST_CHARGED
-                    END AS gstCharged
-                    FROM view_gst_invoice vgi
-                    WHERE vgi.MID = :mId
-                    AND TO_CHAR(TO_DATE(vti.DATE, 'DD-MM-YY'), 'Mon-YYYY') IN (:reportDate)
-                    ORDER TO_CHAR(TO_DATE(vti.DATE, 'DD-MM-YY'), 'Mon-YYYY') DESC
-
-here I need to query it oracle so please modify this
-
-
-
-SELECT vgi.TRANSACTION_NUMBER AS transactionNumber,
-       vgi.DATE AS Date,
-       CASE
-           WHEN vgi.MERCHANT_GST_CHARGED > 0 THEN vgi.MERCHANT_GST_CHARGED
-           ELSE vgi.CUSTOMER_GST_CHARGED
-       END AS gstCharged
-FROM view_gst_invoice vgi
-WHERE vgi.MID = 'YourMIDValue'
-AND TO_CHAR(vgi.DATE, 'Mon-YYYY') IN ('Jan-2025')
-ORDER BY TO_CHAR(vgi.DATE, 'Mon-YYYY') DESC;
+ORA-01747: invalid user.table.column, table.column, or column specification
+01747. 00000 -  "invalid user.table.column, table.column, or column specification"
+*Cause:    
+*Action:
+Error at Line: 2 Column: 12
