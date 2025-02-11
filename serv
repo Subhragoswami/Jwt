@@ -1,16 +1,17 @@
-   @KafkaListener(topics = "${spring.kafka.topic.alert}")
-    public void onAlert(ConsumerRecord<String, String> consumerRecord) {
-        log.debug("alert request received for key : {} and value : {}", consumerRecord.key(), consumerRecord.value());
-        try {
-            MDC.put(EPayAuthenticationConstant.CORRELATION_ID, String.valueOf(UUID.randomUUID()));
-            MDC.put(EPayAuthenticationConstant.SCENARIO, "reportAlertListener");
-            ReportAlertDto reportAlertDto = objectMapper.readValue(consumerRecord.value(), ReportAlertDto.class);
-            alertService.generateAlertForReport(reportAlertDto);
-        } catch (MerchantException e) {
-            log.error("kafka listening message[key:{} and value: {}], error: {}", consumerRecord.key(), consumerRecord.value(), e.getErrorMessage());
-        } catch (JsonProcessingException e) {
-            log.error("kafka listening message[key:{} and value: {}], error: {}", consumerRecord.key(), consumerRecord.value(), e.getMessage());
-        }
-    }
-
-Please correct the error message log different as its parsing issue
+ public static final String JDBC_GST_INVOICE = """
+                    SELECT TO_CHAR(TO_DATE(vti.TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') as transactionDate,
+                    COUNT(vti.ATRN_NUM) as transactionCount, vti.PayMode_code as payMode,
+                    SUM(vti.MERCHANT_FEE_AMOUNT)as merchantFeeAmount,
+                    SUM(vti.SERVICE_TAX_AMOUNT)as merchantServiceTaxAmount,
+                    SUM(vti.MERCHANT_FEE_AMOUNT)+ SUM(vti.SERVICE_TAX_AMOUNT) as merchantTotalCommission,
+                    vti. merchant_name as merchantName,mi.GST_NUMBER as gstNumber,
+                    mi.address_line1 as address1, mi.address_line2 as address2, mi.state as state, mi.city as city,
+                    mi.country as country, mi.pincode as pincode
+                    FROM view_transaction_fees_invoice vti
+                    JOIN MERCHANT_INFO_MERCH mi on mi.mid = vti.mid
+                    WHERE vti.MID = :mId AND vti.PAYMODE_CODE is NOT NULL AND vti.atrn_num is NOT NULL AND
+                    TO_CHAR(TO_DATE(vti.TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') IN (:reportDate)
+                    GROUP BY TO_CHAR(TO_DATE(vti.TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY'), vti.paymode_code,
+                    vti.merchant_name, mi.GST_NUMBER,mi.address_line1, mi.address_line2 , mi.state, mi.city, mi.country, mi.pincode
+                    ORDER BY TO_CHAR(TO_DATE(vti.TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') desc
+            """;
