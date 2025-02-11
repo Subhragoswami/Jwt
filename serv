@@ -1,28 +1,15 @@
-
-Transaction Number
-MID
-Merchant GST Charged
-Customer GST Charged
-Date
-N30078696316900	1000003	0	0.18	03-02-25
-U30049709212570	1000003	0	1	04-02-25
-N30086737594724	1000003	0	0.18	04-02-25
-
-ORA-01747: invalid user.table.column, table.column, or column specification
-01747. 00000 -  "invalid user.table.column, table.column, or column specification"
+ORA-00904: "VGI"."CUSTOMER_GST_CHARGED": invalid identifier
+00904. 00000 -  "%s: invalid identifier"
 *Cause:    
 *Action:
-Error at Line: 2 Column: 12
-
-getting this error
-
+Error at Line: 4 Column: 8
 
 SELECT vgi.TRANSACTION_NUMBER AS transactionNumber,
        vgi.MID,
-       vgi.MERCHANT_GST_CHARGED,
-       vgi.CUSTOMER_GST_CHARGED,
-       vgi."DATE" AS transactionDate  -- Enclosed DATE in double quotes
+       vgi.MERCHANT_GST_CHARGED as "Merchant GST Charged",
+       vgi.CUSTOMER_GST_CHARGED as "Customer GST Charged",
+       vgi."Date"   -- Enclosed DATE in double quotes
 FROM view_gst_invoice vgi
 WHERE vgi.MID = '1000003'
-AND TO_CHAR(vgi."DATE", 'Mon-YYYY') IN ('Feb-2025')
-ORDER BY vgi."DATE" DESC;  -- Ordering by actual date
+AND TO_CHAR(vgi."Date", 'Mon-YYYY') IN ('Feb-2025')
+ORDER BY vgi."Date" DESC;  -- Ordering by actual date
