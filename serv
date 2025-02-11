@@ -15,3 +15,30 @@
                     vti.merchant_name, mi.GST_NUMBER,mi.address_line1, mi.address_line2 , mi.state, mi.city, mi.country, mi.pincode
                     ORDER BY TO_CHAR(TO_DATE(vti.TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') desc
             """;
+
+
+public static final String JDBC_GST_INVOICE = """
+    SELECT 
+        TO_CHAR(TO_DATE(vgi.TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') AS transactionDate,
+        vgi.ATRN_NUM AS transactionNumber,
+        vgi.PAYMODE_CODE AS payMode,
+        vgi.MERCHANT_NAME AS merchantName,
+        mi.GST_NUMBER AS gstNumber,
+        mi.ADDRESS_LINE1 AS address1, 
+        mi.ADDRESS_LINE2 AS address2, 
+        mi.STATE AS state, 
+        mi.CITY AS city,
+        mi.COUNTRY AS country, 
+        mi.PINCODE AS pincode,
+        CASE 
+            WHEN vgi.MERCHANT_GST_CHARGED > 0 THEN vgi.MERCHANT_GST_CHARGED
+            ELSE vgi.CUSTOMER_GST_CHARGED 
+        END AS gstCharged
+    FROM view_gst_invoice vgi
+    JOIN MERCHANT_INFO_MERCH mi ON mi.MID = vgi.MID
+    WHERE vgi.MID = :mId 
+      AND vgi.PAYMODE_CODE IS NOT NULL 
+      AND vgi.ATRN_NUM IS NOT NULL
+      AND TO_CHAR(TO_DATE(vgi.TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') IN (:reportDate)
+    ORDER BY TO_CHAR(TO_DATE(vgi.TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') DESC
+""";
