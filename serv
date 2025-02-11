@@ -42,3 +42,22 @@ public static final String JDBC_GST_INVOICE = """
       AND TO_CHAR(TO_DATE(vgi.TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') IN (:reportDate)
     ORDER BY TO_CHAR(TO_DATE(vgi.TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') DESC
 """;
+
+
+
+
+
+public static final String JDBC_GST_INVOICE = """
+    SELECT 
+        vgi.ATRN_NUM AS transactionNumber,
+        TO_CHAR(TO_DATE(vgi.TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') AS transactionDate,
+        CASE 
+            WHEN vgi.MERCHANT_GST_CHARGED > 0 THEN vgi.MERCHANT_GST_CHARGED
+            ELSE vgi.CUSTOMER_GST_CHARGED 
+        END AS gstCharged
+    FROM view_gst_invoice vgi
+    WHERE vgi.MID = :mId 
+      AND vgi.ATRN_NUM IS NOT NULL
+      AND TO_CHAR(TO_DATE(vgi.TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') IN (:reportDate)
+    ORDER BY TO_CHAR(TO_DATE(vgi.TRANSACTION_DATE, 'DD-MM-YY') ) DESC
+""";
