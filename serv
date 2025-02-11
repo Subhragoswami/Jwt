@@ -1,25 +1,21 @@
-curl --location --request POST 'https://dev.epay.sbi/reporting/v1/invoice/fees/1000003' \
---header 'Authorization: Bearer eyJhbGciOiJIUzUxMiJ9.eyJyb2xlIjpbIkFETUlOIl0sInRva2VuVHlwZSI6IlVTRVIiLCJ1c2VybmFtZSI6IlJhaHVsIiwic3ViIjoiUmFodWwiLCJpc3MiOiJzYmkuZXBheSIsImlhdCI6MTczOTI2NDgyMiwiZXhwIjoxNzM5MjgyNzYyfQ.UisifIJsRRLsInUtqIlPpUYFM4gFR1LtJGv3OR9tuGxVsV3BVSucIXgXjJwES-f6ZryoslEEbrHLgXezHr575A' \
---header 'Content-Type: application/json' \
---header 'Cookie: 55114e90a1dd32fceb07cd9e82d2e5d3=301db0a6e80b30dc6cadb6e51833dd48; KR01dd9f70=01890e9c131d436786857201283fb29e12ca78a5ee979f3fe179429b68f9c5ac054e9a8ec3d8eb02defaafb29e82dc3e529e3f35e2500fda8aa107d420c7f9332b22eaa4ff' \
---data-raw '{
-    "reportDate" : ["11-02-25", "11-02-25"]
-}'
+Transaction Number	VARCHAR2(50)	Yes		1		YES	YES	YES
+MID	VARCHAR2(20)	No		2		YES	YES	YES
+Merchant GST Charged	NUMBER(16,2)	No		3		YES	YES	YES
+Customer GST Charged	NUMBER(16,2)	No		4		YES	YES	YES
+Date	DATE	No		5		YES	YES	YES
 
 
-{
-    "status": 0,
-    "errors": [
-        {
-            "errorCode": "400",
-            "errorMessage": "JSON parse error: Cannot deserialize value of type `java.util.ArrayList<java.lang.String>` from Object value (token `JsonToken.START_OBJECT`)"
-        }
-    ]
-}
+here reportIn is '07-01-25'  ,09-01-25 
 
-   @PostMapping("/fees/{mId}")
-    @Operation(summary = "Endpoint to provide the invoice.")
-        public ReportingResponse<String> generateMerchantFeesInvoice(HttpServletResponse response, @PathVariable String mId, @RequestBody List<String> reportDate) {
-        log.info("Get Invoice called : mId {} & reportDate {}", mId, reportDate);
-        return invoiceService.generateMerchantFeesInvoice(mId, reportDate, response);
-    }
+SELECT vgi.TRANSACTION_NUMBER AS transactionNumber,
+                    vgi.DATE AS Date,
+                    CASE
+                        WHEN vgi.MERCHANT_GST_CHARGED > 0 THEN vgi.MERCHANT_GST_CHARGED
+                        ELSE vgi.CUSTOMER_GST_CHARGED
+                    END AS gstCharged
+                    FROM view_gst_invoice vgi
+                    WHERE vgi.MID = :mId
+                    AND TO_CHAR(TO_DATE(vti.DATE, 'DD-MM-YY'), 'Mon-YYYY') IN (:reportDate)
+                    ORDER TO_CHAR(TO_DATE(vti.DATE, 'DD-MM-YY'), 'Mon-YYYY') DESC
+
+here I need to query it oracle so please modify this
