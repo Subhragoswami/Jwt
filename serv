@@ -1,75 +1,30 @@
-public static Map<String, Object> createPdfTemplate(Report report, String reportDate, List<GstReport> gstReports) {
-    log.info("Creating PDF template input for report: {} on date: {}", report.getName(), reportDate);
-
-    // Define headers
-    List<String> headers = Arrays.asList(
-        "Transaction Number",
-        "GST",
-        "GST Charged",
-        "GST Of",
-        "Narration",
-        "Date",
-        "Report"
-    );
-
-    // Populate rows
-    List<List<Object>> rows = new ArrayList<>();
-    for (GstReport gstReport : gstReports) {
-        List<Object> row = Arrays.asList(
-            gstReport.getTransactionNumber(),
-            ReportingConstant.GST_PERCENTAGE,
-            gstReport.getGstCharged(),
-            ReportingConstant.GST_OF,
-            ReportingConstant.NARRATION,
-            gstReport.getTransactionDate(),
-            reportDate
-        );
-        rows.add(row);
-    }
-
-    // Create the map structure expected by the template
-    Map<String, Object> dataMap = new HashMap<>();
-    dataMap.put("headers", headers);
-    dataMap.put("rows", rows);
-
-    Map<String, Object> input = new HashMap<>();
-    input.put("map", dataMap); // The template accesses this as ${map.headers} and ${map.rows}
-
-    return input;
-}
-
-
-
-
-
-public ReportingResponse<String> generateMerchantGstInvoice(String mId, List<String> reportDate, HttpServletResponse response) {
-    try {
-        log.info("Received GST invoice generation request for mId {}, reportDate {}", mId, reportDate);
-        List<Map<String, Object>> gstInvoiceData = invoiceDao.getGstInvoiceData(mId, reportDate);
-        if (CollectionUtils.isNotEmpty(gstInvoiceData)) {
-            List<FileModel> fileModels = gstInvoiceData.stream()
-                .map(data -> PdfFileModel.builder().fileData(data).build())
-                .collect(Collectors.toList());
-
-            if (fileModels.size() > 1) {
-                fileGeneratorService.generateZipFile(response, ReportFormat.PDF, Report.GST_INVOICE, mId, fileModels);
-            } else {
-                fileGeneratorService.downloadFile(response, ReportFormat.PDF, Report.GST_INVOICE, mId, fileModels.get(0));
-            }
-        } else {
-            return ReportingResponse.<String>builder()
-                .data(List.of("No Data Found"))
-                .status(ReportingConstant.RESPONSE_SUCCESS)
-                .build();
+    protected ReportFile pdfFileGenerator(String reportName, String mId, String template, Map<String, Object> input) {
+        log.info("Starting PDF generation for report: {} and merchant ID: {}", reportName, mId);
+        String fileName = getFileName(reportName, mId);
+        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream()) {
+            log.debug("Rendering PDF content for template: {}", template);
+            ITextRenderer renderer = new ITextRenderer();
+            renderer.setDocumentFromString(getPdfContent(input, template));
+            renderer.layout();
+            renderer.createPDF(byteArrayOutputStream);
+            log.info("PDF file successfully generated and returned as byte array.");
+            return ReportFile.builder().name(fileName).content(byteArrayOutputStream.toByteArray()).build();
+        } catch (IOException e) {
+            log.error("An error occurred in pdfFileGenerator method: {}", e.getMessage());
+            throw new ReportingException(ErrorConstants.FILE_GENERATION_ERROR_CODE, MessageFormat.format(ErrorConstants.FILE_GENERATION_ERROR_MESSAGE, "pdf", e.getMessage()));
         }
-    } catch (ValidationException e) {
-        log.error("Validation failed for MID {} and Report: {}. Error: {}", mId, reportDate, e.getErrorMessages());
-        throw e;
-    } catch (ReportingException e) {
-        log.error("File generation failed for MID {} and Report: {}. Error: {}", mId, reportDate, e.getErrorMessages());
-        throw e;
-    } catch (Exception e) {
-        log.error("Unexpected error during PDF generation for MID {} and Report: {}. Error: {}", mId, reportDate, e.getMessage());
-        throw new ReportingException(ErrorConstants.GENERATION_ERROR_CODE, String.format(ErrorConstants.GENERATION_ERROR_MESSAGE, reportDate));
     }
+
+renderer.setDocumentFromString(getPdfContent(input, template));
+
+here in this line it's breaking 
+
+{
+    "status": 0,
+    "errors": [
+        {
+            "errorCode": "8044",
+            "errorMessage": "Error in zip Generation, Exception evaluating SpringEL expression: \"map.headers\" (template: \"pdf/report\" - line 34, col 13)"
+        }
+    ]
 }
