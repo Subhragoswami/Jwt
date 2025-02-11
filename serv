@@ -1,63 +1,25 @@
- public static final String JDBC_GST_INVOICE = """
-                    SELECT TO_CHAR(TO_DATE(vti.TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') as transactionDate,
-                    COUNT(vti.ATRN_NUM) as transactionCount, vti.PayMode_code as payMode,
-                    SUM(vti.MERCHANT_FEE_AMOUNT)as merchantFeeAmount,
-                    SUM(vti.SERVICE_TAX_AMOUNT)as merchantServiceTaxAmount,
-                    SUM(vti.MERCHANT_FEE_AMOUNT)+ SUM(vti.SERVICE_TAX_AMOUNT) as merchantTotalCommission,
-                    vti. merchant_name as merchantName,mi.GST_NUMBER as gstNumber,
-                    mi.address_line1 as address1, mi.address_line2 as address2, mi.state as state, mi.city as city,
-                    mi.country as country, mi.pincode as pincode
-                    FROM view_transaction_fees_invoice vti
-                    JOIN MERCHANT_INFO_MERCH mi on mi.mid = vti.mid
-                    WHERE vti.MID = :mId AND vti.PAYMODE_CODE is NOT NULL AND vti.atrn_num is NOT NULL AND
-                    TO_CHAR(TO_DATE(vti.TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') IN (:reportDate)
-                    GROUP BY TO_CHAR(TO_DATE(vti.TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY'), vti.paymode_code,
-                    vti.merchant_name, mi.GST_NUMBER,mi.address_line1, mi.address_line2 , mi.state, mi.city, mi.country, mi.pincode
-                    ORDER BY TO_CHAR(TO_DATE(vti.TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') desc
-            """;
+curl --location --request POST 'https://dev.epay.sbi/reporting/v1/invoice/fees/1000003' \
+--header 'Authorization: Bearer eyJhbGciOiJIUzUxMiJ9.eyJyb2xlIjpbIkFETUlOIl0sInRva2VuVHlwZSI6IlVTRVIiLCJ1c2VybmFtZSI6IlJhaHVsIiwic3ViIjoiUmFodWwiLCJpc3MiOiJzYmkuZXBheSIsImlhdCI6MTczOTI2NDgyMiwiZXhwIjoxNzM5MjgyNzYyfQ.UisifIJsRRLsInUtqIlPpUYFM4gFR1LtJGv3OR9tuGxVsV3BVSucIXgXjJwES-f6ZryoslEEbrHLgXezHr575A' \
+--header 'Content-Type: application/json' \
+--header 'Cookie: 55114e90a1dd32fceb07cd9e82d2e5d3=301db0a6e80b30dc6cadb6e51833dd48; KR01dd9f70=01890e9c131d436786857201283fb29e12ca78a5ee979f3fe179429b68f9c5ac054e9a8ec3d8eb02defaafb29e82dc3e529e3f35e2500fda8aa107d420c7f9332b22eaa4ff' \
+--data-raw '{
+    "reportDate" : ["11-02-25", "11-02-25"]
+}'
 
 
-public static final String JDBC_GST_INVOICE = """
-    SELECT 
-        TO_CHAR(TO_DATE(vgi.TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') AS transactionDate,
-        vgi.ATRN_NUM AS transactionNumber,
-        vgi.PAYMODE_CODE AS payMode,
-        vgi.MERCHANT_NAME AS merchantName,
-        mi.GST_NUMBER AS gstNumber,
-        mi.ADDRESS_LINE1 AS address1, 
-        mi.ADDRESS_LINE2 AS address2, 
-        mi.STATE AS state, 
-        mi.CITY AS city,
-        mi.COUNTRY AS country, 
-        mi.PINCODE AS pincode,
-        CASE 
-            WHEN vgi.MERCHANT_GST_CHARGED > 0 THEN vgi.MERCHANT_GST_CHARGED
-            ELSE vgi.CUSTOMER_GST_CHARGED 
-        END AS gstCharged
-    FROM view_gst_invoice vgi
-    JOIN MERCHANT_INFO_MERCH mi ON mi.MID = vgi.MID
-    WHERE vgi.MID = :mId 
-      AND vgi.PAYMODE_CODE IS NOT NULL 
-      AND vgi.ATRN_NUM IS NOT NULL
-      AND TO_CHAR(TO_DATE(vgi.TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') IN (:reportDate)
-    ORDER BY TO_CHAR(TO_DATE(vgi.TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') DESC
-""";
+{
+    "status": 0,
+    "errors": [
+        {
+            "errorCode": "400",
+            "errorMessage": "JSON parse error: Cannot deserialize value of type `java.util.ArrayList<java.lang.String>` from Object value (token `JsonToken.START_OBJECT`)"
+        }
+    ]
+}
 
-
-
-
-
-public static final String JDBC_GST_INVOICE = """
-    SELECT 
-        vgi.ATRN_NUM AS transactionNumber,
-        TO_CHAR(TO_DATE(vgi.TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') AS transactionDate,
-        CASE 
-            WHEN vgi.MERCHANT_GST_CHARGED > 0 THEN vgi.MERCHANT_GST_CHARGED
-            ELSE vgi.CUSTOMER_GST_CHARGED 
-        END AS gstCharged
-    FROM view_gst_invoice vgi
-    WHERE vgi.MID = :mId 
-      AND vgi.ATRN_NUM IS NOT NULL
-      AND TO_CHAR(TO_DATE(vgi.TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') IN (:reportDate)
-    ORDER BY TO_CHAR(TO_DATE(vgi.TRANSACTION_DATE, 'DD-MM-YY') ) DESC
-""";
+   @PostMapping("/fees/{mId}")
+    @Operation(summary = "Endpoint to provide the invoice.")
+        public ReportingResponse<String> generateMerchantFeesInvoice(HttpServletResponse response, @PathVariable String mId, @RequestBody List<String> reportDate) {
+        log.info("Get Invoice called : mId {} & reportDate {}", mId, reportDate);
+        return invoiceService.generateMerchantFeesInvoice(mId, reportDate, response);
+    }
