@@ -3,3 +3,17 @@ ORA-01747: invalid user.table.column, table.column, or column specification
 *Cause:    
 *Action:
 Error at Line: 2 Column: 12
+
+
+
+
+SELECT vgi.TRANSACTION_NUMBER AS transactionNumber,
+       vgi.DATE AS transactionDate,  -- Renamed alias to avoid conflict
+       CASE
+           WHEN vgi.MERCHANT_GST_CHARGED > 0 THEN vgi.MERCHANT_GST_CHARGED
+           ELSE vgi.CUSTOMER_GST_CHARGED
+       END AS gstCharged
+FROM view_gst_invoice vgi
+WHERE vgi.MID = 'YourMIDValue'
+AND TO_CHAR(vgi.DATE, 'Mon-YYYY') IN ('Jan-2025')
+ORDER BY vgi.DATE DESC; -- Ordering by actual date instead of formatted string
