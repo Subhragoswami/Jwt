@@ -15,3 +15,14 @@ ORA-01747: invalid user.table.column, table.column, or column specification
 Error at Line: 2 Column: 12
 
 getting this error
+
+
+SELECT vgi.TRANSACTION_NUMBER AS transactionNumber,
+       vgi.MID,
+       vgi.MERCHANT_GST_CHARGED,
+       vgi.CUSTOMER_GST_CHARGED,
+       vgi."DATE" AS transactionDate  -- Enclosed DATE in double quotes
+FROM view_gst_invoice vgi
+WHERE vgi.MID = '1000003'
+AND TO_CHAR(vgi."DATE", 'Mon-YYYY') IN ('Feb-2025')
+ORDER BY vgi."DATE" DESC;  -- Ordering by actual date
