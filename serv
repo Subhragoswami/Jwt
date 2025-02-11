@@ -19,3 +19,16 @@ SELECT vgi.TRANSACTION_NUMBER AS transactionNumber,
                     ORDER TO_CHAR(TO_DATE(vti.DATE, 'DD-MM-YY'), 'Mon-YYYY') DESC
 
 here I need to query it oracle so please modify this
+
+
+
+SELECT vgi.TRANSACTION_NUMBER AS transactionNumber,
+       vgi.DATE AS Date,
+       CASE
+           WHEN vgi.MERCHANT_GST_CHARGED > 0 THEN vgi.MERCHANT_GST_CHARGED
+           ELSE vgi.CUSTOMER_GST_CHARGED
+       END AS gstCharged
+FROM view_gst_invoice vgi
+WHERE vgi.MID = 'YourMIDValue'
+AND TO_CHAR(vgi.DATE, 'Mon-YYYY') IN ('Jan-2025')
+ORDER BY TO_CHAR(vgi.DATE, 'Mon-YYYY') DESC;
