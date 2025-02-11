@@ -1,15 +1,212 @@
-ORA-00904: "VGI"."CUSTOMER_GST_CHARGED": invalid identifier
-00904. 00000 -  "%s: invalid identifier"
-*Cause:    
-*Action:
-Error at Line: 4 Column: 8
+ public ReportingResponse<String> generateMerchantGstInvoice(String mId, List<String> reportDate, HttpServletResponse response) {
+        try {
+            log.info("Received Gst invoice generation for mId {}, reportDate {}", mId, reportDate);
+           // mIdValidator.validatedActiveMId(mId);
+            List<Map<String, Object>> gstInvoiceData = invoiceDao.getGstInvoiceData(mId, reportDate);
+            if(CollectionUtils.isNotEmpty(gstInvoiceData)) {
+                if (gstInvoiceData.size() > 1) {
+                    List<FileModel> fileModels = getFileModels(gstInvoiceData);
+                    fileGeneratorService.generateZipFile(response, ReportFormat.PDF, Report.GST_INVOICE, mId, fileModels);
+                } else {
+                    FileModel fileModel = PdfFileModel.builder().fileData(gstInvoiceData.getFirst()).build();
+                    fileGeneratorService.downloadFile(response, ReportFormat.PDF, Report.GST_INVOICE, mId, fileModel);
+                }
+            }
+            return ReportingResponse.<String>builder().data(List.of("No Data Found")).status(ReportingConstant.RESPONSE_SUCCESS).build();
+        } catch (ValidationException e){
+            log.error("Failed to generate PDF for MID {} and Report: {} during Validation. Error : {}", mId, reportDate, e.getErrorMessages());
+            throw e;
+        } catch (ReportingException e){
+            log.error("Failed to generate PDF for MID {} and Report: {}, at file generation. Error : {}", mId, reportDate, e.getErrorMessages());
+            throw e;
+        } catch (Exception e) {
+            log.error("Failed to generate PDF for MID {} and Report: {}. Error : {}", mId, reportDate, e.getMessage());
+            throw new ReportingException(ErrorConstants.GENERATION_ERROR_CODE, MessageFormat.format(ErrorConstants.GENERATION_ERROR_MESSAGE, reportDate));
+        }
+    }
 
-SELECT vgi.TRANSACTION_NUMBER AS transactionNumber,
-       vgi.MID,
-       vgi.MERCHANT_GST_CHARGED as "Merchant GST Charged",
-       vgi.CUSTOMER_GST_CHARGED as "Customer GST Charged",
-       vgi."Date"   -- Enclosed DATE in double quotes
-FROM view_gst_invoice vgi
-WHERE vgi.MID = '1000003'
-AND TO_CHAR(vgi."Date", 'Mon-YYYY') IN ('Feb-2025')
-ORDER BY vgi."Date" DESC;  -- Ordering by actual date
+    public List<Map<String, Object>> getGstInvoiceData(String mId, List<String> reportDates) {
+        log.info("Fetching Fees Invoice Data for MerchantId: {} and reportDates {}", mId, reportDates);
+        List<GstReport> merchantGstData = invoiceRepository.getMerchantGstInvoice(mId, reportDates);
+        Map<String, List<GstReport>> gstDataMonthBy = convertInvoiceGstMonthWise(merchantGstData);
+        log.info("Returning processed Fees Invoice data for {} months. Fetched {} records", gstDataMonthBy.size(), gstDataMonthBy.size());
+        return gstDataMonthBy.keySet().stream().map(feeMonth -> createPdfTemplate(Report.GST_INVOICE, feeMonth, gstDataMonthBy.get(feeMonth))).collect(Collectors.toList());
+    }
+
+public class GstReport {
+    private String transactionNumber;
+    private double gstCharged;
+    private String transactionDate;
+}
+
+public class GstInvoiceDataGenerator {
+    private static final LoggerUtility log = LoggerFactoryUtility.getLogger(FeesInvoiceDataGenerator.class);
+
+    public static Map<String, List<GstReport>> convertInvoiceGstMonthWise(List<GstReport> gstReportData) {
+        log.debug("Converting merchant fees data into month-wise groups.");
+        Map<String, List<GstReport>> gstDataMonthBy = new HashMap<>();
+        gstReportData.forEach(merchantFeesReport -> {
+            if (gstDataMonthBy.containsKey(merchantFeesReport.getTransactionDate())) {
+                gstDataMonthBy.get(merchantFeesReport.getTransactionDate()).add(merchantFeesReport);
+            } else {
+                List<GstReport> merchantFeesReports = new ArrayList<>();
+                merchantFeesReports.add(merchantFeesReport);
+                gstDataMonthBy.put(merchantFeesReport.getTransactionDate(), merchantFeesReports);
+            }
+        });
+        log.debug("Conversion completed. Grouped by {} months.", gstDataMonthBy.size());
+        return gstDataMonthBy;
+    }
+
+    public static Map<String, Object>  createPdfTemplate(Report report, String reportDate, List<GstReport> gstReports) {
+        log.info("Creating PDF template input for report: {} on date: {}", report.getName(), reportDate);
+        Map<String, Object> input = new HashMap<>();
+        GstReport gstReport = gstReports.getFirst();
+        input.put("reportName", report.getName());
+        input.put("Transaction Number", gstReport.getTransactionNumber());
+        input.put("GST", ReportingConstant.GST_PERCENTAGE);
+        input.put("GST Charged", gstReport.getGstCharged());
+        input.put("GST Of", ReportingConstant.GST_OF);
+        input.put("Narration", ReportingConstant.NARRATION);
+        input.put("date", gstReport.getTransactionDate());
+        input.put("report", reportDate);
+        return input;
+    }
+}
+
+ public void generateZipFile(HttpServletResponse response, ReportFormat reportFormat, Report report, String mId, List<FileModel> fileModels) {
+        log.info("Started zipFileGenerator for reportFormat: {}, report: {}, mId: {}, fileModels: {}", reportFormat, report.getName(),mId,fileModels);
+        zipFileGenerator.generateZipFile(response, reportFormat, report, mId, fileModels);
+    }
+
+ public void generateZipFile(HttpServletResponse response, ReportFormat reportFormat, Report report, String mId, List<FileModel> fileModels) {
+        log.info("Starting ZIP file generation for report: {} and merchant ID: {}", report.getName(), mId);
+        try {
+            ByteArrayOutputStream byteArrayOutputStream = generateZipFile(reportFormat, report, mId, fileModels);
+            response.setContentType("application/zip");
+            response.setHeader(HttpHeaders.CONTENT_DISPOSITION, StringEscapeUtils.escapeJava("attachment;filename=" + mId + "_" + report.getName() + ".zip"));
+            response.setContentLength(byteArrayOutputStream.size());
+            response.getOutputStream().write(byteArrayOutputStream.toByteArray());
+            response.getOutputStream().flush();
+            log.info("ZIP file successfully generated and sent to the response.");
+        } catch (Exception e) {
+            log.error("Error occurred during zipFileGenerator : {}", e.getMessage());
+            throw new ReportingException(ErrorConstants.FILE_GENERATION_ERROR_CODE, MessageFormat.format(ErrorConstants.FILE_GENERATION_ERROR_MESSAGE, "zip", e.getMessage()));
+        }
+
+    }
+
+    private ByteArrayOutputStream generateZipFile(ReportFormat reportFormat, Report report, String mId, List<FileModel> fileModels) throws IOException {
+        log.debug("Generating ZIP file for report: {} with format: {}", report.getName(), reportFormat.name());
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        for (FileModel fileModel : fileModels) {
+            ReportFile reportFile = fileGenerator.generateFile(reportFormat, report, mId, fileModel);
+            try (ZipOutputStream zos = new ZipOutputStream(byteArrayOutputStream)) {
+                ZipEntry zipEntry = new ZipEntry(getZipFileName(reportFormat, report, fileModel));
+                zos.putNextEntry(zipEntry);
+                zos.write(reportFile.getContent());
+                zos.closeEntry();
+            }
+        }
+        log.debug("ZIP file generation completed for report: {}", report.getName());
+        return byteArrayOutputStream;
+    }
+
+public ReportFile generateFile(ReportFormat reportFormat, Report report, String mId, FileModel fileModel) {
+        logger.info("Generating file for report format: {}, report: {}, mId: {}", reportFormat, report.getName(), mId);
+        switch (reportFormat) {
+            case CSV -> {
+                CSVFileModel csvFileModel = (CSVFileModel) fileModel;
+                return CSVGenerator.csvFileGenerator(report.getName(), mId, csvFileModel.getHeaders(), csvFileModel.getFileData());
+            }
+            case XLS -> {
+                ExcelFileModel xlsFileModel = (ExcelFileModel) fileModel;
+                return ExcelGenerator.excelFileGenerator(report.getName(), mId, xlsFileModel.getHeaders(), xlsFileModel.getFileData());
+            }
+            case PDF -> {
+                PdfFileModel pdfFileModel = (PdfFileModel) fileModel;
+                return pdfGenerator.pdfFileGenerator(report.getName(), mId, report.getTemplateName(), pdfFileModel.getFileData());
+            }
+            default -> {
+                logger.error("Unsupported report format: {}", reportFormat);
+                throw new IllegalArgumentException("Requested File Formatter not supported");
+            }
+        }
+    }
+
+    protected ReportFile pdfFileGenerator(String reportName, String mId, String template, Map<String, Object> input) {
+        log.info("Starting PDF generation for report: {} and merchant ID: {}", reportName, mId);
+        String fileName = getFileName(reportName, mId);
+        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream()) {
+            log.debug("Rendering PDF content for template: {}", template);
+            ITextRenderer renderer = new ITextRenderer();
+            renderer.setDocumentFromString(getPdfContent(input, template));
+            renderer.layout();
+            renderer.createPDF(byteArrayOutputStream);
+            log.info("PDF file successfully generated and returned as byte array.");
+            return ReportFile.builder().name(fileName).content(byteArrayOutputStream.toByteArray()).build();
+        } catch (IOException e) {
+            log.error("An error occurred in pdfFileGenerator method: {}", e.getMessage());
+            throw new ReportingException(ErrorConstants.FILE_GENERATION_ERROR_CODE, MessageFormat.format(ErrorConstants.FILE_GENERATION_ERROR_MESSAGE, "pdf", e.getMessage()));
+        }
+    }
+
+here please analyze this code properly I'm getting this error
+{
+    "status": 0,
+    "errors": [
+        {
+            "errorCode": "8044",
+            "errorMessage": "Error in zip Generation, Exception evaluating SpringEL expression: \"map.headers\" (template: \"pdf/report\" - line 34, col 13)"
+        }
+    ]
+}
+
+i need to use this generic template
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"></meta>
+    <title>Report</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 11px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        h1 {
+            color: cadetblue;
+        }
+        table, th, td {
+            border: 1px solid black;
+            border-collapse: collapse;
+        }
+        .center {
+          margin-left: auto;
+          margin-right: auto;
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    <h1>Report</h1>
+</div>
+<table class="center">
+    <tr>
+        <td th:each="header : ${map.headers}">
+            <span th:text="${header}"></span>
+        </td>
+    </tr>
+    <tr th:each="row : ${map.rows}">
+        <td th:each="cell : ${row}">
+            <span th:text="${cell}"></span>
+        </td>
+    </tr>
+</table>
+</body>
+</html>
+
+so how to achieve that please help
