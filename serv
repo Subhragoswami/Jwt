@@ -1,28 +1,28 @@
- public ReportingResponse<String> generateMerchantGstInvoice(String mId, List<String> reportDate, HttpServletResponse response) {
+  public ReportingResponse<String> generateMerchantGstInvoice(String mId, List<String> reportDate, HttpServletResponse response) {
         try {
             log.info("Fetching GST Invoice Data for mId: {} and reportDate: {}", mId, reportDate);
 
-            // Fetch data from DAO
-
+            // Fetch processed CSV data (already structured using createCSVTemplate)
             List<Map<String, Object>> gstInvoiceData = invoiceDao.getGstInvoiceData(mId, reportDate);
 
             if (CollectionUtils.isNotEmpty(gstInvoiceData)) {
+                List<FileModel> fileModels = getFileModels(gstInvoiceData);
                 log.info("Fetched {} records for GST Invoice", gstInvoiceData.size());
+                List<String> gstHeaders = null;
+                List<List<Object>> fileData = new ArrayList<>();
+                // Extract headers and rows from structured data
+                for (Map<String, Object> csvData : gstInvoiceData) {
+                    Map<String, Object> dataMap = (Map<String, Object>) csvData.get("map");
+                    gstHeaders = (List<String>) dataMap.get("headers");
+                    
+                    fileData.addAll((List<List<Object>>) dataMap.get("rows"));
+                }
+                buildReport(mId, reportDate, gstHeaders, fileData, fileModels, response);
+            }
 
-                // Convert to structured data
-                List<List<Object>> fileData = gstInvoiceData.stream().map(this::convertToGstListObject).toList();
-
-                // Use a consistent header structure like Order Report
-                List<String> gstHeaders = List.of("Transaction Number", "GST", "GST Charged", "GST Of", "Narration", "Date");
-
-                // Build report in a clean way
-                buildReport(mId, reportDate, gstHeaders, fileData, response);
-            } else {
+            else {
                 log.warn("No GST Invoice Data found for MID: {} and reportDate: {}", mId, reportDate);
-                return ReportingResponse.<String>builder()
-                        .data(List.of("No Data Found"))
-                        .status(ReportingConstant.RESPONSE_SUCCESS)
-                        .build();
+                return ReportingResponse.<String>builder().data(List.of("No Data Found")).status(ReportingConstant.RESPONSE_SUCCESS).build();
             }
         } catch (Exception e) {
             log.error("Unexpected error while generating GST Invoice for MID: {} and reportDate: {}. Error: {}", mId, reportDate, e.getMessage());
@@ -34,17 +34,7 @@
                 .status(ReportingConstant.RESPONSE_SUCCESS)
                 .build();
     }
-    private List<Object> convertToGstListObject(GstReport gstReport) {
-        List<Object> objectList = new ArrayList<>();
-        objectList.add(gstReport.getTransactionNumber());
-        objectList.add(ReportingConstant.GST_PERCENTAGE);
-        objectList.add(gstReport.getGstCharged());
-        objectList.add(ReportingConstant.GST_OF);
-        objectList.add(ReportingConstant.NARRATION);
-        objectList.add(gstReport.getTransactionDate());
-        return objectList;
-    }
-    private void buildReport(String mId, List<String> reportDate, List<String> header, List<List<Object>> fileData, HttpServletResponse response) {
+    private void buildReport(String mId, List<String> reportDate, List<String> header, List<List<Object>> fileData, List<FileModel> fileModels, HttpServletResponse response) {
         log.info("Building GST Invoice Report for MID: {} and Report Date: {}", mId, reportDate);
 
         // Create a FileModel similar to how Order Report does it
@@ -61,124 +51,24 @@
         }
     }
 
- public List<Map<String, Object>>  getGstInvoiceData(String mId, List<String> reportDates) {
-        log.info("Fetching Fees Invoice Data for MerchantId: {} and reportDates {}", mId, reportDates);
-        List<GstReport> merchantGstData = invoiceRepository.getMerchantGstInvoice(mId, reportDates);
-       // return merchantGstData;
-        Map<String, List<GstReport>> gstDataMonthBy = convertInvoiceGstMonthWise(merchantGstData);
-        log.info("Returning processed Fees Invoice data for {} months. Fetched {} records", gstDataMonthBy.size(), gstDataMonthBy.size());
-        return gstDataMonthBy.keySet().stream().map(feeMonth -> createCSVTemplate(Report.GST_INVOICE, feeMonth, gstDataMonthBy.get(feeMonth))).collect(Collectors.toList());
-    }
+here need to set reportMonth
+@Data
+public abstract class FileModel {
 
-public static Map<String, List<GstReport>> convertInvoiceGstMonthWise(List<GstReport> gstReportData) {
-        log.debug("Converting merchant fees data into month-wise groups.");
-        Map<String, List<GstReport>> gstDataMonthBy = new HashMap<>();
-        gstReportData.forEach(merchantFeesReport -> {
-            if (gstDataMonthBy.containsKey(merchantFeesReport.getTransactionDate())) {
-                gstDataMonthBy.get(merchantFeesReport.getTransactionDate()).add(merchantFeesReport);
-            } else {
-                List<GstReport> merchantFeesReports = new ArrayList<>();
-                merchantFeesReports.add(merchantFeesReport);
-                gstDataMonthBy.put(merchantFeesReport.getTransactionDate(), merchantFeesReports);
-            }
-        });
-        log.debug("Conversion completed. Grouped by {} months.", gstDataMonthBy.size());
-        return gstDataMonthBy;
-    }
+    /**
+     * The month associated with the report.
+     */
+    private String reportMonth;
+}
 
-    public static Map<String, Object> createCSVTemplate(Report report, String reportDate, List<GstReport> gstReports) {
-        log.info("Creating PDF template input for report: {} on date: {}", report.getName(), reportDate);
-
-        // Define headers
-        List<String> headers = Arrays.asList("Transaction Number", "GST", "GST Charged", "GST Of", "Narration", "Date");
-
-
-
-        List<List<Object>> rows = new ArrayList<>();
-        for (GstReport gstReport : gstReports) {
-            List<Object> row = Arrays.asList(
-                    gstReport.getTransactionNumber(),
-                    ReportingConstant.GST_PERCENTAGE,
-                    gstReport.getGstCharged(),
-                    ReportingConstant.GST_OF,
-                    ReportingConstant.NARRATION,
-                    gstReport.getTransactionDate(),
-                    reportDate
-            );
-            rows.add(row);
+  private static List<FileModel> getFileModels(List<Map<String, Object>> feesInvoiceData) {
+        List<FileModel> fileModels = new ArrayList<>();
+        for (Map<String, Object> feesData : feesInvoiceData) {
+            FileModel fileModel = PdfFileModel.builder().fileData(feesInvoiceData.getFirst()).build();
+            fileModel.setReportMonth((String) feesData.get("report"));
+            fileModels.add(fileModel);
         }
-
-        // Create the map structure expected by the template
-        Map<String, Object> dataMap = new HashMap<>();
-        dataMap.put("headers", headers);
-        dataMap.put("rows", rows);
-
-        Map<String, Object> input = new HashMap<>();
-        input.put("map", dataMap); // The template accesses this as ${map.headers} and ${map.rows}
-
-        return input;
-    }
- public void generateZipFile(HttpServletResponse response, ReportFormat reportFormat, Report report, String mId, List<FileModel> fileModels) {
-        log.info("Started zipFileGenerator for reportFormat: {}, report: {}, mId: {}, fileModels: {}", reportFormat, report.getName(),mId,fileModels);
-        zipFileGenerator.generateZipFile(response, reportFormat, report, mId, fileModels);
-    }
-   public void generateZipFile(HttpServletResponse response, ReportFormat reportFormat, Report report, String mId, List<FileModel> fileModels) {
-        log.info("Starting ZIP file generation for report: {} and merchant ID: {}", report.getName(), mId);
-        try {
-            ByteArrayOutputStream byteArrayOutputStream = generateZipFile(reportFormat, report, mId, fileModels);
-            response.setContentType("application/zip");
-            response.setHeader(HttpHeaders.CONTENT_DISPOSITION, StringEscapeUtils.escapeJava("attachment;filename=" + mId + "_" + report.getName() + ".zip"));
-            response.setContentLength(byteArrayOutputStream.size());
-            response.getOutputStream().write(byteArrayOutputStream.toByteArray());
-            response.getOutputStream().flush();
-            log.info("ZIP file successfully generated and sent to the response.");
-        } catch (Exception e) {
-            log.error("Error occurred during zipFileGenerator : {}", e.getMessage());
-            throw new ReportingException(ErrorConstants.FILE_GENERATION_ERROR_CODE, MessageFormat.format(ErrorConstants.FILE_GENERATION_ERROR_MESSAGE, "zip", e.getMessage()));
-        }
-
-    }
-private ByteArrayOutputStream generateZipFile(ReportFormat reportFormat, Report report, String mId, List<FileModel> fileModels) throws IOException {
-        log.debug("Generating ZIP file for report: {} with format: {}", report.getName(), reportFormat.name());
-        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        for (FileModel fileModel : fileModels) {
-            ReportFile reportFile = fileGenerator.generateFile(reportFormat, report, mId, fileModel);
-            try (ZipOutputStream zos = new ZipOutputStream(byteArrayOutputStream)) {
-                ZipEntry zipEntry = new ZipEntry(getZipFileName(reportFormat, report, fileModel));
-                zos.putNextEntry(zipEntry);
-                zos.write(reportFile.getContent());
-                zos.closeEntry();
-            }
-        }
-        log.debug("ZIP file generation completed for report: {}", report.getName());
-        return byteArrayOutputStream;
-    }
-public ReportFile generateFile(ReportFormat reportFormat, Report report, String mId, FileModel fileModel) {
-        logger.info("Generating file for report format: {}, report: {}, mId: {}", reportFormat, report.getName(), mId);
-        switch (reportFormat) {
-            case CSV -> {
-                CSVFileModel csvFileModel = (CSVFileModel) fileModel;
-                return CSVGenerator.csvFileGenerator(report.getName(), mId, csvFileModel.getHeaders(), csvFileModel.getFileData());
-            }
-            case XLS -> {
-                ExcelFileModel xlsFileModel = (ExcelFileModel) fileModel;
-                return ExcelGenerator.excelFileGenerator(report.getName(), mId, xlsFileModel.getHeaders(), xlsFileModel.getFileData());
-            }
-            case PDF -> {
-                PdfFileModel pdfFileModel = (PdfFileModel) fileModel;
-                return pdfGenerator.pdfFileGenerator(report.getName(), mId, report.getTemplateName(), pdfFileModel.getFileData());
-            }
-            default -> {
-                logger.error("Unsupported report format: {}", reportFormat);
-                throw new IllegalArgumentException("Requested File Formatter not supported");
-            }
-        }
-    }
-  protected static ReportFile csvFileGenerator(String reportName, String mId, List<String> headerName, List<List<Object>> objects) {
-        log.info("Started csv file generator for reportName : {}, mId {}, headerName: {},  objects: {}", reportName, mId, objects);
-        String fileName = getFileName(reportName, mId);
-        String csvContent = generateCSV(headerName, objects);
-        return ReportFile.builder().name(fileName).content(csvContent.getBytes(StandardCharsets.UTF_8)).build();
+        return fileModels;
     }
 
-need to create csv here using createCSVTemplate how to do so can you please implement that.
+here need to set reportMonth like this
