@@ -1,74 +1,14 @@
-  public ReportingResponse<String> generateMerchantGstInvoice(String mId, List<String> reportDate, HttpServletResponse response) {
-        try {
-            log.info("Fetching GST Invoice Data for mId: {} and reportDate: {}", mId, reportDate);
+  private static String generateCSV(List<String> headers, List<List<Object>> objects) {
+        StringBuilder csvContent = new StringBuilder();
 
-            // Fetch processed CSV data (already structured using createCSVTemplate)
-            List<Map<String, Object>> gstInvoiceData = invoiceDao.getGstInvoiceData(mId, reportDate);
-
-            if (CollectionUtils.isNotEmpty(gstInvoiceData)) {
-                List<FileModel> fileModels = getFileModels(gstInvoiceData);
-                log.info("Fetched {} records for GST Invoice", gstInvoiceData.size());
-                List<String> gstHeaders = null;
-                List<List<Object>> fileData = new ArrayList<>();
-                // Extract headers and rows from structured data
-                for (Map<String, Object> csvData : gstInvoiceData) {
-                    Map<String, Object> dataMap = (Map<String, Object>) csvData.get("map");
-                    gstHeaders = (List<String>) dataMap.get("headers");
-                    
-                    fileData.addAll((List<List<Object>>) dataMap.get("rows"));
-                }
-                buildReport(mId, reportDate, gstHeaders, fileData, fileModels, response);
+        csvContent.append(String.join(",", headers));
+        csvContent.append("\n");
+        for (List<Object> rowData : objects) {
+            for (Object columnData : rowData) {
+                csvContent.append(ObjectUtils.isNotEmpty(columnData) ? columnData : StringUtils.EMPTY);
+                csvContent.append(",");
             }
-
-            else {
-                log.warn("No GST Invoice Data found for MID: {} and reportDate: {}", mId, reportDate);
-                return ReportingResponse.<String>builder().data(List.of("No Data Found")).status(ReportingConstant.RESPONSE_SUCCESS).build();
-            }
-        } catch (Exception e) {
-            log.error("Unexpected error while generating GST Invoice for MID: {} and reportDate: {}. Error: {}", mId, reportDate, e.getMessage());
-            throw new ReportingException(ErrorConstants.GENERATION_ERROR_CODE, "Error generating GST invoice report.");
+            csvContent.append("\n");
         }
-
-        return ReportingResponse.<String>builder()
-                .data(List.of("Success"))
-                .status(ReportingConstant.RESPONSE_SUCCESS)
-                .build();
+        return csvContent.toString();
     }
-    private void buildReport(String mId, List<String> reportDate, List<String> header, List<List<Object>> fileData, List<FileModel> fileModels, HttpServletResponse response) {
-        log.info("Building GST Invoice Report for MID: {} and Report Date: {}", mId, reportDate);
-
-        // Create a FileModel similar to how Order Report does it
-        FileModel fileModel = fileGeneratorService.buildFileModel(
-                ReportFormat.CSV, header, fileData, Map.of("headers", header, "rows", fileData)
-        );
-
-        log.info("File model created, generating file for GST Invoice.");
-
-        if (fileData.size() > 1) {
-            fileGeneratorService.generateZipFile(response, ReportFormat.CSV, Report.GST_INVOICE, mId, List.of(fileModel));
-        } else {
-            fileGeneratorService.downloadFile(response, ReportFormat.CSV, Report.GST_INVOICE, mId, fileModel);
-        }
-    }
-
-here need to set reportMonth
-@Data
-public abstract class FileModel {
-
-    /**
-     * The month associated with the report.
-     */
-    private String reportMonth;
-}
-
-  private static List<FileModel> getFileModels(List<Map<String, Object>> feesInvoiceData) {
-        List<FileModel> fileModels = new ArrayList<>();
-        for (Map<String, Object> feesData : feesInvoiceData) {
-            FileModel fileModel = PdfFileModel.builder().fileData(feesInvoiceData.getFirst()).build();
-            fileModel.setReportMonth((String) feesData.get("report"));
-            fileModels.add(fileModel);
-        }
-        return fileModels;
-    }
-
-here need to set reportMonth like this
