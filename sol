@@ -103,3 +103,83 @@ public static Map<String, Object> createPdfTemplate(Report report, String report
 
     return input;
 }
+
+
+
+
+..................................................................................................................
+
+
+
+
+public ReportingResponse<String> generateMerchantGstInvoice(String mId, List<String> reportDate, HttpServletResponse response) {
+    try {
+        log.info("Fetching GST Invoice Data for mId: {} and reportDate: {}", mId, reportDate);
+        
+        // Fetch data from DAO
+        List<GstReport> gstInvoiceData = invoiceDao.getGstInvoiceData(mId, reportDate);
+        
+        if (CollectionUtils.isNotEmpty(gstInvoiceData)) {
+            log.info("Fetched {} records for GST Invoice", gstInvoiceData.size());
+
+            // Convert to structured data
+            List<List<Object>> fileData = gstInvoiceData.stream().map(this::convertToGstListObject).toList();
+            
+            // Use a consistent header structure like Order Report
+            List<String> gstHeaders = List.of("Transaction Number", "GST", "GST Charged", "GST Of", "Narration", "Date", "Report");
+
+            // Build report in a clean way
+            buildReport(mId, reportDate, gstHeaders, fileData, response);
+        } else {
+            log.warn("No GST Invoice Data found for MID: {} and reportDate: {}", mId, reportDate);
+            return ReportingResponse.<String>builder()
+                    .data(List.of("No Data Found"))
+                    .status(ReportingConstant.RESPONSE_SUCCESS)
+                    .build();
+        }
+    } catch (Exception e) {
+        log.error("Unexpected error while generating GST Invoice for MID: {} and reportDate: {}. Error: {}", mId, reportDate, e.getMessage());
+        throw new ReportingException(ErrorConstants.GENERATION_ERROR_CODE, "Error generating GST invoice report.");
+    }
+
+    return ReportingResponse.<String>builder()
+            .data(List.of("Success"))
+            .status(ReportingConstant.RESPONSE_SUCCESS)
+            .build();
+}
+
+
+
+
+
+private List<Object> convertToGstListObject(GstReport gstReport) {
+    List<Object> objectList = new ArrayList<>();
+    objectList.add(StringUtils.defaultString(gstReport.getTransactionNumber(), ""));
+    objectList.add(ReportingConstant.GST_PERCENTAGE);
+    objectList.add(ObjectUtils.defaultIfNull(gstReport.getGstCharged(), ""));
+    objectList.add(ReportingConstant.GST_OF);
+    objectList.add(ReportingConstant.NARRATION);
+    objectList.add(StringUtils.defaultString(gstReport.getTransactionDate(), ""));
+    objectList.add(gstReport.getReportDate() != null ? gstReport.getReportDate() : "");
+    return objectList;
+}
+
+
+
+
+private void buildReport(String mId, List<String> reportDate, List<String> header, List<List<Object>> fileData, HttpServletResponse response) {
+    log.info("Building GST Invoice Report for MID: {} and Report Date: {}", mId, reportDate);
+    
+    // Create a FileModel similar to how Order Report does it
+    FileModel fileModel = fileGeneratorService.buildFileModel(
+            ReportFormat.PDF, header, fileData, Map.of("headers", header, "rows", fileData)
+    );
+
+    log.info("File model created, generating file for GST Invoice.");
+
+    if (fileData.size() > 1) {
+        fileGeneratorService.generateZipFile(response, ReportFormat.PDF, Report.GST_INVOICE, mId, List.of(fileModel));
+    } else {
+        fileGeneratorService.downloadFile(response, ReportFormat.PDF, Report.GST_INVOICE, mId, fileModel);
+    }
+}
