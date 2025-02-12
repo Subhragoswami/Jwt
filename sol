@@ -22,3 +22,24 @@ private static List<FileModel> getFileModels(List<Map<String, Object>> gstInvoic
 
     return fileModels;
 }
+
+
+
+
+
+private static String generateCSV(List<String> headers, List<List<Object>> objects) {
+    StringBuilder csvContent = new StringBuilder();
+
+    // Append headers
+    csvContent.append(String.join(",", headers)).append("\n");
+
+    // Append each row, ensuring no extra comma
+    for (List<Object> rowData : objects) {
+        String row = rowData.stream()
+                .map(data -> ObjectUtils.isNotEmpty(data) ? data.toString() : StringUtils.EMPTY)
+                .collect(Collectors.joining(",")); // Join without adding an extra comma
+        csvContent.append(row).append("\n"); // Append row with newline
+    }
+
+    return csvContent.toString();
+}
