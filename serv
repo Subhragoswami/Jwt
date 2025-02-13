@@ -1,4 +1,58 @@
- public String generateCaptchaAudio(String captchaText, UUID requestId) {
+public MerchantResponse<CaptchaResponse> generateCaptcha(CaptchaRequest captchaRequest) {
+        logger.info("generate captcha for RequestId: {}", captchaRequest.getRequestId());
+        //Step 1 : Validate Captcha Request
+       // captchaValidator.requestValidator(captchaRequest);
+        return saveCaptcha(captchaRequest, false);
+    }
+
+
+    /**
+     * ReGenerates a captcha and save it to the DB and returns a response.
+     *
+     * @param captchaRequest CaptchaRequest
+     * @return merchantResponse containing CaptchaResponse
+     */
+    public MerchantResponse<CaptchaResponse> regenerateCaptcha(CaptchaRequest captchaRequest) {
+        logger.info("generate captcha for RequestId: {}", captchaRequest.getRequestId());
+        //Step 1 : Validate Captcha Request
+        captchaValidator.regenerateValidator(captchaRequest);
+        return saveCaptcha(captchaRequest, true);
+    }
+
+    /**
+     * Generates the captcha image and encodes it in Base64
+     *
+     * @param captchaText String
+     * @return Captcha
+     */
+    private String generateCaptchaImage(String captchaText) {
+        logger.info("generated captcha text: {}", captchaText);
+        BufferedImage image = captchaProducer.createImage(captchaText);
+        return MerchantUtil.convertImageToBase64(image, "Captcha");
+    }
+
+    private MerchantResponse<CaptchaResponse> saveCaptcha(CaptchaRequest captchaRequest, boolean retry) {
+        RequestType requestType = RequestType.getRequestType(captchaRequest.getRequestType());
+        //Step 2 : Generate Captcha Text
+        String captchaText = captchaProducer.createText();
+        //Step 3 : Generate Captcha Image and convert into Base 64
+        String base64Image = generateCaptchaImage(captchaText);
+        String base64Audio = generateCaptchaAudio(captchaText, captchaRequest.getRequestId());
+        //Step 3 : Save the Captcha into DB
+        CaptchaDto captchaDto = captchaDao.save(captchaText, captchaRequest.getRequestId(), requestType, retry);
+        //Step 4 : Build the Merchant Response
+        logger.info("generate captcha completed for RequestId: {}", captchaRequest.getRequestId());
+        return MerchantResponse.<CaptchaResponse>builder().data(List.of(captchaMapper.mapCaptchaDtoToCaptchaResponse(captchaDto, base64Image,base64Audio))).status(RESPONSE_SUCCESS).build();
+    }
+
+    /**
+     * Generates an audio CAPTCHA and returns it as a Base64-encoded string.
+     *
+     * @param captchaText The text to convert into an audio CAPTCHA.
+     * @param requestId   Unique identifier for tracking the request.
+     * @return Base64-encoded string of the audio CAPTCHA.
+     */
+    public String generateCaptchaAudio(String captchaText, UUID requestId) {
         logger.info("Started generateAudioCaptcha for requestId: {}", requestId);
 
         return Optional.ofNullable(captchaText)
@@ -20,13 +74,19 @@
     private String encodeToBase64(byte[] data, UUID requestId) {
         return Optional.ofNullable(data)
                 .filter(d -> d.length > 0)
-                .map(Base64.getEncoder()::encodeToString)
+                .map(d -> {
+                    logger.info("Encoding {} bytes to Base64 for requestId: {}", d.length, requestId);
+
+                    // Standard Java Base64 Encoding
+                    String base64Encoded = Base64.getEncoder().encodeToString(d);
+
+                    // Alternative: Apache Commons Codec (uncomment if needed)
+                    // String base64Encoded = Base64.encodeBase64String(d);
+
+                    return base64Encoded;
+                })
                 .orElseGet(() -> {
                     logger.warn("Empty byte array for requestId: {}", requestId);
                     return "";
                 });
     }
-
-here we're not getting proper base64 we're getting response as
-
-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
