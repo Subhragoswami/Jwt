@@ -1,52 +1,46 @@
-import java.time.YearMonth;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.stream.Collectors;
+ public ReportingResponse<String> generateMerchantGstInvoice(String mId, List<String> reportMonth, HttpServletResponse response) {
+        try {
+            log.info("Fetching GST Invoice Data for mId: {} and reportMonth: {}", mId, reportMonth);
+            invoiceValidator.isValidMonthYear(reportMonth);
+            //mIdValidator.validatedActiveMId(mId);
+            List<Map<String, Object>> gstInvoiceData = invoiceDao.getGstInvoiceData(mId, reportMonth);
+            if (CollectionUtils.isNotEmpty(gstInvoiceData)) {
+                List<FileModel> fileModels = getFileModels(gstInvoiceData);
+                log.info("Fetched {} records for GST Invoice", gstInvoiceData.size());
+                List<String> gstHeaders = null;
+                List<List<Object>> fileData = new ArrayList<>();
+                for (Map<String, Object> csvData : gstInvoiceData) {
+                    Map<String, Object> dataMap = (Map<String, Object>) csvData.get("map");
+                    gstHeaders = (List<String>) dataMap.get("headers");
+                    fileData.addAll((List<List<Object>>) dataMap.get("rows"));
+                }
+                buildReport(mId, reportMonth, gstHeaders, fileData, fileModels, response);
+            } else {
+                log.warn("No GST Invoice Data found for MID: {} and reportMonth: {}", mId, reportMonth);
+                return ReportingResponse.<String>builder().data(List.of("No Data Found")).status(ReportingConstant.RESPONSE_SUCCESS).build();
+            }
+        } catch (Exception e) {
+            log.error("Unexpected error while generating GST Invoice for MID: {} and reportMonth: {}. Error: {}", mId, reportMonth, e.getMessage());
+            throw new ReportingException(ErrorConstants.GENERATION_ERROR_CODE, "Error generating GST invoice report.");
+        }
+        return ReportingResponse.<String>builder().data(List.of("Success")).status(ReportingConstant.RESPONSE_SUCCESS).build();
+    }
 
-public class DateValidator {
+public class InvoiceValidator extends BaseValidator {
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("MMM-yyyy", Locale.ENGLISH);
 
-    public static Map<String, String> validateAndConvertDateList(List<String> dateList) {
-        // Validate & Convert Dates
-        Map<String, String> dateMap = dateList.stream()
-                .collect(Collectors.toMap(
-                        date -> date, // Original date
-                        DateValidator::convertToYearMonthFormat, // Converted format
-                        (existing, replacement) -> existing // Handle duplicates if any
-                ));
-
-        // Find invalid dates
-        List<String> invalidDates = dateMap.entrySet().stream()
-                .filter(entry -> entry.getValue() == null) // If conversion failed
-                .map(Map.Entry::getKey)
-                .collect(Collectors.toList());
-
-        if (!invalidDates.isEmpty()) {
-            throw new IllegalArgumentException("Invalid date formats: " + invalidDates + ". Expected format: Mon-YYYY (e.g., Feb-2025)");
-        }
-
-        return dateMap; // Return valid converted dates
-    }
-
-    private static String convertToYearMonthFormat(String date) {
-        try {
-            return YearMonth.parse(date, FORMATTER).toString(); // Converts to "YYYY-MM"
-        } catch (DateTimeParseException e) {
-            return null; // Mark as invalid
+    public void isValidMonthYear(List<String> date) {
+        for (String d : date) {
+            try {
+                YearMonth.parse(d, FORMATTER);
+            } catch (DateTimeParseException e) {
+                errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.NOT_FOUND_ERROR_CODE).errorMessage(ErrorConstants.REPORT_NOT_AVAILABLE).build());
+                throwIfErrors();
+            }
         }
     }
 
-    public static void main(String[] args) {
-        List<String> dates = List.of("Feb-2025", "Mar-2024", "2025-Feb", "Apr-2023");
-
-        try {
-            Map<String, String> convertedDates = validateAndConvertDateList(dates);
-            System.out.println("Valid Dates (Original -> Converted): " + convertedDates);
-        } catch (IllegalArgumentException e) {
-            System.err.println(e.getMessage());
-        }
-    }
 }
+
+
+here it's not throwing REPORT_NOT_AVAILABLE it's throwing Error generating GST invoice report.
