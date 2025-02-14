@@ -269,3 +269,36 @@ private String encodeToBase64(byte[] data, UUID requestId) {
                 return "";
             });
 }
+
+
+
+
+
+
+
+
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.Locale;
+
+public class DateValidator {
+    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("MMM-yyyy", Locale.ENGLISH);
+
+    public static boolean isValidMonthYear(String date) {
+        try {
+            // Parse the input to check format
+            YearMonth.parse(date, FORMATTER);
+            return true; // Valid format
+        } catch (DateTimeParseException e) {
+            return false; // Invalid format
+        }
+    }
+
+    public static void main(String[] args) {
+        System.out.println(isValidMonthYear("Feb-2025")); // ✅ true
+        System.out.println(isValidMonthYear("2025-Feb")); // ❌ false
+        System.out.println(isValidMonthYear("02-2025"));  // ❌ false
+        System.out.println(isValidMonthYear("Feb-25"));   // ❌ false
+    }
+}
