@@ -1,154 +1,231 @@
-public MerchantResponse<CaptchaResponse> generateCaptcha(CaptchaRequest captchaRequest) {
-        logger.info("generate captcha for RequestId: {}", captchaRequest.getRequestId());
-        //Step 1 : Validate Captcha Request
-       // captchaValidator.requestValidator(captchaRequest);
-        return saveCaptcha(captchaRequest, false);
+public class BaseValidator {
+    private static final LoggerUtility log = LoggerFactoryUtility.getLogger(BaseValidator.class);
+    List<ErrorDto> errorDtoList;
+
+    /**
+     * Checks if a given value is empty or null, and adds an error if it is.
+     *
+     * @param value - The value to check
+     * @param fieldName - The name of the field to include in the error message
+     */
+    void checkMandatoryField(String value, String fieldName) {
+        if (StringUtils.isEmpty(value)) {
+            log.error("Field '{}' is mandatory and cannot be empty.", fieldName);
+            addError(fieldName, ErrorConstants.MANDATORY_ERROR_CODE, ErrorConstants.MANDATORY_ERROR_MESSAGE);
+        }
+    }
+    /**
+     * Checks if a given object is null or empty, and adds an error if it is.
+     *
+     * @param value - The object to check
+     * @param fieldName - The name of the field to include in the error message
+     */
+    void checkMandatoryField(Object value, String fieldName) {
+        if (ObjectUtils.isEmpty(value)) {
+            log.error("Field '{}' is mandatory and cannot be null or empty.", fieldName);
+            addError(fieldName, ErrorConstants.MANDATORY_ERROR_CODE, ErrorConstants.MANDATORY_ERROR_MESSAGE);
+        }
+    }
+    /**
+     * Checks if a given collection is empty or null, and adds an error if it is.
+     *
+     * @param collection - The collection to check
+     * @param fieldName - The name of the field to include in the error message
+     */
+    void checkMandatoryCollection(Collection collection, String fieldName) {
+        if (CollectionUtils.isEmpty(collection)) {
+            log.error("Collection field '{}' is mandatory and cannot be empty.", fieldName);
+            addError(fieldName, ErrorConstants.MANDATORY_ERROR_CODE, ErrorConstants.MANDATORY_ERROR_MESSAGE);
+        }
+    }
+    /**
+     * Checks if all provided values are empty or null, and adds an error if they are.
+     *
+     * @param fieldName - The name of the field to include in the error message
+     * @param values - The values to check
+     */
+    void checkMandatoryFields(String fieldName, String... values) {
+        boolean allEmpty = Arrays.stream(values).allMatch(StringUtils::isEmpty);
+        if (allEmpty) {
+            log.error("Fields '{}' are mandatory and cannot be all empty.", fieldName);
+            addError(fieldName, ErrorConstants.MANDATORY_ERROR_CODE, ErrorConstants.MANDATORY_ERROR_MESSAGE);
+        }
+    }
+
+    /**
+     * Checks if a given date is valid, adds an error if it is not.
+     *
+     * @param date - The date value to check
+     * @param fieldName - The name of the field to include in the error message
+     */
+    void checkMandatoryDateField(Long date, String fieldName) {
+        if (ObjectUtils.isEmpty(date) || date < 0) {
+            log.error("Field '{}' contains an invalid date value.", fieldName);
+            addError(fieldName, ErrorConstants.MANDATORY_ERROR_CODE, ErrorConstants.MANDATORY_ERROR_MESSAGE);
+        }
+    }
+
+    /**
+     * Validates if a given field's length exceeds a maximum value.
+     *
+     * @param value - The value to check
+     * @param maxLength - The maximum allowed length
+     * @param fieldName - The name of the field to include in the error message
+     */
+    void validateFieldLength(String value, int maxLength, String fieldName) {
+        if (StringUtils.isNotEmpty(value) && value.length() > maxLength) {
+            log.error("Field '{}' exceeds the maximum allowed length of {} characters.", fieldName, maxLength);
+            addError(fieldName, ErrorConstants.INVALID_ERROR_CODE, "Max allowed length is " + maxLength);
+        }
+    }
+
+    /**
+     * Validates if a given date is not in the future and not too far in the past.
+     *
+     * @param date - The date value to check
+     * @param fieldName - The name of the field to include in the error message
+     */
+    void validateDateFieldForPastDate(Long date, String fieldName) {
+        if (date < ReportingConstant.MIN_TIMESTAMP || System.currentTimeMillis() < date) {
+            log.error("Field '{}' contains a future or invalid date.", fieldName);
+            addError(ErrorConstants.INVALID_ERROR_CODE, ErrorConstants.INVALID_ERROR_MESSAGE, fieldName, "Given date is greater then current date or not having format");
+        }
     }
 
 
     /**
-     * ReGenerates a captcha and save it to the DB and returns a response.
+     * Validates if a given date is not in the past and is within a valid range.
      *
-     * @param captchaRequest CaptchaRequest
-     * @return merchantResponse containing CaptchaResponse
+     * @param date - The date value to check
+     * @param fieldName - The name of the field to include in the error message
      */
-    public MerchantResponse<CaptchaResponse> regenerateCaptcha(CaptchaRequest captchaRequest) {
-        logger.info("generate captcha for RequestId: {}", captchaRequest.getRequestId());
-        //Step 1 : Validate Captcha Request
-        captchaValidator.regenerateValidator(captchaRequest);
-        return saveCaptcha(captchaRequest, true);
+    void validateDateFieldForFutureDate(Long date, String fieldName) {
+        if (date > ReportingConstant.MAX_TIMESTAMP || System.currentTimeMillis() > date) {
+            log.error("Field '{}' contains an invalid future date.", fieldName);
+            addError(ErrorConstants.INVALID_ERROR_CODE, ErrorConstants.INVALID_ERROR_MESSAGE, fieldName, "Given date is less then current date or not having format");
+        }
+    }
+    /**
+     * Validates if a value matches the provided regex pattern and if its length is valid.
+     *
+     * @param value - The value to check
+     * @param maxLength - The maximum allowed length
+     * @param regex - The regex pattern to match the value against
+     * @param fieldName - The name of the field to include in the error message
+     * @param message - The error message to display if validation fails
+     */
+    void validateFieldWithRegex(String value, int maxLength, String regex, String fieldName, String message) {
+        if (StringUtils.isNotEmpty(value) && (value.length() > maxLength || validate(value, regex))) {
+            log.error("Field '{}' contains an invalid value or exceeds maximum length.", fieldName);
+            addError(fieldName, ErrorConstants.INVALID_ERROR_CODE, message + " " + maxLength);
+        }
+    }
+
+
+    /**
+     * Validates if a value matches the provided regex pattern.
+     *
+     * @param value - The value to check
+     * @param regex - The regex pattern to match the value against
+     * @param fieldName - The name of the field to include in the error message
+     * @param message - The error message to display if validation fails
+     */
+    void validateFieldWithRegex(String value, String regex, String fieldName, String message) {
+        if (StringUtils.isNotEmpty(value) && validate(value, regex)) {
+            log.error("Field '{}' contains an invalid value '{}'.", fieldName, value);
+            addError(fieldName, ErrorConstants.INVALID_ERROR_CODE, MessageFormat.format(message, fieldName, value));
+        }
     }
 
     /**
-     * Generates the captcha image and encodes it in Base64
+     * Validates if a value matches the valid values list.
      *
-     * @param captchaText String
-     * @return Captcha
+     * @param value - The value to check
+     * @param validValue - The valid value to check against
+     * @param fieldName - The name of the field to include in the error message
      */
-    private String generateCaptchaImage(String captchaText) {
-        logger.info("generated captcha text: {}", captchaText);
-        BufferedImage image = captchaProducer.createImage(captchaText);
-        return MerchantUtil.convertImageToBase64(image, "Captcha");
-    }
-
-    private MerchantResponse<CaptchaResponse> saveCaptcha(CaptchaRequest captchaRequest, boolean retry) {
-        RequestType requestType = RequestType.getRequestType(captchaRequest.getRequestType());
-        //Step 2 : Generate Captcha Text
-        String captchaText = captchaProducer.createText();
-        //Step 3 : Generate Captcha Image and convert into Base 64
-        String base64Image = generateCaptchaImage(captchaText);
-        String base64Audio = generateCaptchaAudio(captchaText, captchaRequest.getRequestId());
-        //Step 3 : Save the Captcha into DB
-        CaptchaDto captchaDto = captchaDao.save(captchaText, captchaRequest.getRequestId(), requestType, retry);
-        //Step 4 : Build the Merchant Response
-        logger.info("generate captcha completed for RequestId: {}", captchaRequest.getRequestId());
-        return MerchantResponse.<CaptchaResponse>builder().data(List.of(captchaMapper.mapCaptchaDtoToCaptchaResponse(captchaDto, base64Image,base64Audio))).status(RESPONSE_SUCCESS).build();
+    void validateFieldValue(String value, String validValue, String fieldName) {
+        if (!validValue.equalsIgnoreCase(value)) {
+            log.error("Field '{}' contains an invalid value '{}'.", fieldName, value);
+            addError(INVALID_ERROR_CODE, INVALID_ERROR_MESSAGE, fieldName, "Valid Values are " + validValue);
+        }
     }
 
     /**
-     * Generates an audio CAPTCHA and returns it as a Base64-encoded string.
+     * Validates if a value matches any of the values in the valid values list.
      *
-     * @param captchaText The text to convert into an audio CAPTCHA.
-     * @param requestId   Unique identifier for tracking the request.
-     * @return Base64-encoded string of the audio CAPTCHA.
+     * @param value - The value to check
+     * @param validValues - The list of valid values to check against
+     * @param fieldName - The name of the field to include in the error message
      */
-    public String generateCaptchaAudio(String captchaText, UUID requestId) {
-        logger.info("Started generateAudioCaptcha for requestId: {}", requestId);
-
-        return Optional.ofNullable(captchaText)
-                .map(text -> VoiceCaptchaUtil.generateAudioCaptcha(text, requestId))
-                .map(data -> encodeToBase64(data, requestId))
-                .orElseGet(() -> {
-                    logger.warn("Captcha text is null for requestId: {}", requestId);
-                    return "";
-                });
-    }
-
-    /**
-     * Encodes a byte array to a Base64 string using Java 8 Streams.
-     *
-     * @param data      The byte array to encode.
-     * @param requestId The request ID for logging.
-     * @return The Base64-encoded string.
-     */
-    private String encodeToBase64(byte[] data, UUID requestId) {
-        return Optional.ofNullable(data)
-                .filter(d -> d.length > 0)
-                .map(d -> {
-                    logger.info("Encoding {} bytes to Base64 for requestId: {}", d.length, requestId);
-
-                    // Standard Java Base64 Encoding
-                    String base64Encoded = Base64.getEncoder().encodeToString(d);
-
-                    // Alternative: Apache Commons Codec (uncomment if needed)
-                    // String base64Encoded = Base64.encodeBase64String(d);
-
-                    return base64Encoded;
-                })
-                .orElseGet(() -> {
-                    logger.warn("Empty byte array for requestId: {}", requestId);
-                    return "";
-                });
-    }
-
-
-
-
-
-
-
-public static byte[] generateAudioCaptcha(String text, UUID requestId) {
-    String uniqueFileName = "speech_" + System.currentTimeMillis() + "_" + requestId;
-    File tempFile = null;
-
-    try {
-        tempFile = File.createTempFile(uniqueFileName, ".wav");
-        tempFile.deleteOnExit();
-
-        Voice voice = VoiceManager.getInstance().getVoice(VOICE_NAME);
-        if (voice == null) {
-            logger.error("Voice '{}' not found. Returning empty byte array.", VOICE_NAME);
-            return new byte[0];
+    void validateFieldValue(String value, List<String> validValues, String fieldName) {
+        boolean isValid = validValues.stream().anyMatch(validValue -> validValue.equalsIgnoreCase(value));
+        if (!isValid) {
+            log.error("Field '{}' contains an invalid value '{}'.", fieldName, value);
+            addError(INVALID_ERROR_CODE, INVALID_ERROR_MESSAGE, fieldName, "Valid Values are " + validValues);
         }
 
-        voice.allocate();
+    }
 
-        // Create AudioPlayer
-        SingleFileAudioPlayer audioPlayer = new SingleFileAudioPlayer(
-                tempFile.getAbsolutePath().replace(".wav", ""), 
-                AudioFileFormat.Type.WAVE
-        );
+    /**
+     * Adds an error message to the error list.
+     *
+     * @param fieldName - The name of the field to include in the error message
+     * @param errorCode - The error code to associate with the error
+     * @param errorMessage - The error message to display
+     */
+    void addError(String fieldName, String errorCode, String errorMessage) {
+        errorDtoList.add(ErrorDto.builder().errorCode(errorCode).errorMessage(MessageFormat.format(errorMessage, fieldName)).build());
+    }
 
-        voice.setAudioPlayer(audioPlayer);
-        voice.setRate(100);
-        voice.setPitch(75);
-        voice.speak(text);
-        
-        // Properly close resources
-        voice.deallocate();
-        audioPlayer.close();
-
-        // Check if the file exists and is valid
-        if (!tempFile.exists() || tempFile.length() == 0) {
-            logger.error("Generated audio file is empty or missing for requestId: {}", requestId);
-            return new byte[0];
+    /**
+     * Adds an error message to the error list with additional field names.
+     *
+     * @param errorCode - The error code to associate with the error
+     * @param errorMessage - The error message to display
+     * @param fieldNames - Additional field names to include in the error message
+     */
+    void addError(String errorCode, String errorMessage, Object... fieldNames) {
+        errorDtoList.add(ErrorDto.builder().errorCode(errorCode).errorMessage(MessageFormat.format(errorMessage, fieldNames)).build());
+    }
+    /**
+     * Throws a ValidationException if any errors were found during validation.
+     */
+    void throwIfErrors() {
+        if (!errorDtoList.isEmpty()) {
+            log.error("Validation failed with errors: {}", errorDtoList);
+            throw new ValidationException(new ArrayList<>(errorDtoList));
         }
+    }
+    /**
+     * Validates if a value matches the provided regex pattern.
+     *
+     * @param value - The value to check
+     * @param regex - The regex pattern to match the value against
+     * @return true if the value does not match the regex, false otherwise
+     */
+    boolean validate(String value, String regex) {
+        return !Pattern.matches(regex, value);
+    }
+}
 
-        logger.info("Audio file generated successfully. Size: {} bytes for requestId: {}", tempFile.length(), requestId);
-        return fileToByteArray(tempFile);
 
-    } catch (Exception e) {
-        logger.error("Error generating speech audio for requestId: {}", requestId, e);
-        throw new MerchantException(ErrorConstants.GENERATION_ERROR_CODE,
-                MessageFormat.format(ErrorConstants.GENERATION_ERROR_MESSAGE, requestId));
 
-    } finally {
-        if (tempFile != null && tempFile.exists()) {
-            if (tempFile.delete()) {
-                logger.info("Temporary file deleted: {}", tempFile.getAbsolutePath());
-            } else {
-                logger.warn("Failed to delete temporary file: {}", tempFile.getAbsolutePath());
+
+public class InvoiceValidator extends BaseValidator {
+    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("MMM-yyyy", Locale.ENGLISH);
+
+    public void isValidMonthYear(List<String> date) {
+        for (String d : date) {
+            try {
+                YearMonth.parse(d, FORMATTER);
+            } catch (DateTimeParseException e) {
+                errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.DATE_FORMAT_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.DATE_FORMAT_ERROR_MESSAGE, "MMM-yyyy")).build());
+                throwIfErrors();
             }
         }
     }
-}
+
+
+
+still it's going to Exception type
