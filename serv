@@ -1,231 +1,175 @@
-public class BaseValidator {
-    private static final LoggerUtility log = LoggerFactoryUtility.getLogger(BaseValidator.class);
-    List<ErrorDto> errorDtoList;
-
-    /**
-     * Checks if a given value is empty or null, and adds an error if it is.
-     *
-     * @param value - The value to check
-     * @param fieldName - The name of the field to include in the error message
-     */
-    void checkMandatoryField(String value, String fieldName) {
-        if (StringUtils.isEmpty(value)) {
-            log.error("Field '{}' is mandatory and cannot be empty.", fieldName);
-            addError(fieldName, ErrorConstants.MANDATORY_ERROR_CODE, ErrorConstants.MANDATORY_ERROR_MESSAGE);
+public ReportingResponse<String> generateMerchantGstInvoice(String mId, List<String> reportMonths, HttpServletResponse response) {
+        try {
+            log.info("Fetching GST Invoice Data for mId: {} and reportMonths: {}", mId, reportMonths);
+            invoiceValidator.validateRequestMonths(reportMonths);
+            //mIdValidator.validatedActiveMId(mId);
+            List<Map<String, Object>> gstInvoiceData = invoiceDao.getGstInvoiceData(mId, reportMonths);
+            if (CollectionUtils.isNotEmpty(gstInvoiceData)) {
+                //List<FileModel> fileModels = getFileModels(gstInvoiceData);
+                log.info("Fetched {} records for GST Invoice", gstInvoiceData.size());
+                List<String> gstHeaders = null;
+                List<List<Object>> fileData = new ArrayList<>();
+                for (Map<String, Object> csvData : gstInvoiceData) {
+                    Map<String, Object> dataMap = (Map<String, Object>) csvData.get("map");
+                    gstHeaders = (List<String>) dataMap.get("headers");
+                    fileData.addAll((List<List<Object>>) dataMap.get("rows"));
+                }
+                buildReport(mId, reportMonths, gstHeaders, fileData, response);
+            } else {
+                log.warn("No GST Invoice Data found for MID: {} and reportMonths: {}", mId, reportMonths);
+                return ReportingResponse.<String>builder().data(List.of("No Data Found")).status(ReportingConstant.RESPONSE_SUCCESS).build();
+            }
+        }catch (ValidationException e) {
+            log.error("Validation error while generating GST Invoice for MID: {} and reportMonths: {}. Error: {}", mId, reportMonths, e.getMessage());
+            throw e;
         }
-    }
-    /**
-     * Checks if a given object is null or empty, and adds an error if it is.
-     *
-     * @param value - The object to check
-     * @param fieldName - The name of the field to include in the error message
-     */
-    void checkMandatoryField(Object value, String fieldName) {
-        if (ObjectUtils.isEmpty(value)) {
-            log.error("Field '{}' is mandatory and cannot be null or empty.", fieldName);
-            addError(fieldName, ErrorConstants.MANDATORY_ERROR_CODE, ErrorConstants.MANDATORY_ERROR_MESSAGE);
+        catch (Exception e) {
+            log.error("Unexpected error while generating GST Invoice for MID: {} and reportMonths: {}. Error: {}", mId, reportMonths, e.getMessage());
+            throw new ReportingException(ErrorConstants.GENERATION_ERROR_CODE, "Error generating GST invoice report.");
         }
-    }
-    /**
-     * Checks if a given collection is empty or null, and adds an error if it is.
-     *
-     * @param collection - The collection to check
-     * @param fieldName - The name of the field to include in the error message
-     */
-    void checkMandatoryCollection(Collection collection, String fieldName) {
-        if (CollectionUtils.isEmpty(collection)) {
-            log.error("Collection field '{}' is mandatory and cannot be empty.", fieldName);
-            addError(fieldName, ErrorConstants.MANDATORY_ERROR_CODE, ErrorConstants.MANDATORY_ERROR_MESSAGE);
-        }
-    }
-    /**
-     * Checks if all provided values are empty or null, and adds an error if they are.
-     *
-     * @param fieldName - The name of the field to include in the error message
-     * @param values - The values to check
-     */
-    void checkMandatoryFields(String fieldName, String... values) {
-        boolean allEmpty = Arrays.stream(values).allMatch(StringUtils::isEmpty);
-        if (allEmpty) {
-            log.error("Fields '{}' are mandatory and cannot be all empty.", fieldName);
-            addError(fieldName, ErrorConstants.MANDATORY_ERROR_CODE, ErrorConstants.MANDATORY_ERROR_MESSAGE);
-        }
+        return ReportingResponse.<String>builder().data(List.of("Success")).status(ReportingConstant.RESPONSE_SUCCESS).build();
     }
 
-    /**
-     * Checks if a given date is valid, adds an error if it is not.
-     *
-     * @param date - The date value to check
-     * @param fieldName - The name of the field to include in the error message
-     */
-    void checkMandatoryDateField(Long date, String fieldName) {
-        if (ObjectUtils.isEmpty(date) || date < 0) {
-            log.error("Field '{}' contains an invalid date value.", fieldName);
-            addError(fieldName, ErrorConstants.MANDATORY_ERROR_CODE, ErrorConstants.MANDATORY_ERROR_MESSAGE);
-        }
+public List<Map<String, Object>> getGstInvoiceData(String mId, List<String> reportMonths) {
+        log.info("Fetching GST Invoice Data for MerchantId: {} and reportMonths {}", mId, reportMonths);
+        List<GstReport> merchantGstData = invoiceRepository.getMerchantGstInvoice(mId, reportMonths);
+        Map<String, List<GstReport>> gstDataMonthBy = convertInvoiceGstMonthWise(merchantGstData);
+        log.info("Returning processed GST Invoice data for {} months. Fetched {} records", gstDataMonthBy.size(), merchantGstData.size());
+        return gstDataMonthBy.entrySet().stream().map(entry -> createCSVTemplate(Report.GST_INVOICE, entry.getKey(), entry.getValue())).toList();
     }
 
-    /**
-     * Validates if a given field's length exceeds a maximum value.
-     *
-     * @param value - The value to check
-     * @param maxLength - The maximum allowed length
-     * @param fieldName - The name of the field to include in the error message
-     */
-    void validateFieldLength(String value, int maxLength, String fieldName) {
-        if (StringUtils.isNotEmpty(value) && value.length() > maxLength) {
-            log.error("Field '{}' exceeds the maximum allowed length of {} characters.", fieldName, maxLength);
-            addError(fieldName, ErrorConstants.INVALID_ERROR_CODE, "Max allowed length is " + maxLength);
-        }
+public static Map<String, List<GstReport>> convertInvoiceGstMonthWise(List<GstReport> gstReportData) {
+        log.debug("Converting merchant GST data into month-wise groups.");
+        Map<String, List<GstReport>> gstDataMonthBy = new HashMap<>();
+        gstReportData.forEach(merchantFeesReport -> {
+            if (gstDataMonthBy.containsKey(merchantFeesReport.getTransactionDate())) {
+                gstDataMonthBy.get(merchantFeesReport.getTransactionDate()).add(merchantFeesReport);
+            } else {
+                List<GstReport> merchantFeesReports = new ArrayList<>();
+                merchantFeesReports.add(merchantFeesReport);
+                gstDataMonthBy.put(merchantFeesReport.getTransactionDate(), merchantFeesReports);
+            }
+        });
+        log.debug("Conversion completed. Grouped by {} months.", gstDataMonthBy.size());
+        return gstDataMonthBy;
     }
 
-    /**
-     * Validates if a given date is not in the future and not too far in the past.
-     *
-     * @param date - The date value to check
-     * @param fieldName - The name of the field to include in the error message
-     */
-    void validateDateFieldForPastDate(Long date, String fieldName) {
-        if (date < ReportingConstant.MIN_TIMESTAMP || System.currentTimeMillis() < date) {
-            log.error("Field '{}' contains a future or invalid date.", fieldName);
-            addError(ErrorConstants.INVALID_ERROR_CODE, ErrorConstants.INVALID_ERROR_MESSAGE, fieldName, "Given date is greater then current date or not having format");
+    public static Map<String, Object> createCSVTemplate(Report report, String reportDate, List<GstReport> gstReports) {
+        log.info("Creating CSV template input for report: {} on date: {}", report.getName(), reportDate);
+        List<String> headers = Arrays.asList("Transaction Number", "GST", "GST Charged", "GST Of", "Narration", "Date");
+        List<List<Object>> rows = new ArrayList<>();
+        for (GstReport gstReport : gstReports) {
+            List<Object> row = Arrays.asList(
+                    gstReport.getTransactionNumber(),
+                    ReportingConstant.GST_PERCENTAGE,
+                    gstReport.getGstCharged(),
+                    ReportingConstant.GST_OF,
+                    ReportingConstant.NARRATION,
+                    gstReport.getTransactionDate());
+            rows.add(row);
         }
+
+        Map<String, Object> dataMap = new HashMap<>();
+        dataMap.put("headers", headers);
+        dataMap.put("rows", rows);
+        Map<String, Object> input = new HashMap<>();
+        input.put("map", dataMap);
+        input.put("report", reportDate);
+        return input;
     }
 
+private void buildReport(String mId, List<String> reportMonths, List<String> header, List<List<Object>> fileData, HttpServletResponse response) {
+        log.info("Building GST Invoice Report for MID: {} and Report month: {}", mId, reportMonths);
+        FileModel fileModel = fileGeneratorService.buildFileModel(
+                ReportFormat.CSV, header, fileData, Map.of("headers", header, "rows", fileData)
+        );
+        fileModel.setReportMonth(reportMonths.getFirst());
+        log.info("File model created, generating file for GST Invoice.");
 
-    /**
-     * Validates if a given date is not in the past and is within a valid range.
-     *
-     * @param date - The date value to check
-     * @param fieldName - The name of the field to include in the error message
-     */
-    void validateDateFieldForFutureDate(Long date, String fieldName) {
-        if (date > ReportingConstant.MAX_TIMESTAMP || System.currentTimeMillis() > date) {
-            log.error("Field '{}' contains an invalid future date.", fieldName);
-            addError(ErrorConstants.INVALID_ERROR_CODE, ErrorConstants.INVALID_ERROR_MESSAGE, fieldName, "Given date is less then current date or not having format");
-        }
-    }
-    /**
-     * Validates if a value matches the provided regex pattern and if its length is valid.
-     *
-     * @param value - The value to check
-     * @param maxLength - The maximum allowed length
-     * @param regex - The regex pattern to match the value against
-     * @param fieldName - The name of the field to include in the error message
-     * @param message - The error message to display if validation fails
-     */
-    void validateFieldWithRegex(String value, int maxLength, String regex, String fieldName, String message) {
-        if (StringUtils.isNotEmpty(value) && (value.length() > maxLength || validate(value, regex))) {
-            log.error("Field '{}' contains an invalid value or exceeds maximum length.", fieldName);
-            addError(fieldName, ErrorConstants.INVALID_ERROR_CODE, message + " " + maxLength);
+        if (fileData.size() > 1) {
+            fileGeneratorService.generateZipFile(response, ReportFormat.CSV, Report.GST_INVOICE, mId, List.of(fileModel));
+        } else {
+            fileGeneratorService.downloadFile(response, ReportFormat.CSV, Report.GST_INVOICE, mId, fileModel);
         }
     }
 
+public static final String JDBC_GST_INVOICE = """
+                    SELECT TRANSACTION_NUMBER AS transactionNumber,
+                    TO_CHAR(transaction_date, 'DD-MM-YY') as transactionDate,
+                    CASE
+                        WHEN MERCHANT_GST_CHARGED > 0 THEN MERCHANT_GST_CHARGED
+                        ELSE CUSTOMER_GST_CHARGED
+                    END AS gstCharged
+                    FROM PAYAGGREPORT.view_gst_invoice
+                    WHERE MID = :mId
+                    AND TO_CHAR(TO_DATE(transaction_date, 'DD-MM-YY'), 'Mon-YYYY') IN (:reportMonth)
+                    ORDER BY transaction_date DESC
+            """;
 
-    /**
-     * Validates if a value matches the provided regex pattern.
-     *
-     * @param value - The value to check
-     * @param regex - The regex pattern to match the value against
-     * @param fieldName - The name of the field to include in the error message
-     * @param message - The error message to display if validation fails
-     */
-    void validateFieldWithRegex(String value, String regex, String fieldName, String message) {
-        if (StringUtils.isNotEmpty(value) && validate(value, regex)) {
-            log.error("Field '{}' contains an invalid value '{}'.", fieldName, value);
-            addError(fieldName, ErrorConstants.INVALID_ERROR_CODE, MessageFormat.format(message, fieldName, value));
-        }
+  public void generateZipFile(HttpServletResponse response, ReportFormat reportFormat, Report report, String mId, List<FileModel> fileModels) {
+        log.info("Started zipFileGenerator for reportFormat: {}, report: {}, mId: {}, fileModels: {}", reportFormat, report.getName(),mId,fileModels);
+        zipFileGenerator.generateZipFile(response, reportFormat, report, mId, fileModels);
     }
 
-    /**
-     * Validates if a value matches the valid values list.
-     *
-     * @param value - The value to check
-     * @param validValue - The valid value to check against
-     * @param fieldName - The name of the field to include in the error message
-     */
-    void validateFieldValue(String value, String validValue, String fieldName) {
-        if (!validValue.equalsIgnoreCase(value)) {
-            log.error("Field '{}' contains an invalid value '{}'.", fieldName, value);
-            addError(INVALID_ERROR_CODE, INVALID_ERROR_MESSAGE, fieldName, "Valid Values are " + validValue);
-        }
-    }
-
-    /**
-     * Validates if a value matches any of the values in the valid values list.
-     *
-     * @param value - The value to check
-     * @param validValues - The list of valid values to check against
-     * @param fieldName - The name of the field to include in the error message
-     */
-    void validateFieldValue(String value, List<String> validValues, String fieldName) {
-        boolean isValid = validValues.stream().anyMatch(validValue -> validValue.equalsIgnoreCase(value));
-        if (!isValid) {
-            log.error("Field '{}' contains an invalid value '{}'.", fieldName, value);
-            addError(INVALID_ERROR_CODE, INVALID_ERROR_MESSAGE, fieldName, "Valid Values are " + validValues);
+public void generateZipFile(HttpServletResponse response, ReportFormat reportFormat, Report report, String mId, List<FileModel> fileModels) {
+        log.info("Starting ZIP file generation for report: {} and merchant ID: {}", report.getName(), mId);
+        try {
+            ByteArrayOutputStream byteArrayOutputStream = generateZipFile(reportFormat, report, mId, fileModels);
+            response.setContentType("application/zip");
+            response.setHeader(HttpHeaders.CONTENT_DISPOSITION, StringEscapeUtils.escapeJava("attachment;filename=" + mId + "_" + report.getName() + ".zip"));
+            response.setContentLength(byteArrayOutputStream.size());
+            response.getOutputStream().write(byteArrayOutputStream.toByteArray());
+            response.getOutputStream().flush();
+            log.info("ZIP file successfully generated and sent to the response.");
+        } catch (Exception e) {
+            log.error("Error occurred during zipFileGenerator : {}", e.getMessage());
+            throw new ReportingException(ErrorConstants.FILE_GENERATION_ERROR_CODE, MessageFormat.format(ErrorConstants.FILE_GENERATION_ERROR_MESSAGE, "zip", e.getMessage()));
         }
 
-    }
-
-    /**
-     * Adds an error message to the error list.
-     *
-     * @param fieldName - The name of the field to include in the error message
-     * @param errorCode - The error code to associate with the error
-     * @param errorMessage - The error message to display
-     */
-    void addError(String fieldName, String errorCode, String errorMessage) {
-        errorDtoList.add(ErrorDto.builder().errorCode(errorCode).errorMessage(MessageFormat.format(errorMessage, fieldName)).build());
-    }
-
-    /**
-     * Adds an error message to the error list with additional field names.
-     *
-     * @param errorCode - The error code to associate with the error
-     * @param errorMessage - The error message to display
-     * @param fieldNames - Additional field names to include in the error message
-     */
-    void addError(String errorCode, String errorMessage, Object... fieldNames) {
-        errorDtoList.add(ErrorDto.builder().errorCode(errorCode).errorMessage(MessageFormat.format(errorMessage, fieldNames)).build());
-    }
-    /**
-     * Throws a ValidationException if any errors were found during validation.
-     */
-    void throwIfErrors() {
-        if (!errorDtoList.isEmpty()) {
-            log.error("Validation failed with errors: {}", errorDtoList);
-            throw new ValidationException(new ArrayList<>(errorDtoList));
-        }
-    }
-    /**
-     * Validates if a value matches the provided regex pattern.
-     *
-     * @param value - The value to check
-     * @param regex - The regex pattern to match the value against
-     * @return true if the value does not match the regex, false otherwise
-     */
-    boolean validate(String value, String regex) {
-        return !Pattern.matches(regex, value);
-    }
-}
-
-
-
-
-public class InvoiceValidator extends BaseValidator {
-    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("MMM-yyyy", Locale.ENGLISH);
-
-    public void isValidMonthYear(List<String> date) {
-        for (String d : date) {
-            try {
-                YearMonth.parse(d, FORMATTER);
-            } catch (DateTimeParseException e) {
-                errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.DATE_FORMAT_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.DATE_FORMAT_ERROR_MESSAGE, "MMM-yyyy")).build());
-                throwIfErrors();
+   private ByteArrayOutputStream generateZipFile(ReportFormat reportFormat, Report report, String mId, List<FileModel> fileModels) throws IOException {
+        log.debug("Generating ZIP file for report: {} with format: {}", report.getName(), reportFormat.name());
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        for (FileModel fileModel : fileModels) {
+            ReportFile reportFile = fileGenerator.generateFile(reportFormat, report, mId, fileModel);
+            try (ZipOutputStream zos = new ZipOutputStream(byteArrayOutputStream)) {
+                ZipEntry zipEntry = new ZipEntry(getZipFileName(reportFormat, report, fileModel));
+                zos.putNextEntry(zipEntry);
+                zos.write(reportFile.getContent());
+                zos.closeEntry();
             }
         }
+        log.debug("ZIP file generation completed for report: {}", report.getName());
+        return byteArrayOutputStream;
+    }
+ public ReportFile generateFile(ReportFormat reportFormat, Report report, String mId, FileModel fileModel) {
+        logger.info("Generating file for report format: {}, report: {}, mId: {}", reportFormat, report.getName(), mId);
+        switch (reportFormat) {
+            case CSV -> {
+                CSVFileModel csvFileModel = (CSVFileModel) fileModel;
+                return CSVGenerator.csvFileGenerator(report.getName(), mId, csvFileModel.getHeaders(), csvFileModel.getFileData());
+            }
+
+  protected static ReportFile csvFileGenerator(String reportName, String mId, List<String> headerName, List<List<Object>> objects) {
+        log.info("Started csv file generator for reportName : {}, mId {}, headerName: {},  objects.size: {}", reportName, mId, headerName, CollectionUtils.size(objects));
+        String fileName = getFileName(reportName, mId);
+        String csvContent = generateCSV(headerName, objects);
+        return ReportFile.builder().name(fileName).content(csvContent.getBytes(StandardCharsets.UTF_8)).build();
+    }
+
+   private static String generateCSV(List<String> headers, List<List<Object>> objects) {
+        StringBuilder csvContent = new StringBuilder();
+        csvContent.append(String.join(",", headers)).append("\n");
+        for (List<Object> rowData : objects) {
+            String row = rowData.stream()
+                    .map(data -> ObjectUtils.isNotEmpty(data) ? data.toString() : StringUtils.EMPTY)
+                    .collect(Collectors.joining(","));
+            csvContent.append(row).append("\n");
+        }
+        return csvContent.toString();
     }
 
 
 
-still it's going to Exception type
+
+
+here reportMonths will come in this format   ["Feb-2025","Jan-2025"] now if multiple months are coming then I need to create csv files based on that maonth and share it in one zip file
