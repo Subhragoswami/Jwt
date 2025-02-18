@@ -277,3 +277,31 @@ public class CaptchaService {
                 });
     }
 }
+
+
+
+
+
+
+
+
+
+
+  try (FileInputStream fis = new FileInputStream(file);
+here getting 
+Severity:  High
+Project: Epay_Merchant_Service
+Tool: SAST
+Scanner: GitLab Advanced SAST
+
+The application was found to take a parameter from user input to construct a path name. If an unfiltered parameter is passed to this file API, files from an arbitrary filesystem location could be read. When data from an untrusted source is untrusted source is used to construct a file path, an attacker could potentially gain access to restricted files locations outside the relevant context.
+
+For example, if the application tries to access the users profile picture based on their user name by concatenating the username to the filepath:
+
+"images/userprofiles/" + username
+
+The expected result of this would be "images/userprofiles/alice", however an attacker could use a malicious input such as "../../../etc/passwd" to gain access to and/or manipulate sensitive information.
+
+Assume all input is malicious. Use an "accept known good" input validation strategy.
+
+Inputs can be sanitized by using the getName() method with concat() method to remove the potentially malicious path traversal and limit the scope to a restricted directory. Or input can also be sanitized by using resolve() method alongwith startsWith() method to verify that the base path of the file is safe and expected.
