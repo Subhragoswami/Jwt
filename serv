@@ -1,8 +1,279 @@
-   public List<Map<String, Object>> getGstInvoiceData(String mId, List<String> reportMonths) {
-        log.info("Fetching GST Invoice Data for MerchantId: {} and reportMonths {}", mId, reportMonths);
-        List<GstReport> merchantGstData = new ArrayList<>(List.of());
-        merchantGstData.add((GstReport) reportMonths.stream().map(months -> invoiceRepository.getMerchantGstInvoice(mId, reportMonths)).toList());
-        Map<String, List<GstReport>> gstDataMonthBy = convertInvoiceGstMonthWise(merchantGstData);
-        log.info("Returning processed GST Invoice data for {} months. Fetched {} records", gstDataMonthBy.size(), merchantGstData.size());
-        return gstDataMonthBy.entrySet().stream().map(entry -> createCSVTemplate(Report.GST_INVOICE, entry.getKey(), entry.getValue())).toList();
+public class CaptchaService {
+
+    private final LoggerUtility logger = LoggerFactoryUtility.getLogger(this.getClass());
+
+    private final MerchantConfig merchantConfig;
+    private final CaptchaDao captchaDao;
+    private final DefaultKaptcha captchaProducer;
+    private final CaptchaValidator captchaValidator;
+    private final CaptchaMapper captchaMapper;
+
+    /**
+     * Generates a captcha and save it to the DB and returns a response.
+     *
+     * @param captchaRequest CaptchaRequest
+     * @return merchantResponse containing CaptchaResponse
+     */
+    public MerchantResponse<CaptchaResponse> generateCaptcha(CaptchaRequest captchaRequest) {
+        logger.info("generate captcha for RequestId: {}", captchaRequest.getRequestId());
+        //Step 1 : Validate Captcha Request
+        captchaValidator.requestValidator(captchaRequest);
+        return saveCaptcha(captchaRequest, false);
     }
+
+
+    /**
+     * ReGenerates a captcha and save it to the DB and returns a response.
+     *
+     * @param captchaRequest CaptchaRequest
+     * @return merchantResponse containing CaptchaResponse
+     */
+    public MerchantResponse<CaptchaResponse> regenerateCaptcha(CaptchaRequest captchaRequest) {
+        logger.info("generate captcha for RequestId: {}", captchaRequest.getRequestId());
+        //Step 1 : Validate Captcha Request
+        captchaValidator.regenerateValidator(captchaRequest);
+        return saveCaptcha(captchaRequest, true);
+    }
+
+    /**
+     * Generates the captcha image and encodes it in Base64
+     *
+     * @param captchaText String
+     * @return Captcha
+     */
+    private String generateCaptchaImage(String captchaText) {
+        logger.info("generated captcha text: {}", captchaText);
+        BufferedImage image = captchaProducer.createImage(captchaText);
+        return MerchantUtil.convertImageToBase64(image, "Captcha");
+    }
+
+    private MerchantResponse<CaptchaResponse> saveCaptcha(CaptchaRequest captchaRequest, boolean retry) {
+        RequestType requestType = RequestType.getRequestType(captchaRequest.getRequestType());
+        //Step 2 : Generate Captcha Text
+        String captchaText = captchaProducer.createText();
+        //Step 3 : Generate Captcha Image and convert into Base 64
+        String base64Image = generateCaptchaImage(captchaText);
+        String base64Audio = generateCaptchaAudio(captchaText, captchaRequest.getRequestId());
+        //Step 3 : Save the Captcha into DB
+        CaptchaDto captchaDto = captchaDao.save(captchaText, captchaRequest.getRequestId(), requestType, retry);
+        //Step 4 : Build the Merchant Response
+        logger.info("generate captcha completed for RequestId: {}", captchaRequest.getRequestId());
+        return MerchantResponse.<CaptchaResponse>builder().data(List.of(captchaMapper.mapCaptchaDtoToCaptchaResponse(captchaDto, base64Image, base64Audio))).status(RESPONSE_SUCCESS).build();
+    }
+
+    /**
+     * Generates an audio CAPTCHA and returns it as a Base64-encoded string.
+     *
+     * @param captchaText The text to convert into an audio CAPTCHA.
+     * @param requestId   Unique identifier for tracking the request.
+     * @return Base64-encoded string of the audio CAPTCHA.
+     */
+    public String generateCaptchaAudio(String captchaText, UUID requestId) {
+        logger.info("Started generateAudioCaptcha for requestId: {}", requestId);
+
+        return Optional.ofNullable(captchaText)
+                .map(text -> generateAudioCaptcha(text, requestId))
+                .map(data -> encodeToBase64(data, requestId))
+                .orElseGet(() -> {
+                    logger.warn("Captcha text is null for requestId: {}", requestId);
+                    return "";
+                });
+    }
+
+    /**
+     * Converts the given text into speech and returns the generated audio as a byte array.
+     *
+     * @param text      The input text to be converted into speech.
+     * @param requestId Unique identifier for tracking requests.
+     * @return Byte array containing the generated speech audio.
+     */
+    public byte[] generateAudioCaptcha(String text, UUID requestId) {
+        if(StringUtils.isEmpty(System.getProperty(FREETTS_VOICES)))
+            System.setProperty(FREETTS_VOICES, merchantConfig.getVoiceDir());
+
+        logger.info("Generating audio captcha for requestId: {}", requestId);
+        File tempFile = createTempFile(requestId);
+        if (tempFile == null){
+            logger.error("Temp file creation failed for requestId: {}", requestId);
+            return new byte[0];
+        }
+
+        try {
+            Voice voice = initializeVoice();
+            if (voice == null) {
+                logger.error("Voice initialization failed for requestId: {}", requestId);
+                return new byte[0];
+            }
+
+            SingleFileAudioPlayer audioPlayer = configureAudioPlayer(tempFile);
+            voice.setAudioPlayer(audioPlayer);
+
+            speakCharacters(voice, text);
+            cleanupResources(voice, audioPlayer);
+
+            return validateAndReturnAudio(tempFile, requestId);
+        } catch (Exception e) {
+            logger.error("Error generating speech audio for requestId: {}", requestId, e);
+            throw new MerchantException(ErrorConstants.GENERATION_ERROR_CODE,
+                    MessageFormat.format(ErrorConstants.GENERATION_ERROR_MESSAGE, requestId));
+        } finally {
+            try {
+                Files.delete(tempFile.toPath());
+            } catch (IOException ioException) {
+                logger.warn("Failed to delete temporary file: {}, error: {}", tempFile.getAbsolutePath(), ioException.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Creates a temporary file for storing the generated audio.
+     *
+     * @param requestId Unique identifier for the request.
+     * @return A File object representing the temporary file.
+     */
+    private File createTempFile(UUID requestId) {
+        try {
+            // Define a secure temp directory from configuration
+            Path tempDir = Paths.get(merchantConfig.getTempDir()).normalize().toAbsolutePath();
+            if (!Files.exists(tempDir)) {
+                Files.createDirectories(tempDir); // Ensure the directory exists
+            }
+
+            // Create a temporary file in the secured directory
+            Path tempFilePath = Files.createTempFile(tempDir, "speech_" + System.currentTimeMillis() + "_" + requestId, ".wav");
+
+            // Validate the created file to ensure it stays within the expected directory
+            if (!tempFilePath.startsWith(tempDir)) {
+                throw new SecurityException("Invalid temp file path detected!");
+            }
+
+            logger.debug("Temporary file created securely: {}", tempFilePath);
+            return tempFilePath.toFile();
+
+        } catch (IOException e) {
+            logger.error("Failed to create temp file securely for requestId: {}", requestId, e);
+            return null;
+        }
+    }
+
+
+    /**
+     * Initializes the voice engine with predefined settings.
+     *
+     * @return A Voice object if successful, otherwise null.
+     */
+    private Voice initializeVoice() {
+        Voice voice = VoiceManager.getInstance().getVoice(merchantConfig.getVoiceName());
+        if (voice == null) {
+            logger.error("Voice '{}' not found.", merchantConfig.getVoiceName());
+            return null;
+        }
+        voice.allocate();
+        voice.setRate(130);
+        voice.setPitch(100);
+        voice.setVolume(1.0f);
+        logger.debug("Voice '{}' initialized successfully.", merchantConfig.getVoiceName());
+        return voice;
+    }
+
+    /**
+     * Configures the audio player for generating speech output.
+     *
+     * @param tempFile Temporary file to store the audio.
+     * @return Configured SingleFileAudioPlayer instance.
+     */
+    private SingleFileAudioPlayer configureAudioPlayer(File tempFile) {
+        return new SingleFileAudioPlayer(tempFile.getAbsolutePath().replace(".wav", ""), AudioFileFormat.Type.WAVE);
+    }
+
+    /**
+     * Converts each character in the given text into speech.
+     *
+     * @param voice The initialized voice object.
+     * @param text  The text to be spoken.
+     */
+    private void speakCharacters(Voice voice, String text) {
+        logger.debug("Speaking text: {}", text);
+        text.chars().forEach(ch -> voice.speak(String.valueOf((char)ch)));
+    }
+
+    /**
+     * Cleans up the resources used by the voice engine.
+     *
+     * @param voice       The Voice object to be deallocated.
+     * @param audioPlayer The AudioPlayer instance to be closed.
+     */
+    private void cleanupResources(Voice voice, SingleFileAudioPlayer audioPlayer) {
+        voice.deallocate();
+        audioPlayer.close();
+        logger.debug("Resources cleaned up successfully.");
+    }
+
+    /**
+     * Validates the generated audio file and converts it into a byte array.
+     *
+     * @param tempFile  The generated audio file.
+     * @param requestId Unique request identifier.
+     * @return Byte array containing the audio file data.
+     */
+    private byte[] validateAndReturnAudio(File tempFile, UUID requestId) {
+        if (!tempFile.exists() || tempFile.length() == 0) {
+            logger.error("Generated audio file is empty or missing for requestId: {}", requestId);
+            return new byte[0];
+        }
+        logger.info("Audio file successfully generated for requestId: {}", requestId);
+        return fileToByteArray(tempFile);
+    }
+
+    /**
+     * Reads the contents of a file and returns it as a byte array.
+     *
+     * @param file The file to read.
+     * @return Byte array containing the file contents.
+     */
+    private byte[] fileToByteArray(File file) {
+        try {
+            // Ensure the file is within the secure directory
+            Path tempDir = Paths.get(merchantConfig.getTempDir()).normalize().toAbsolutePath();
+            Path filePath = file.toPath().normalize().toAbsolutePath();
+            if (!filePath.startsWith(tempDir)) {
+                throw new SecurityException("Unauthorized file access detected!");
+            }
+
+            try (FileInputStream fis = new FileInputStream(file);
+                 ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream()) {
+
+                byte[] buffer = new byte[1024];
+                int bytesRead;
+                while ((bytesRead = fis.read(buffer)) != -1) {
+                    byteArrayOutputStream.write(buffer, 0, bytesRead);
+                }
+
+                logger.debug("File successfully converted to byte array: {}", file.getAbsolutePath());
+                return byteArrayOutputStream.toByteArray();
+            }
+
+        } catch (IOException e) {
+            logger.error("Error reading file to byte array securely: {}", file.getAbsolutePath(), e);
+            throw new MerchantException(ErrorConstants.GENERATION_ERROR_CODE,
+                    MessageFormat.format(ErrorConstants.GENERATION_ERROR_MESSAGE, file.getName()));
+        }
+    }
+
+    /**
+     * Encodes a byte array to a Base64 string
+     *
+     * @param data      The byte array to encode.
+     * @param requestId The request ID for logging.
+     * @return The Base64-encoded string.
+     */
+    public String encodeToBase64(byte[] data, UUID requestId) {
+        return Optional.ofNullable(data)
+                .filter(d -> d.length > 0)
+                .map(Base64.getEncoder()::encodeToString)
+                .orElseGet(() -> {
+                    logger.warn("Empty byte array for requestId: {}", requestId);
+                    return "";
+                });
+    }
+}
