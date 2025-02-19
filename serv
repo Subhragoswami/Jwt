@@ -1,15 +1,211 @@
-package com.gemfire.testing;
+package com.epay.merchant.dao;
 
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.annotation.ComponentScan;
+import com.epay.merchant.dto.FooterDto;
+import com.epay.merchant.dto.MerchantEntityGroupDto;
+import com.epay.merchant.dto.MerchantUserDto;
+import com.epay.merchant.dto.OnboardingDto;
+import com.epay.merchant.entity.Footer;
+import com.epay.merchant.entity.MerchantEntityGroup;
+import com.epay.merchant.entity.MerchantInfo;
+import com.epay.merchant.mapper.MerchantMapper;
+import com.epay.merchant.model.request.FotterRequest;
+import com.epay.merchant.model.request.OnboardingRequest;
+import com.epay.merchant.repository.FooterRepository;
+import com.epay.merchant.repository.MerchantEntityGroupRepository;
+import com.epay.merchant.repository.MerchantRepository;
+import com.epay.merchant.util.enums.MerchantStatus;
+import com.epay.merchant.util.enums.UserStatus;
+import com.sbi.epay.logging.utility.LoggerFactoryUtility;
+import com.sbi.epay.logging.utility.LoggerUtility;
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Component;
 
-@SpringBootApplication
-@ComponentScan(basePackages = {"org.springframework.boot.context.embedded.tomcat", "com.gemfire.testing"})
-public class GemfirePdxTestingApplication {
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
-	public static void main(String[] args) {
-		SpringApplication.run(GemfirePdxTestingApplication.class, args);
-	}
+/**
+ * Class Name: AdminDao
+ * Description: AdminDao is responsible for handling database operations related to the administration module of the system.
+ * This includes CRUD operations for managing admin-related data, such as users, roles, and permissions.
+ * It interacts directly with the database, using repositories or other data access technologies to persist and retrieve information.
+ * <p>
+ * Author: V1017903 (Bhushan Wadekar)
+ * Copyright (c) 2024 [State Bank of India]
+ * All rights reserved
+ * <p>
+ * Version: 1.0
+ */
+@Component
+@RequiredArgsConstructor
+public class AdminDao {
+
+    private final LoggerUtility log = LoggerFactoryUtility.getLogger(this.getClass());
+
+    private final MerchantRepository merchantRepository;
+    private final MerchantUserDao merchantUserDao;
+    private final MerchantEntityGroupRepository merchantEntityGroupRepository;
+    private final MerchantMapper mapper;
+    private final FooterRepository footerRepository;
+
+    /**
+     * Create onboarding records in the database.
+     * Destination: MerchantRepository save, MerchantUserDao.saveMerchantUser
+     *
+     * @param onboardingRequest OnboardingRequest
+     * @return OnboardingDto
+     */
+    @Transactional
+    public OnboardingDto onboardingMerchantAndMerchantUser(OnboardingRequest onboardingRequest) {
+        log.info("Onboarding request received");
+        // Step 1 : Onboard Merchant
+        MerchantInfo merchantInfo = mapper.mapMerchantDtoToEntity(onboardingRequest.getMerchant());
+        merchantInfo.setStatus(MerchantStatus.ACTIVE.name());
+        merchantInfo = merchantRepository.save(merchantInfo);
+        // Step 2 : Onboard Merchant User
+        MerchantUserDto merchantUserDto = merchantUserDao.saveMerchantUser(onboardingRequest.getUser(), merchantInfo.getMId());
+        // Step 3 : Build Onboarding response
+        return OnboardingDto.builder().merchant(mapper.mapMerchantInfoEntityToDto(merchantInfo)).user(merchantUserDto).build();
+    }
+
+    /**
+     * Check if a merchant exists by merchant ID.
+     * Destination: MerchantRepository.existsByMIdAndStatus
+     *
+     * @param mId String
+     * @return boolean
+     */
+    public boolean isMerchantExistByMId(String mId) {
+        return merchantRepository.existsBymIdAndStatus(mId, MerchantStatus.ACTIVE.name());
+    }
+
+    /**
+     * Check if a merchant exists in DB
+     * Destination: merchantUserDao.existsByUserNameOrEmailOrMobilePhoneAndStatus
+     *
+     * @param userName    String
+     * @param email       String
+     * @param mobilePhone String
+     * @return boolean
+     */
+    public boolean isMerchantUserExist(String userName, String email, String mobilePhone) {
+        return merchantUserDao.existsByUserNameOrEmailOrMobilePhoneAndStatus(userName, email, mobilePhone, UserStatus.ACTIVE);
+    }
+
+    /**
+     * Check if a merchant exists by userName and with roles
+     * Destination:  merchantUserDao.existsByUserNameOrEmailOrMobilePhoneAndRoles
+     *
+     * @param userName String
+     * @param roles    List<String>
+     * @return boolean
+     */
+    public boolean isMerchantUserExistWithRoles(String userName, List<String> roles) {
+        return merchantUserDao.existsByUserNameOrEmailOrMobilePhoneAndRoles(userName, roles);
+    }
+
+    /**
+     * Check if a merchant exists by userID
+     * Destination:  merchantUserDao.existsByUserIdAndRoles
+     *
+     * @param userId UUID
+     * @param roles  List<String>
+     * @return boolean
+     */
+    public boolean isMerchantUserExistWithRoles(UUID userId, List<String> roles) {
+        return merchantUserDao.existsByUserIdAndRoles(userId, roles);
+    }
+
+    /**
+     * Get all merchant users by merchant ID.
+     * Destination: MerchantUserDao.getAllMerchantUsersByMId
+     *
+     * @param mId      String
+     * @param pageable Pageable
+     * @return Page<MerchantUserDto>
+     */
+    public Page<MerchantUserDto> findAllMerchantUsersByMId(String mId, Pageable pageable) {
+        return merchantUserDao.getAllMerchantUsersByMId(mId, pageable);
+    }
+
+    /**
+     * Get the list of MIDs mapped to Entity
+     * Destination: merchantEntityGroupRepository.findExistingMIds
+     *
+     * @param mIds List<String>
+     * @return List<ExistingMIds>
+     */
+    public List<String> findMappedEntityMIds(List<String> mIds) {
+        return merchantEntityGroupRepository.findExistingMIds(mIds);
+    }
+
+    /**
+     * Get the list of Invalid or inActive MIds
+     * Destination:  merchantRepository.findActiveMIds
+     *
+     * @param mIds List<String>
+     * @return List<inActiveMIds>
+     */
+    public List<String> findInvalidsMIds(List<String> mIds) {
+        List<String> inActiveMIds = new ArrayList<>(mIds);
+        List<String> activeMIds = merchantRepository.findActiveMIds(mIds);
+        inActiveMIds.removeAll(activeMIds);
+        return inActiveMIds;
+    }
+
+    /**
+     * Check if a merchant EntityId exists
+     * Destination:  merchantEntityGroupRepository.existsByEntityId
+     *
+     * @param entityId String
+     * @return boolean
+     */
+    public boolean isEntityIdPresent(String entityId) {
+        return merchantEntityGroupRepository.existsByEntityId(entityId);
+    }
+
+    /**
+     * Save a merchant entity group.
+     * Destination: MerchantEntityGroupRepository.saveAll
+     *
+     * @param merchantEntityGroupDto MerchantEntityGroupDto
+     * @return MerchantEntityGroupDto
+     */
+    public MerchantEntityGroupDto saveMerchantEntityGroup(MerchantEntityGroupDto merchantEntityGroupDto) {
+        List<MerchantEntityGroup> merchantEntityGroups = merchantEntityGroupDto.getMIds().stream().map(mId -> MerchantEntityGroup.builder().entityId(merchantEntityGroupDto.getEntityId()).mId(mId).build()).collect(Collectors.toList());
+        merchantEntityGroupRepository.saveAll(merchantEntityGroups);
+        return merchantEntityGroupDto;
+    }
+
+    /**
+     * Update user roles for an entity.
+     *
+     * @param userId   UUID
+     * @param userName String
+     * @param entityId String
+     * @method Destination: MerchantUserDao.updateMerchantUserRole
+     */
+    public void updateUserRole(UUID userId, String userName, String entityId) {
+        merchantUserDao.updateMerchantUserRole(userId, userName, entityId);
+    }
+
+    /**
+     * Add Or Update Footer Labels
+     *
+     * @param footerLabelRequest FooterLabelRequest
+     * @method Description - Saving/Updating Footer ENUM
+     **/
+    @Transactional
+    public void saveFooterRequest(FotterRequest footerLabelRequest) {
+        for (FooterDto footerLabelDto : footerLabelRequest.getFooterLabels()) {
+            Footer footerResponse = footerRepository.findByLabel(footerLabelDto.getLabel().trim()).orElse(Footer.builder().label(footerLabelDto.getLabel().trim()).build());
+            footerResponse.setValue(footerLabelDto.getValue());
+            footerRepository.save(footerResponse);
+        }
+    }
 
 }
