@@ -1,363 +1,269 @@
-package com.epay.merchant.service;
+include:
+  - template: Jobs/SAST.latest.gitlab-ci.yml 
 
-import com.epay.merchant.config.MerchantConfig;
-import com.epay.merchant.dao.CaptchaDao;
-import com.epay.merchant.dto.CaptchaDto;
-import com.epay.merchant.exception.MerchantException;
-import com.epay.merchant.mapper.CaptchaMapper;
-import com.epay.merchant.model.request.CaptchaRequest;
-import com.epay.merchant.model.response.CaptchaResponse;
-import com.epay.merchant.model.response.MerchantResponse;
-import com.epay.merchant.util.ErrorConstants;
-import com.epay.merchant.util.MerchantUtil;
-import com.epay.merchant.util.enums.RequestType;
-import com.epay.merchant.validator.CaptchaValidator;
-import com.sbi.epay.captcha.impl.DefaultKaptcha;
-import com.sbi.epay.logging.utility.LoggerFactoryUtility;
-import com.sbi.epay.logging.utility.LoggerUtility;
-import com.sun.speech.freetts.Voice;
-import com.sun.speech.freetts.VoiceManager;
-import com.sun.speech.freetts.audio.SingleFileAudioPlayer;
-import lombok.RequiredArgsConstructor;
-import org.apache.commons.lang3.StringUtils;
-import org.springframework.stereotype.Service;
+stages:
+#- lint
+- build
+- test
+- sast
+- fortifyscan
+- dockerbuild
+#- notify
+- commit_update
 
-import javax.sound.sampled.AudioFileFormat;
-import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.security.SecureRandom;
-import java.text.MessageFormat;
-import java.util.Base64;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+variables:
+  GIT_STRATEGY: clone
+  GITLAB_ADVANCED_SAST_ENABLED: 'true'
+  SECURE_ANALYZERS_PREFIX: "$CI_TEMPLATE_REGISTRY_HOST/ubi9/security-products"
+  SAST_IMAGE_SUFFIX: ""
+  CI_TEMPLATE_REGISTRY_HOST: "registry.dev.sbiepay.sbi:8443"
+  SAST_EXCLUDED_ANALYSERS: ""
+  DEFAULT_SAST_EXCLUDED_PATHS: "spec, test, tests, tmp"
+  SAST_EXCLUDED_PATHS: "$DEFAULT_SAST_EXCLUDED_PATHS"
+  FORTIFY_IMAGE: "registry.dev.sbiepay.sbi:8443/hpfortify/fortify_sca_23.1.0:v7"
+  FORTIFY_PROJECT: "merchant"
+  PROJECT_NAME: "merchantci"
+  FORTIFY_SCAN_OUTPUT: "merchantci.fpr"
+  SOURCE_ANALYZER: "/opt/Fortify/Fortify_SCA_23.1.0/bin/sourceanalyzer"
+  BIRTReportGenerator: "/opt/Fortify/Fortify_Apps_and_Tools_23.1.0/bin/BIRTReportGenerator"
+  #GRADLE_HOME: "/opt/gradle"
+  #GRADLE_BUILD_FILE: "build.gradle"  
+  FORTIFY_PROJECT_DIR: "./"  
+# podman_user: root
+# podman_password: root@123
+# image_version: v2
+  REPO_URL: "https://gitlab-ci-token:$GIT_PAT@gitlab.epay.sbi/epay/devops/deployment.git"
+  CD_BRANCH: "feature/testcd"
+  BRANCH: "${CI_COMMIT_REF_NAME}"
+  SERVICE_PATH: "dev/charts/Epay_Merchant_Service/"
+  SERVICE_NAME: "registry.dev.sbiepay.sbi:8443/library/epay_merchant-original"
+  GIT_REPO_URL: "https://gitlab.epay.sbi/api/v4/projects/48/packages/maven"
+  CI_USERNAME: "gitlab-ci-token"
+  CI_JOB_TOKEN: "${CI_JOB_TOKEN}"
 
-import static com.epay.merchant.util.MerchantConstant.FREETTS_VOICES;
-import static com.epay.merchant.util.MerchantConstant.RESPONSE_SUCCESS;
-
-/**
- * Class Name: CaptchaService
- * *
- * Description:
- * *
- * Author: Subhra Goswami
- * <p>
- * Copyright (c) 2024 [State Bank of India]
- * All rights reserved
- * *
- * Version:1.0
- */
-@Service
-@RequiredArgsConstructor
-public class CaptchaService {
-
-    private final LoggerUtility logger = LoggerFactoryUtility.getLogger(this.getClass());
-
-    private final MerchantConfig merchantConfig;
-    private final CaptchaDao captchaDao;
-    private final DefaultKaptcha captchaProducer;
-    private final CaptchaValidator captchaValidator;
-    private final CaptchaMapper captchaMapper;
-    private final SecureRandom random;
-
-    /**
-     * Generates a captcha and save it to the DB and returns a response.
-     *
-     * @param captchaRequest CaptchaRequest
-     * @return merchantResponse containing CaptchaResponse
-     */
-    public MerchantResponse<CaptchaResponse> generateCaptcha(CaptchaRequest captchaRequest) {
-        logger.info("generate captcha for RequestId: {}", captchaRequest.getRequestId());
-        //Step 1 : Validate Captcha Request
-        captchaValidator.requestValidator(captchaRequest);
-        return saveCaptcha(captchaRequest, false);
-    }
+.standard-rules: # Make a hidden job to hold the common rules
+  rules:
+    # Run if the merge request created for target branch('develop', 'release' or 'main')
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME =~ /^(develop|release|main)$/'
+    # Run if anything commited to the commit branch(('develop', 'release' or 'main')
+    - if: '$CI_COMMIT_BRANCH =~ /^(develop|release|main)$/'   
 
 
-    /**
-     * ReGenerates a captcha and save it to the DB and returns a response.
-     *
-     * @param captchaRequest CaptchaRequest
-     * @return merchantResponse containing CaptchaResponse
-     */
-    public MerchantResponse<CaptchaResponse> regenerateCaptcha(CaptchaRequest captchaRequest) {
-        logger.info("generate captcha for RequestId: {}", captchaRequest.getRequestId());
-        //Step 1 : Validate Captcha Request
-        captchaValidator.regenerateValidator(captchaRequest);
-        return saveCaptcha(captchaRequest, true);
-    }
-
-    /**
-     * Generates the captcha image and encodes it in Base64
-     *
-     * @param captchaText String
-     * @return Captcha
-     */
-    private String generateCaptchaImage(String captchaText) {
-        logger.info("generated captcha text: {}", captchaText);
-        BufferedImage image = captchaProducer.createImage(captchaText);
-        return MerchantUtil.convertImageToBase64(image, "Captcha");
-    }
-
-    private MerchantResponse<CaptchaResponse> saveCaptcha(CaptchaRequest captchaRequest, boolean retry) {
-        RequestType requestType = RequestType.getRequestType(captchaRequest.getRequestType());
-        //Step 2 : Generate Captcha Text
-        String captchaText = captchaProducer.createText();
-        //Step 3 : Generate Captcha Image and convert into Base 64
-        String base64Image = generateCaptchaImage(captchaText);
-        String base64Audio = generateCaptchaAudio(captchaText, captchaRequest.getRequestId());
-        //Step 3 : Save the Captcha into DB
-        CaptchaDto captchaDto = captchaDao.save(captchaText, captchaRequest.getRequestId(), requestType, retry);
-        //Step 4 : Build the Merchant Response
-        logger.info("generate captcha completed for RequestId: {}", captchaRequest.getRequestId());
-        return MerchantResponse.<CaptchaResponse>builder().data(List.of(captchaMapper.mapCaptchaDtoToCaptchaResponse(captchaDto, base64Image, base64Audio))).status(RESPONSE_SUCCESS).build();
-    }
-
-    /**
-     * Generates an audio CAPTCHA and returns it as a Base64-encoded string.
-     *
-     * @param captchaText The text to convert into an audio CAPTCHA.
-     * @param requestId   Unique identifier for tracking the request.
-     * @return Base64-encoded string of the audio CAPTCHA.
-     */
-    public String generateCaptchaAudio(String captchaText, UUID requestId) {
-        logger.info("Started generateAudioCaptcha for requestId: {}", requestId);
-
-        return Optional.ofNullable(captchaText)
-                .map(text -> generateAudioCaptcha(text, requestId))
-                .map(data -> encodeToBase64(data, requestId))
-                .orElseGet(() -> {
-                    logger.warn("Captcha text is null for requestId: {}", requestId);
-                    return "";
-                });
-    }
-
-    /**
-     * Converts the given text into speech and returns the generated audio as a byte array.
-     *
-     * @param text      The input text to be converted into speech.
-     * @param requestId Unique identifier for tracking requests.
-     * @return Byte array containing the generated speech audio.
-     */
-    public byte[] generateAudioCaptcha(String text, UUID requestId) {
-        if(StringUtils.isEmpty(System.getProperty(FREETTS_VOICES)))
-            System.setProperty(FREETTS_VOICES, merchantConfig.getVoiceDir());
-
-        logger.info("Generating audio captcha for requestId: {}", requestId);
-        File tempFile = createTempFile(requestId);
-        if (tempFile == null){
-            logger.error("Temp file creation failed for requestId: {}", requestId);
-            return new byte[0];
-        }
-
-        try {
-            Voice voice = initializeVoice();
-            if (voice == null) {
-                logger.error("Voice initialization failed for requestId: {}", requestId);
-                return new byte[0];
-            }
-
-            SingleFileAudioPlayer audioPlayer = configureAudioPlayer(tempFile);
-            voice.setAudioPlayer(audioPlayer);
-
-            speakCharacters(voice, text);
-            cleanupResources(voice, audioPlayer);
-
-            return validateAndReturnAudio(tempFile, requestId);
-        } catch (Exception e) {
-            logger.error("Error generating speech audio for requestId: {}", requestId, e);
-            throw new MerchantException(ErrorConstants.GENERATION_ERROR_CODE,
-                    MessageFormat.format(ErrorConstants.GENERATION_ERROR_MESSAGE, requestId));
-        } finally {
-            try {
-                Files.delete(tempFile.toPath());
-            } catch (IOException ioException) {
-                logger.warn("Failed to delete temporary file: {}, error: {}", tempFile.getAbsolutePath(), ioException.getMessage());
-            }
-        }
-    }
-
-    /**
-     * Creates a temporary file for storing the generated audio.
-     *
-     * @param requestId Unique identifier for the request.
-     * @return A File object representing the temporary file.
-     */
-    private File createTempFile(UUID requestId) {
-        try {
-            // Ensure temp directory is properly configured
-            String tempDirConfig = merchantConfig.getTempDir();
-            if (tempDirConfig == null || tempDirConfig.trim().isEmpty()) {
-                throw new IllegalStateException("Temporary directory is not configured!");
-            }
-
-            Path tempDir = Paths.get(tempDirConfig).normalize().toAbsolutePath();
-            if (!Files.exists(tempDir)) {
-                Files.createDirectories(tempDir); // Ensure directory exists
-            }
-
-            // Use SecureRandom for unpredictable file names
-            String randomSuffix = Long.toHexString(random.nextLong());
-            Path tempFilePath = Files.createTempFile(tempDir, "speech_" + randomSuffix + "_", ".wav").normalize();
-
-            // Validate that tempFilePath is inside tempDir (prevent path traversal attacks)
-            if (!tempFilePath.startsWith(tempDir)) {
-                throw new SecurityException("Unauthorized temp file path detected: " + tempFilePath);
-            }
-            logger.debug("Temporary file securely created: {}", tempFilePath);
-            return tempFilePath.toFile();
-
-        } catch (Exception e) {
-            logger.error("Failed to create secure temp file for requestId: {}", requestId, e);
-            return null;
-        }
-    }
+build:
+  extends:
+    - .standard-rules  # Reuse the configuration in `.standard-rules` here
+  stage: build   
+  image: 
+   name:  $CI_TEMPLATE_REGISTRY_HOST/ubi9/gradle-8.9-jdk-21:v6
+   pull_policy: always
+  script:
+    - pwd
+    - gradle build -x test
+    - cd build/libs/
+    - ls -ltrh | grep -v "plain" 
+  artifacts:
+    paths:
+      - build/libs/
+    when: on_success 
+    expire_in: 1 week
+  
 
 
-    /**
-     * Initializes the voice engine with predefined settings.
-     *
-     * @return A Voice object if successful, otherwise null.
-     */
-    private Voice initializeVoice() {
-        Voice voice = VoiceManager.getInstance().getVoice(merchantConfig.getVoiceName());
-        if (voice == null) {
-            logger.error("Voice '{}' not found.", merchantConfig.getVoiceName());
-            return null;
-        }
-        voice.allocate();
-        voice.setRate(130);
-        voice.setPitch(100);
-        voice.setVolume(1.0f);
-        logger.debug("Voice '{}' initialized successfully.", merchantConfig.getVoiceName());
-        return voice;
-    }
+test:
+  extends:
+    - .standard-rules  # Reuse the configuration in `.standard-rules` here
+  stage: test
+  image: 
+    name:  $CI_TEMPLATE_REGISTRY_HOST/ubi9/gradle-8.9-jdk-21:v6
+    pull_policy: always
+  script:
+    - pwd
+    - ls -lrth | wc -l
+    - gradle test
+ 
 
-    /**
-     * Configures the audio player for generating speech output.
-     *
-     * @param tempFile Temporary file to store the audio.
-     * @return Configured SingleFileAudioPlayer instance.
-     */
-    private SingleFileAudioPlayer configureAudioPlayer(File tempFile) {
-        return new SingleFileAudioPlayer(tempFile.getAbsolutePath().replace(".wav", ""), AudioFileFormat.Type.WAVE);
-    }
+sast:
+  extends:
+    - .standard-rules  # Reuse the configuration in `.standard-rules` here
+  stage: sast
+  before_script:
+    - echo "hello from before sast"
+    - echo "this is in the file" > test.txt
+  artifacts:
+    reports:
+      sast: gl-sast-report.json
+    paths:
+      - gl-sast-report.json
+      - test.txt
+  variables:
+    SEARCH_MAX_DEPTH: 4  
 
-    /**
-     * Converts each character in the given text into speech.
-     *
-     * @param voice The initialized voice object.
-     * @param text  The text to be spoken.
-     */
-    private void speakCharacters(Voice voice, String text) {
-        logger.debug("Speaking text: {}", text);
-        text.chars().forEach(ch -> voice.speak(String.valueOf((char)ch)));
-    }
+.sast-analyzer:
+  extends: sast
+  script:
+    - echo "Starting SAST Analyzer"
+    - /analyzer run 
+  tags:
+    - privileged
 
-    /**
-     * Cleans up the resources used by the voice engine.
-     *
-     * @param voice       The Voice object to be deallocated.
-     * @param audioPlayer The AudioPlayer instance to be closed.
-     */
-    private void cleanupResources(Voice voice, SingleFileAudioPlayer audioPlayer) {
-        voice.deallocate();
-        audioPlayer.close();
-        logger.debug("Resources cleaned up successfully.");
-    }
+gitlab-advanced-sast:
+  extends: .sast-analyzer
+  image:
+    name: "$SAST_ANALYZER_IMAGE"
+  variables:
+    SEARCH_MAX_DEPTH: 20
+    SAST_ANALYZER_IMAGE_TAG: '1'
+    SAST_ANALYZER_IMAGE: "$SECURE_ANALYZERS_PREFIX/gitlab-advanced-sast:$SAST_ANALYZER_IMAGE_TAG$SAST_IMAGE_SUFFIX"
+  rules:
+    - if: $SAST_DISABLED == 'true' || $SAST_DISABLED == '1'
+      when: never
+    - if: $SAST_EXCLUDED_ANALYZERS =~ /gitlab-advanced-sast/
+      when: never
+    - if: $GITLAB_ADVANCED_SAST_ENABLED != 'true' && $GITLAB_ADVANCED_SAST_ENABLED != '1'
+      when: never
+   # - if: $CI_MERGE_REQUEST_ID && $GITLAB_FEATURES =~ /\bsast_advanced\b/  
+    - if: $CI_COMMIT_BRANCH && $GITLAB_FEATURES =~ /\bsast_advanced\b/
+      exists:
+        - '**/*.py'
+        - '**/*.go'
+        - '**/*.java'
+        - '**/*.jsp'
+        - '**/*.js'
+        - '**/*.jsx'
+        - '**/*.ts'
+        - '**/*.tsx'
+        - '**/*.cjs'
+        - '**/*.mjs'
+        - '**/*.cs'
+        - '**/*.rb'
+  # prevent the stage from running if the pipeline  source is a push
+    - if: '$CI_PIPELINE_SOURCE == "push"'
+      when: never
+  # Run if the merge request target branch is 'develop', 'release' or 'main'    
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME =~ /^(develop|release)$/'
+      when: on_success
+  # default rule: preven the stage from running unless conditions are met
+    - when: never    
+  
+send-reports:
+  extends:
+    - .standard-rules  # Reuse the configuration in `.standard-rules` here
+  stage: sast
+  image: 
+    name: "$SAST_ANALYZER_IMAGE"
+    pull_policy: always
+  dependencies:
+    - sast
+  before_script:
+    - echo "This is the send-reports before_script"
+  script:
+    - echo "in send-reports job"
+    - ls
+  artifacts:
+    reports:
+      sast: gl-sast-report.json
+   
 
-    /**
-     * Validates the generated audio file and converts it into a byte array.
-     *
-     * @param tempFile  The generated audio file.
-     * @param requestId Unique request identifier.
-     * @return Byte array containing the audio file data.
-     */
-    private byte[] validateAndReturnAudio(File tempFile, UUID requestId) {
-        if (!tempFile.exists() || tempFile.length() == 0) {
-            logger.error("Generated audio file is empty or missing for requestId: {}", requestId);
-            return new byte[0];
-        }
-        logger.info("Audio file successfully generated for requestId: {}", requestId);
-        return fileToByteArray(tempFile);
-    }
-
-    /**
-     * Reads the contents of a file and returns it as a byte array.
-     *
-     * @param file The file to read.
-     * @return Byte array containing the file contents.
-     */
-    private byte[] fileToByteArray(File file) {
-        try {
-            // Validate and normalize paths
-            String tempDirConfig = merchantConfig.getTempDir();
-            if (tempDirConfig == null || tempDirConfig.trim().isEmpty()) {
-                throw new IllegalStateException("Temporary directory is not configured!");
-            }
-
-            Path tempDir = Paths.get(tempDirConfig).normalize().toAbsolutePath();
-            Path resolvedPath = tempDir.resolve(file.getName()).normalize();
-
-            // Ensure the file is within the secure directory
-            if (!resolvedPath.startsWith(tempDir)) {
-                throw new SecurityException("Unauthorized file access detected: " + resolvedPath);
-            }
-
-            // Read file safely using Files API
-            try (InputStream fis = Files.newInputStream(resolvedPath);
-                 ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream()) {
-
-                byte[] buffer = new byte[1024];
-                int bytesRead;
-                while ((bytesRead = fis.read(buffer)) != -1) {
-                    byteArrayOutputStream.write(buffer, 0, bytesRead);
-                }
-
-                logger.debug("File successfully converted to byte array: {}", file.getName());
-                return byteArrayOutputStream.toByteArray();
-            }
-
-        } catch (IOException e) {
-            logger.error("Error reading file to byte array securely: {}", file.getName(), e);
-            throw new MerchantException(ErrorConstants.GENERATION_ERROR_CODE,
-                    MessageFormat.format(ErrorConstants.GENERATION_ERROR_MESSAGE, file.getName()));
-        }
-    }
-
-    /**
-     * Encodes a byte array to a Base64 string
-     *
-     * @param data      The byte array to encode.
-     * @param requestId The request ID for logging.
-     * @return The Base64-encoded string.
-     */
-    public String encodeToBase64(byte[] data, UUID requestId) {
-        return Optional.ofNullable(data)
-                .filter(d -> d.length > 0)
-                .map(Base64.getEncoder()::encodeToString)
-                .orElseGet(() -> {
-                    logger.warn("Empty byte array for requestId: {}", requestId);
-                    return "";
-                });
-    }
-}
-
+fortifyscan:
+  extends:
+    - .standard-rules  # Reuse the configuration in `.standard-rules` here
+  stage: fortifyscan
+  image: $FORTIFY_IMAGE
+  script:
+    - ls
+    - $SOURCE_ANALYZER -b $FORTIFY_PROJECT -clean
+    - $SOURCE_ANALYZER -b $FORTIFY_PROJECT "$FORTIFY_PROJECT_DIR/**/*.java" -exclude "./src/test/**/*"
+    #- $SOURCE_ANALYZER -b $FORTIFY_PROJECT -exclude="./src/test/**" "$FORTIFY_PROJECT_DIR/**/*.xml"
+#    - $SOURCE_ANALYZER -b $FORTIFY_PROJECT -scan -f "$FORTIFY_PROJECT_DIR/$FORTIFY_SCAN_OUTPUT"
+    - $SOURCE_ANALYZER -b $FORTIFY_PROJECT -scan -format fpr -f "$FORTIFY_PROJECT_DIR/$FORTIFY_SCAN_OUTPUT"
+    - ls -l "$FORTIFY_PROJECT_DIR/$FORTIFY_SCAN_OUTPUT" 
+    - $BIRTReportGenerator \
+      -template "Developer Workbook" \
+      -source "${FORTIFY_PROJECT_DIR}/${FORTIFY_SCAN_OUTPUT}" \
+      -format PDF \
+      -output "${FORTIFY_PROJECT_DIR}/${PROJECT_NAME}_report.pdf" \
+      -showSuppressed \
+      -showHidden \
+      -Xmx4G
+    - echo "PDF generation complete."
+    - pwd
+    - echo ${FORTIFY_PROJECT_DIR}
+    - echo ${PROJECT_NAME}
+    - ls -lrth "${FORTIFY_PROJECT_DIR}" 
+  artifacts:
+    paths:
+     - "./merchantci.fpr"
+     - "./merchantci_report.pdf"
+#   - "$FORTIFY_PROJECT_DIR/$FORTIFY_SCAN_OUTPUT"
+    expire_in: 1 week  
 
 
+dockerbuild:
+  stage: dockerbuild
+  dependencies:
+    - build
+  script:
+    - ls -ltrh build/libs/
+    - cp build/libs/epay_merchant_service-0.0.1-SNAPSHOT.jar .
+    - ls -ltrh
+# Get the target branch name (for merge requests) or current branch name (for non-merge requests)
+    - TARGET_BRANCH="${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-$CI_COMMIT_REF_NAME}"
+    - TIMESTAMP=$(date +"%Y%m%d%H%M%S")
+    - TAG="${TARGET_BRANCH}-${TIMESTAMP}"
+    - echo "Generated Tag.. $TAG"
+    - echo $TAG > tag.txt
+    - podman login -u root -p root@123 $CI_TEMPLATE_REGISTRY_HOST --tls-verify=false
+    - podman build -t $SERVICE_NAME:$TAG -f Dockerfile --tls-verify=false
+    - podman push $SERVICE_NAME:$TAG --tls-verify=false
+  artifacts:
+    paths:
+      - tag.txt
+    when: on_success 
+    expire_in: 1 week
+  rules:
+ #   - if: '$CI_PIPELINE_SOURCE == "push"'
+ #     when: never
+ #   - if: '$CI_COMMIT_BRANCH =~ /^(develop|release)$/ && $CI_MERGE_REQUEST_APPROVED == "true"'
+ #     when: on_success
+ #   - when: never 
+ #  - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME =~ /^(develop|release)$/ && $CI_MERGE_REQUEST_APPROVED == "true"'
+ #    when: on_success
+ #  - when: never    
+    # Run if anything commited to the commit branch(('develop', 'release' or 'main')
+    - if: '$CI_COMMIT_BRANCH =~ /^(develop|release|main)$/'   
 
-Parameter 5 of constructor in com.epay.merchant.service.CaptchaService required a bean of type 'java.security.SecureRandom' that could not be found.
+commit_update:
+  stage: commit_update
+  dependencies:
+    - dockerbuild
+  image: $CI_TEMPLATE_REGISTRY_HOST/library/rhelgit:latest
+  before_script:
+    - git config --global http.sslVerify false
 
-The following candidates were found but could not be injected:
-	- User-defined bean method 'secureRandom' in 'CaptchaConfig' ignored as the bean value is null
+  script:
+    - TAG=$(cat tag.txt)
+    - git clone --branch ${CD_BRANCH} ${REPO_URL}
+    - cd deployment
+    - git checkout ${CD_BRANCH}
+    - ls -ltrh $SERVICE_PATH
+    - cat $SERVICE_PATH/values.yaml
+    - echo "Tag is $TAG"
+    - sed -i "s/\(tag:\).*/\1 \"${TAG}\"/" $SERVICE_PATH/values.yaml
+    - git config --global user.name "ci"
+    - git config --global user.email "ci.cedge@sbi.co.in"    
+    - git add $SERVICE_PATH/values.yaml
+    - git commit -m "Update image tag to $TAG"
+    - git push origin ${CD_BRANCH}
+    - cat $SERVICE_PATH/values.yaml
+  rules:
+  # prevent the stage from running if the pipeline source is a push
+  #  - if: '$CI_PIPELINE_SOURCE == "push"'
+  #    when: never
+  # Run if the commit branch is 'release' and merge request is approved.
+  #  - if: '$CI_COMMIT_BRANCH =~ /^(develop|release)$/ && $CI_MERGE_REQUEST_APPROVED == "true"'
+  #    when: on_success
+  # default rule: preven the stage from running unless conditions are met
+  #  - when: never 
+   # Run if anything commited to the commit branch(('develop', 'release' or 'main')
+    - if: '$CI_COMMIT_BRANCH =~ /^(develop|release|main)$/'   
 
-
-Action:
-
-Consider revisiting the entries above or defining a bean of type 'java.security.SecureRandom' in your configuration.
