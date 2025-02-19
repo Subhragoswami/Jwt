@@ -1,32 +1,15 @@
-Field merchantPayModeCacheRepository in com.gemfire.testing.service.MerchantPaymodeService required a bean of type 'com.gemfire.testing.repository.cache.MerchantPayModeCacheRepository' that could not be found.
+package com.gemfire.testing;
 
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.ComponentScan;
 
-Action:
+@SpringBootApplication
+@ComponentScan(basePackages = {"org.springframework.boot.context.embedded.tomcat", "com.gemfire.testing"})
+public class GemfirePdxTestingApplication {
 
-Consider defining a bean of type 'com.gemfire.testing.repository.cache.MerchantPayModeCacheRepository' in your configuration.
-@Service
-@Data
-@RequiredArgsConstructor
-public class MerchantPaymodeService {
-    LoggerUtility logger = LoggerFactoryUtility.getLogger(MerchantPaymodeService.class);
-
-    private final MerchantPaymodeDao merchantPayModeDao;
-    private final MerchantDao merchantDao;
-    private final MerchantPaymentDownTimeDao merchantPaymentDownTimeDao;
-    @Autowired
-    private MerchantPayModeCacheRepository merchantPayModeCacheRepository;
-    @Autowired
-    private MerchantCacheRepository merchantCacheRepository;
-
-    public ResponseDto<MerchantPaymodeDTO> getMerchantPaymodes(String mId) {
-        logger.info("Cache call for get merchant id.");
-
-        Optional<MerchantEntity> merchantCacheDetails = merchantCacheRepository.findById(mId);
-        Optional<Merchant> merchantDetailsOptional;
-@Repository
-public interface MerchantPayModeCacheRepository extends CrudRepository<MerchantPayModeEntity, String> {
-
-    @Query("SELECT merchantPayMode FROM /Admin_Merchant_PayMode merchantPayMode WHERE merchantPayMode.mid = $1 AND merchantPayMode.status = $2 AND merchantPayMode.recordStatus =$3")
-    List<MerchantPayModeEntity> findMerchantPayModeById(String id, String status, String recordStatus);
+	public static void main(String[] args) {
+		SpringApplication.run(GemfirePdxTestingApplication.class, args);
+	}
 
 }
