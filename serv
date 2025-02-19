@@ -52,13 +52,6 @@ public class AdminDao {
     private final MerchantMapper mapper;
     private final FooterRepository footerRepository;
 
-    /**
-     * Create onboarding records in the database.
-     * Destination: MerchantRepository save, MerchantUserDao.saveMerchantUser
-     *
-     * @param onboardingRequest OnboardingRequest
-     * @return OnboardingDto
-     */
     @Transactional
     public OnboardingDto onboardingMerchantAndMerchantUser(OnboardingRequest onboardingRequest) {
         log.info("Onboarding request received");
@@ -72,84 +65,29 @@ public class AdminDao {
         return OnboardingDto.builder().merchant(mapper.mapMerchantInfoEntityToDto(merchantInfo)).user(merchantUserDto).build();
     }
 
-    /**
-     * Check if a merchant exists by merchant ID.
-     * Destination: MerchantRepository.existsByMIdAndStatus
-     *
-     * @param mId String
-     * @return boolean
-     */
     public boolean isMerchantExistByMId(String mId) {
         return merchantRepository.existsBymIdAndStatus(mId, MerchantStatus.ACTIVE.name());
     }
 
-    /**
-     * Check if a merchant exists in DB
-     * Destination: merchantUserDao.existsByUserNameOrEmailOrMobilePhoneAndStatus
-     *
-     * @param userName    String
-     * @param email       String
-     * @param mobilePhone String
-     * @return boolean
-     */
     public boolean isMerchantUserExist(String userName, String email, String mobilePhone) {
         return merchantUserDao.existsByUserNameOrEmailOrMobilePhoneAndStatus(userName, email, mobilePhone, UserStatus.ACTIVE);
     }
 
-    /**
-     * Check if a merchant exists by userName and with roles
-     * Destination:  merchantUserDao.existsByUserNameOrEmailOrMobilePhoneAndRoles
-     *
-     * @param userName String
-     * @param roles    List<String>
-     * @return boolean
-     */
     public boolean isMerchantUserExistWithRoles(String userName, List<String> roles) {
         return merchantUserDao.existsByUserNameOrEmailOrMobilePhoneAndRoles(userName, roles);
     }
-
-    /**
-     * Check if a merchant exists by userID
-     * Destination:  merchantUserDao.existsByUserIdAndRoles
-     *
-     * @param userId UUID
-     * @param roles  List<String>
-     * @return boolean
-     */
     public boolean isMerchantUserExistWithRoles(UUID userId, List<String> roles) {
         return merchantUserDao.existsByUserIdAndRoles(userId, roles);
     }
 
-    /**
-     * Get all merchant users by merchant ID.
-     * Destination: MerchantUserDao.getAllMerchantUsersByMId
-     *
-     * @param mId      String
-     * @param pageable Pageable
-     * @return Page<MerchantUserDto>
-     */
     public Page<MerchantUserDto> findAllMerchantUsersByMId(String mId, Pageable pageable) {
         return merchantUserDao.getAllMerchantUsersByMId(mId, pageable);
     }
 
-    /**
-     * Get the list of MIDs mapped to Entity
-     * Destination: merchantEntityGroupRepository.findExistingMIds
-     *
-     * @param mIds List<String>
-     * @return List<ExistingMIds>
-     */
     public List<String> findMappedEntityMIds(List<String> mIds) {
         return merchantEntityGroupRepository.findExistingMIds(mIds);
     }
 
-    /**
-     * Get the list of Invalid or inActive MIds
-     * Destination:  merchantRepository.findActiveMIds
-     *
-     * @param mIds List<String>
-     * @return List<inActiveMIds>
-     */
     public List<String> findInvalidsMIds(List<String> mIds) {
         List<String> inActiveMIds = new ArrayList<>(mIds);
         List<String> activeMIds = merchantRepository.findActiveMIds(mIds);
@@ -157,48 +95,19 @@ public class AdminDao {
         return inActiveMIds;
     }
 
-    /**
-     * Check if a merchant EntityId exists
-     * Destination:  merchantEntityGroupRepository.existsByEntityId
-     *
-     * @param entityId String
-     * @return boolean
-     */
+
     public boolean isEntityIdPresent(String entityId) {
         return merchantEntityGroupRepository.existsByEntityId(entityId);
     }
 
-    /**
-     * Save a merchant entity group.
-     * Destination: MerchantEntityGroupRepository.saveAll
-     *
-     * @param merchantEntityGroupDto MerchantEntityGroupDto
-     * @return MerchantEntityGroupDto
-     */
     public MerchantEntityGroupDto saveMerchantEntityGroup(MerchantEntityGroupDto merchantEntityGroupDto) {
         List<MerchantEntityGroup> merchantEntityGroups = merchantEntityGroupDto.getMIds().stream().map(mId -> MerchantEntityGroup.builder().entityId(merchantEntityGroupDto.getEntityId()).mId(mId).build()).collect(Collectors.toList());
         merchantEntityGroupRepository.saveAll(merchantEntityGroups);
         return merchantEntityGroupDto;
     }
-
-    /**
-     * Update user roles for an entity.
-     *
-     * @param userId   UUID
-     * @param userName String
-     * @param entityId String
-     * @method Destination: MerchantUserDao.updateMerchantUserRole
-     */
     public void updateUserRole(UUID userId, String userName, String entityId) {
         merchantUserDao.updateMerchantUserRole(userId, userName, entityId);
     }
-
-    /**
-     * Add Or Update Footer Labels
-     *
-     * @param footerLabelRequest FooterLabelRequest
-     * @method Description - Saving/Updating Footer ENUM
-     **/
     @Transactional
     public void saveFooterRequest(FotterRequest footerLabelRequest) {
         for (FooterDto footerLabelDto : footerLabelRequest.getFooterLabels()) {
@@ -208,4 +117,134 @@ public class AdminDao {
         }
     }
 
+}
+
+
+I've to write test cases for this class and already I've written this test cases for this class which is giving me 26% coverage
+
+import com.epay.merchant.dto.MerchantDto;
+import com.epay.merchant.dto.MerchantUserDto;
+import com.epay.merchant.dto.OnboardingDto;
+import com.epay.merchant.entity.*;
+import com.epay.merchant.mapper.MerchantMapper;
+import com.epay.merchant.model.request.OnboardingRequest;
+import com.epay.merchant.repository.*;
+import com.epay.merchant.util.enums.MerchantStatus;
+import com.epay.merchant.util.enums.MerchantUserRoles;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
+public class AdminDaoTest {
+
+    @Mock
+    MerchantUserDao merchantUserDao;
+    @InjectMocks
+    private AdminDao adminDao;
+    @Mock
+    private MerchantRepository merchantRepo;
+    @Mock
+    private MerchantUserRepository merchantUserRepo;
+    @Mock
+    private MerchantUserRoleRepository userRoleRepo;
+    @Mock
+    private MerchantMapper merchantMapper;
+    @Mock
+    private DefaultUserPermissionRepository defaultUserPermissionRepo;
+    @Mock
+    private MenuInfoRepository menuInfoRepo;
+    private OnboardingRequest onboardingRequest;
+
+    private MerchantInfo merchantInfo;
+    private MerchantUser merchantUser;
+    private MerchantDto merchantDto;
+    private MerchantUserDto merchantUserDto;
+    private MerchantUserRole merchantUserRole;
+
+
+    @BeforeEach
+    void setUp() {
+        onboardingRequest = OnboardingRequest.builder().merchant(MerchantDto.builder().city("vashi").build()).user(MerchantUserDto.builder().userName("username").build()).build();
+        merchantInfo = MerchantInfo.builder().build();
+        merchantUser = MerchantUser.builder().build();
+        merchantDto = MerchantDto.builder().build();
+        merchantUserDto = MerchantUserDto.builder().userName("user").build();
+        merchantUserRole = MerchantUserRole.builder().build();
+
+    }
+
+    @Test
+    public void onboardingTest() {
+
+        MerchantInfo merchantInfo1 = MerchantInfo.builder().city("vashi").status(MerchantStatus.ACTIVE.name()).build();
+        when(merchantMapper.mapMerchantDtoToEntity(onboardingRequest.getMerchant())).thenReturn(merchantInfo1);
+        when(merchantMapper.mapMerchantUserDtoToEntity(any(MerchantUserDto.class))).thenReturn(merchantUser);
+        when(merchantRepo.save(Mockito.any())).thenReturn(merchantInfo);
+        when(merchantMapper.mapMerchantInfoEntityToDto(merchantInfo)).thenReturn(merchantDto);
+        when(userRoleRepo.findByRole(MerchantUserRoles.ADMIN.name())).thenReturn(Optional.of(merchantUserRole));
+        when(merchantUserRepo.save(Mockito.any())).thenReturn(merchantUserDto);
+        when(merchantMapper.mapMerchantUserEntityToDto(merchantUser)).thenReturn(merchantUserDto);
+        MenuInfo menu = new MenuInfo();
+        menu.setId(UUID.randomUUID());
+        when(menuInfoRepo.findAll()).thenReturn(List.of(menu));
+        DefaultUserPermission defaultUserPermission = new DefaultUserPermission();
+        defaultUserPermission.setMenuId(menu.getId());
+        when(defaultUserPermissionRepo.findByRoleId(merchantUserRole.getId())).thenReturn(List.of(defaultUserPermission));
+        when(merchantUserDao.saveMerchantUser(onboardingRequest.getUser(), merchantInfo.getMId())).thenReturn(merchantUserDto);
+
+        OnboardingDto onboardingRequestRes = adminDao.onboardingMerchantAndMerchantUser(onboardingRequest);
+        assertNotNull(onboardingRequestRes.getMerchant());
+        assertEquals("user", onboardingRequestRes.getUser().getUserName());
+    }
+
+    @Test
+    void testFindAllMerchantUsersByMId_ReturnsPageOfMerchantUsers() {
+        String mid = "merchant123";
+        Pageable pageable = PageRequest.of(0, 10);
+
+        MerchantUserDto merchantUser = new MerchantUserDto();
+        merchantUser.setFirstName("testUser");
+
+        Page<MerchantUserDto> mockPage = new PageImpl<>(Collections.singletonList(MerchantUserDto.builder().firstName("testUser").build()));
+        when(merchantUserDao.getAllMerchantUsersByMId(mid, pageable)).thenReturn(mockPage);
+        Page<MerchantUserDto> result = adminDao.findAllMerchantUsersByMId(mid, pageable);
+
+        assertEquals(1, result.getTotalElements());
+        assertEquals("testUser", result.getContent().getFirst().getFirstName());
+    }
+
+
+    @Test
+    void testFindAllMerchantUsersByMId_ReturnsEmptyPage() {
+        String mid = "merchant123";
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<MerchantUserDto> mockPage = Page.empty();
+        when(merchantUserDao.getAllMerchantUsersByMId(mid, pageable)).thenReturn(mockPage);
+        Page<MerchantUserDto> result = adminDao.findAllMerchantUsersByMId(mid, pageable);
+
+        assertEquals(0, result.getTotalElements());
+        assertEquals(0, result.getContent().size());
+    }
 }
