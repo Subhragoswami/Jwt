@@ -1,8 +1,13 @@
+ @GetMapping("/{keyType}/{mId}")
+    @Operation(summary = "Get list of keys for given MID", description = "Get list of keys for given MID")
+    public KMSResponse<KeyManagementDto> getListOfKeys(@PathVariable KeyType keyType, @PathVariable String mId, @PageableDefault(size = 50, page = 0) Pageable pageable) {
+        logger.info("Fetching list of keys for Merchant with ID: {} and key type: {}", mId, keyType);
+        return keyManagementService.getKeysByMerchantId(keyType, mId, pageable);
+    }
 
-SELECT * FROM Report_Management r WHERE r.created_At <= 1739962406159 AND r.status = 'TO BE GENERATE'
-here the data is coming but here it's not coming why?
+public enum KeyType {
+    AEK, MEK, KEK, API
+}
 
-@Repository
-public interface ReportManagementRepository extends JpaRepository<ReportManagement, UUID> {
- @Query("SELECT r FROM ReportManagement r WHERE r.createdAt <= :time AND r.status = :status")
-    List<ReportManagement> findByStatus(@Param("status") ReportStatus status, @Param("time") Long time);
+            "errorMessage": "Failed to convert value of type 'java.lang.String' to required type 'com.epay.kms.util.enums.KeyType'; Failed to convert from type [java.lang.String] to type [@org.springframework.web.bind.annotation.PathVariable com.epay.kms.util.enums.KeyType] for value [234]"
+{{KmsBaseUrl}}/kms/v1/key/234/1000003
