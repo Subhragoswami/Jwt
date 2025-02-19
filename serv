@@ -1,17 +1,32 @@
-PS C:\Users\v1014352\E-Pay\epay_merchant_service> gradle test --exclude '**/test/**'
+Field merchantPayModeCacheRepository in com.gemfire.testing.service.MerchantPaymodeService required a bean of type 'com.gemfire.testing.repository.cache.MerchantPayModeCacheRepository' that could not be found.
 
-FAILURE: Build failed with an exception.
 
-* What went wrong:
-Problem configuring task :test from command line.
-> Unknown command-line option '--exclude'.
+Action:
 
-* Try:
-> Run gradle help --task :test to get task usage details.
-> Run with --stacktrace option to get the stack trace.
-> Run with --info or --debug option to get more log output.
-> Run with --scan to get full insights.
-> Get more help at https://help.gradle.org.
+Consider defining a bean of type 'com.gemfire.testing.repository.cache.MerchantPayModeCacheRepository' in your configuration.
+@Service
+@Data
+@RequiredArgsConstructor
+public class MerchantPaymodeService {
+    LoggerUtility logger = LoggerFactoryUtility.getLogger(MerchantPaymodeService.class);
 
-BUILD FAILED in 1s
-PS C:\Users\v1014352\E-Pay\epay_merchant_service> 
+    private final MerchantPaymodeDao merchantPayModeDao;
+    private final MerchantDao merchantDao;
+    private final MerchantPaymentDownTimeDao merchantPaymentDownTimeDao;
+    @Autowired
+    private MerchantPayModeCacheRepository merchantPayModeCacheRepository;
+    @Autowired
+    private MerchantCacheRepository merchantCacheRepository;
+
+    public ResponseDto<MerchantPaymodeDTO> getMerchantPaymodes(String mId) {
+        logger.info("Cache call for get merchant id.");
+
+        Optional<MerchantEntity> merchantCacheDetails = merchantCacheRepository.findById(mId);
+        Optional<Merchant> merchantDetailsOptional;
+@Repository
+public interface MerchantPayModeCacheRepository extends CrudRepository<MerchantPayModeEntity, String> {
+
+    @Query("SELECT merchantPayMode FROM /Admin_Merchant_PayMode merchantPayMode WHERE merchantPayMode.mid = $1 AND merchantPayMode.status = $2 AND merchantPayMode.recordStatus =$3")
+    List<MerchantPayModeEntity> findMerchantPayModeById(String id, String status, String recordStatus);
+
+}
