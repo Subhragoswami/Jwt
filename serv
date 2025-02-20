@@ -1,1 +1,70 @@
-Cannot invoke "org.springframework.security.core.Authentication.getPrincipal()" because the return value of "org.springframework.security.core.context.SecurityContext.getAuthentication()" is null
+public class CaptchaManagement implements Serializable {
+    @Id
+    private String id;
+    private String captchaText;
+    private Long expiryTime;
+    private String requestId;
+    private RequestType requestType;
+    private boolean verified;
+    private Long createdAt;
+}
+
+@RequiredArgsConstructor
+public class CaptchaDao {
+
+    private final MerchantConfig merchantConfig;
+    private final CaptchaMapper captchaMapper;
+    private final CaptchaManagementRepository captchaManagementRepository;
+
+    /**
+     * Check captcha exist by requestId
+     * @param requestId UUID
+     * @return boolean
+     */
+    public boolean existsByRequestId(UUID requestId) {
+        return captchaManagementRepository.existsByRequestId(requestId.toString()).isPresent();
+    }
+
+    public boolean existByRequestIdAndVerified(UUID requestId) {
+        return captchaManagementRepository.existsByRequestIdAndVerifiedTrue(requestId.toString()).isPresent();
+    }
+
+    /**
+     * Saves the captcha entity to the database
+     *
+     * @param captchaText  String
+     * @param requestId    String
+     * @param requestType  String
+     * @return CaptchaDto
+     */
+    @Transactional
+    public CaptchaDto save(String captchaText, UUID requestId, RequestType requestType, boolean retry) {
+        if (retry) {
+            CaptchaManagement captcha = getActiveCaptchaByRequestId(requestId);
+            captcha.setExpiryTime(System.currentTimeMillis());
+            captchaManagementRepository.save(captcha);
+        }
+        CaptchaManagement captcha = captchaManagementRepository.save(CaptchaManagement.builder().id(String.valueOf(Generators.timeBasedGenerator().generate())).verified(false).captchaText(EncryptionDecryptionUtil.hashValue(captchaText)).expiryTime(DateTimeUtils.addMinutes(merchantConfig.getExpiryTime())).requestId(requestId.toString()).requestType(requestType).createdAt(DateTimeUtils.getCurrentTimeInMills()).build());
+        return captchaMapper.mapCaptchaEntityToCaptchaDto(captcha);
+    }
+
+    /**
+     * Retrieves captcha details by requestId.
+     *
+     * @param requestId UUID
+     * @return Captcha
+     */
+    public CaptchaManagement getActiveCaptchaByRequestId(UUID requestId) {
+        return captchaManagementRepository.findActiveCaptcha(requestId.toString(), System.currentTimeMillis()).orElseThrow(() -> new MerchantException(ErrorConstants.INVALID_ERROR_CODE, MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Captcha.", "Captcha Expired, Invalid Request")));
+    }
+
+    /**
+     * Save the captcha in DB
+     *
+     * @param captcha Captcha
+     */
+    public void save(CaptchaManagement captcha) {
+        captchaManagementRepository.save(captcha);
+    }
+
+}
