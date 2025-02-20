@@ -1,70 +1,151 @@
-public class CaptchaManagement implements Serializable {
-    @Id
-    private String id;
-    private String captchaText;
-    private Long expiryTime;
-    private String requestId;
-    private RequestType requestType;
-    private boolean verified;
-    private Long createdAt;
-}
+package com.epay.merchant.dao;
 
+import com.epay.merchant.config.MerchantConfig;
+import com.epay.merchant.dto.MerchantBankAccountDto;
+import com.epay.merchant.dto.MerchantInfoDto;
+import com.epay.merchant.entity.MerchantBankAccount;
+import com.epay.merchant.entity.MerchantInfo;
+import com.epay.merchant.exception.MerchantException;
+import com.epay.merchant.mapper.MerchantMapper;
+import com.epay.merchant.repository.MerchantBankAccountRepository;
+import com.epay.merchant.util.ErrorConstants;
+import com.epay.merchant.util.enums.AccountStatus;
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Repository;
+
+import java.text.MessageFormat;
+import java.util.Optional;
+
+import static com.epay.merchant.util.EncryptionDecryptionUtil.decryptValue;
+import static com.epay.merchant.util.MaskingUtil.maskAccountNumber;
+
+
+
+@Repository
 @RequiredArgsConstructor
-public class CaptchaDao {
+public class MerchantBankDao {
 
+    private final MerchantBankAccountRepository merchantBankAccountRepository;
+    private final AlertDao alertDao;
+    private final MerchantMapper mapper;
     private final MerchantConfig merchantConfig;
-    private final CaptchaMapper captchaMapper;
-    private final CaptchaManagementRepository captchaManagementRepository;
 
-    /**
-     * Check captcha exist by requestId
-     * @param requestId UUID
-     * @return boolean
-     */
-    public boolean existsByRequestId(UUID requestId) {
-        return captchaManagementRepository.existsByRequestId(requestId.toString()).isPresent();
-    }
 
-    public boolean existByRequestIdAndVerified(UUID requestId) {
-        return captchaManagementRepository.existsByRequestIdAndVerifiedTrue(requestId.toString()).isPresent();
-    }
-
-    /**
-     * Saves the captcha entity to the database
-     *
-     * @param captchaText  String
-     * @param requestId    String
-     * @param requestType  String
-     * @return CaptchaDto
-     */
     @Transactional
-    public CaptchaDto save(String captchaText, UUID requestId, RequestType requestType, boolean retry) {
-        if (retry) {
-            CaptchaManagement captcha = getActiveCaptchaByRequestId(requestId);
-            captcha.setExpiryTime(System.currentTimeMillis());
-            captchaManagementRepository.save(captcha);
+    public void saveMerchantBankAccount(MerchantBankAccountDto merchantBankAccountDto, boolean isCreate) {
+        MerchantBankAccount merchantBankAccount = mapper.mapDtoToEntity(merchantBankAccountDto);
+        //Before masking decrypt the account Number
+        String accountNumber = decryptValue(merchantConfig.getDecryptionKey(), merchantBankAccountDto.getAccountNumber());
+        //Masking accountNumber
+        merchantBankAccount.setAccountNumberMasked(maskAccountNumber(accountNumber));
+        checkPrimaryAccountAndUpdate(merchantBankAccount);
+        saveMerchantBankAccount(isCreate, merchantBankAccount);
+    }
+
+    public Page<MerchantBankAccountDto> getMerchantBankAccountByMId(String mId, Pageable pageable) {
+        Page<MerchantBankAccount> merchantBankAccounts = merchantBankAccountRepository.findAllBymId(mId, pageable);
+        return merchantBankAccounts.map(this::convertEntityToDTO);
+    }
+
+    public boolean isExistByAccountUniqueIdentifier(String accountUniqueIdentifier) {
+        return merchantBankAccountRepository.existsByAccountUniqueIdentifier(accountUniqueIdentifier);
+    }
+
+    public boolean isExistByAccountNumber(String accountNumber) {
+        return merchantBankAccountRepository.existsByAccountNumber(accountNumber);
+    }
+
+    public MerchantBankAccountDto getAccountByAccountUniqueIdentifier(String accountUniqueIdentifier) {
+        MerchantBankAccount merchantBankAccount = getMerchantBankAccount(accountUniqueIdentifier);
+        return mapper.mapEntityToDto(merchantBankAccount);
+    }
+
+    @Transactional
+    public void saveMerchantBankAccount(String mId, String accountUniqueIdentifier, boolean isAccountApproved, String remarks) {
+        MerchantBankAccount merchantBankAccount = getAccountByMidAndUniqueIdentifier(mId, accountUniqueIdentifier);
+        merchantBankAccount.setApproved(isAccountApproved);
+        if (!isAccountApproved) {
+            merchantBankAccount.setRejectedReason(remarks);
+            merchantBankAccount.setStatus(AccountStatus.REJECTED);
+        } else {
+            merchantBankAccount.setStatus(AccountStatus.APPROVED);
         }
-        CaptchaManagement captcha = captchaManagementRepository.save(CaptchaManagement.builder().id(String.valueOf(Generators.timeBasedGenerator().generate())).verified(false).captchaText(EncryptionDecryptionUtil.hashValue(captchaText)).expiryTime(DateTimeUtils.addMinutes(merchantConfig.getExpiryTime())).requestId(requestId.toString()).requestType(requestType).createdAt(DateTimeUtils.getCurrentTimeInMills()).build());
-        return captchaMapper.mapCaptchaEntityToCaptchaDto(captcha);
+        merchantBankAccountRepository.save(merchantBankAccount);
+        alertDao.generateAlertForBankAccountApproval(mId, merchantBankAccount.getAccountHolderName());
     }
 
-    /**
-     * Retrieves captcha details by requestId.
-     *
-     * @param requestId UUID
-     * @return Captcha
-     */
-    public CaptchaManagement getActiveCaptchaByRequestId(UUID requestId) {
-        return captchaManagementRepository.findActiveCaptcha(requestId.toString(), System.currentTimeMillis()).orElseThrow(() -> new MerchantException(ErrorConstants.INVALID_ERROR_CODE, MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Captcha.", "Captcha Expired, Invalid Request")));
+    public MerchantBankAccount getAccountByMidAndUniqueIdentifier(String mid, String uniqueIdentifier) {
+        return merchantBankAccountRepository.findBymIdAndAccountUniqueIdentifier(mid, uniqueIdentifier).orElseThrow(() -> new MerchantException(ErrorConstants.NOT_FOUND_ERROR_CODE, MessageFormat.format(ErrorConstants.NOT_FOUND_ERROR_MESSAGE, "Account Information")));
     }
 
-    /**
-     * Save the captcha in DB
-     *
-     * @param captcha Captcha
-     */
-    public void save(CaptchaManagement captcha) {
-        captchaManagementRepository.save(captcha);
+    private MerchantBankAccount getMerchantBankAccount(String accountUniqueIdentifier) {
+        return merchantBankAccountRepository.findByAccountUniqueIdentifier(accountUniqueIdentifier).orElseThrow(() -> new MerchantException(ErrorConstants.NOT_FOUND_ERROR_CODE, MessageFormat.format(ErrorConstants.NOT_FOUND_ERROR_MESSAGE, "Account Information")));
     }
 
+    private MerchantInfoDto convertEntityToDTO(MerchantInfo merchantInfo) {
+        return mapper.mapMerchantInfoEntityToMerchantInfoDto(merchantInfo);
+    }
+
+    private void saveMerchantBankAccount(boolean isCreate, MerchantBankAccount merchantBankAccount) {
+        merchantBankAccount.setStatus(AccountStatus.APPROVAL_PENDING);
+        if (!isCreate) {
+            setMerchantAccountDBValueOnUpdate(merchantBankAccount);
+        }
+        merchantBankAccountRepository.save(merchantBankAccount);
+    }
+
+    private void checkPrimaryAccountAndUpdate(MerchantBankAccount merchantBankAccount) {
+        if (merchantBankAccount.isPrimary()) {
+            Optional<MerchantBankAccount> merchantPrimaryBankAccount = merchantBankAccountRepository.findBymIdAndIsPrimaryTrue(merchantBankAccount.getMId());
+            if (merchantPrimaryBankAccount.isPresent()) {
+                merchantPrimaryBankAccount.get().setPrimary(false);
+                merchantBankAccountRepository.save(merchantPrimaryBankAccount.get());
+            }
+        }
+    }
+
+    private void setMerchantAccountDBValueOnUpdate(MerchantBankAccount merchantBankAccount) {
+        MerchantBankAccount dbMerchantBankAccount = getMerchantBankAccount(merchantBankAccount.getAccountUniqueIdentifier());
+        merchantBankAccount.setId(dbMerchantBankAccount.getId());
+        merchantBankAccount.setCreatedAt(dbMerchantBankAccount.getCreatedAt());
+        merchantBankAccount.setCreatedBy(dbMerchantBankAccount.getCreatedBy());
+    }
+
+    private MerchantBankAccountDto convertEntityToDTO(MerchantBankAccount merchantBankAccount) {
+        return mapper.mapEntityToDto(merchantBankAccount);
+    }
+
+need to write test cases for this class it's giving 23% coverage I already have some test cases for this class
+
+@ExtendWith(MockitoExtension.class)
+public class MerchantBankDaoTest {
+    private final MerchantMapper mapperReal = Mappers.getMapper(MerchantMapper.class);
+    @Mock
+    private MerchantMapper mapper;
+    @Mock
+    private MerchantConfig merchantConfig;
+    @Mock
+    private MerchantBankAccountRepository merchantBankAccountRepository;
+    @InjectMocks
+    private MerchantBankDao merchantBankDao;
+
+    private MerchantBankAccountDto merchantBankAccountDto;
+
+    @BeforeEach
+    void setUp() {
+        when(merchantConfig.getDecryptionKey()).thenReturn("ABCZ5feKr16Td3XSpVywqXlwRNfSy9Gtis04WqEbD/0=");
+    }
+    @Test
+    void tetSaveMerchantBankAccount_Mask() {
+        var isCreate = true;
+        merchantBankAccountDto = MerchantBankAccountDtoBuilder.buildMerchantBankAccountDto(EncryptionDecryptionUtil.encryptValue(merchantConfig.getDecryptionKey(), "36123456789"));
+        var merchantBankAccount = mapperReal.mapDtoToEntity(merchantBankAccountDto);
+        when(mapper.mapDtoToEntity(merchantBankAccountDto)).thenReturn(merchantBankAccount);
+        when(merchantBankAccountRepository.save(any())).thenReturn(merchantBankAccount);
+        merchantBankDao.saveMerchantBankAccount(merchantBankAccountDto, isCreate);
+        assertEquals(merchantBankAccount.getAccountNumberMasked(), "xxxxxxx6789");
+    }
 }
