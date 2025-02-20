@@ -1,1 +1,145 @@
+package com.epay.merchant.dao;
 
+import com.epay.merchant.dto.AlertManagementDto;
+import com.epay.merchant.dto.AlertMasterDto;
+import com.epay.merchant.dto.ReportAlertDto;
+import com.epay.merchant.entity.AlertManagement;
+import com.epay.merchant.entity.AlertMaster;
+import com.epay.merchant.exception.MerchantException;
+import com.epay.merchant.mapper.AlertMapper;
+import com.epay.merchant.model.response.AlertManagementResponse;
+import com.epay.merchant.repository.AlertManagementRepository;
+import com.epay.merchant.repository.AlertMasterRepository;
+import com.epay.merchant.util.DateTimeUtils;
+import com.epay.merchant.util.EPayIdentityUtil;
+import com.epay.merchant.util.ErrorConstants;
+import com.epay.merchant.util.MerchantConstant;
+import com.epay.merchant.util.MerchantUtil;
+import com.epay.merchant.util.enums.MerchantUserRoles;
+import com.sbi.epay.logging.utility.LoggerFactoryUtility;
+import com.sbi.epay.logging.utility.LoggerUtility;
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import org.apache.commons.collections4.CollectionUtils;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Repository;
+
+import java.text.MessageFormat;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+import static com.epay.merchant.util.MerchantConstant.ACCOUNT_EXPIRY;
+
+
+@Repository
+@RequiredArgsConstructor
+public class AlertDao {
+    private final LoggerUtility log = LoggerFactoryUtility.getLogger(this.getClass());
+    private final AlertMasterRepository alertMasterRepository;
+    private final AlertManagementRepository alertManagementRepository;
+    private final MerchantInfoDao merchantInfoDao;
+    private final AlertMapper alertMapper;
+
+   
+    public List<AlertManagementResponse> getLatest50UnreadAlertDescription(String mId) {
+        // Fetch alerts based on MID with pagination (latest 50)
+        List<AlertManagement> alertManagementList = alertManagementRepository.findAlertsByMId(mId, PageRequest.of(0, 50, Sort.by(Sort.Direction.DESC, "createdAt")));
+
+        // Get user roles
+        List<String> userRoles = EPayIdentityUtil.getUserPrincipal().getUserRole();
+
+        // If user role is "USER", filter alerts accordingly
+        if( checkIsUserRole( userRoles ) ) {
+            List<AlertMasterDto> accountExpiryAlerts = findAllAlertByName(ACCOUNT_EXPIRY);
+            return alertMapper.alertManagementEntityToResponse(filterAlertsForUserRole(alertManagementList, collectAlertMasterId(accountExpiryAlerts)));
+        }
+        // Default return if no filtering is needed
+        return alertMapper.alertManagementEntityToResponse(alertManagementList);
+    }
+
+
+    @Transactional
+    public void updateViewStatus(String mId, long alertIdentifier) {
+        alertManagementRepository.updateAlertViewStatus(mId, alertIdentifier);
+    }
+
+
+    public void saveAllToAlertManagement(List<AlertManagementDto> alertManagementDtoList) {
+        List<AlertManagement> alertManagementList = alertMapper.mapDtoListToEntityList(alertManagementDtoList);
+        alertManagementRepository.saveAll(alertManagementList);
+    }
+
+    public Map<String, String> getMIdsWithExpiryDays(List<String> validityEndTime) {
+        return merchantInfoDao.getMIdsWithExpiryDays(validityEndTime);
+    }
+
+   
+    public List<AlertMasterDto> findAllAlertByName(String name) {
+        List<AlertMaster> alertMasterList = alertMasterRepository.findAllByName(name);
+        return alertMapper.mapAlertMasterEntityListToDtoList(alertMasterList);
+    }
+
+    public void generateAlertForBankAccountApproval(String mid, String accountName) {
+        List<AlertMaster> alertMasterList = alertMasterRepository.findAllByName(MerchantConstant.BANK_ACCOUNT);
+        if (CollectionUtils.isNotEmpty(alertMasterList)) {
+            AlertMaster alertMaster = alertMasterList.getFirst();
+            AlertManagement alertManagement = AlertManagement.builder().alertId(alertMaster.getId()).alertDescription(MessageFormat.format(alertMaster.getDescription(), accountName, DateTimeUtils.getCurrentDate())).alertIdentifier(MerchantUtil.generateUnique12DigitNumber()).isViewed(false).mId(mid).build();
+            alertManagementRepository.save(alertManagement);
+        }
+
+    }
+
+    
+    private boolean checkIsUserRole(List<String> userRoles) {
+        return userRoles.stream().anyMatch(MerchantUserRoles.USER.name()::equals);
+    }
+
+    private List<AlertManagement> filterAlertsForUserRole(List<AlertManagement> alertManagements, List<UUID> excludeAlertIds) {
+        return alertManagements.stream()
+                .filter(alert -> !excludeAlertIds.contains(alert.getAlertId()))
+                .collect(Collectors.toList());
+    }
+
+    private List<UUID> collectAlertMasterId(List<AlertMasterDto> alertMasterDtoList) {
+        return alertMasterDtoList.stream().map(master -> master.getId())
+                .collect(Collectors.toList());
+    }
+
+
+    public void generateAlertForReport(ReportAlertDto reportAlertDto) {
+        AlertMaster alertMasterData = alertMasterRepository.findByName(MerchantConstant.REPORT_GENERATION).orElseThrow(()-> new MerchantException(ErrorConstants.NOT_FOUND_ERROR_CODE, MessageFormat.format(ErrorConstants.NOT_FOUND_ERROR_MESSAGE, "Alert name  "+  MerchantConstant.REPORT_GENERATION)));
+        AlertManagement alertManagement = AlertManagement.builder().alertId(alertMasterData.getId()).alertDescription(MessageFormat.format(alertMasterData.getDescription(), reportAlertDto.getReportName())).alertIdentifier(MerchantUtil.generateUnique12DigitNumber()).isViewed(false).mId(reportAlertDto.getMId()).build();
+        log.info("generated Alert for ReportName: {}, mid : {}",reportAlertDto.getReportName(),reportAlertDto.getMId());
+        alertManagementRepository.save(alertManagement);
+    }
+
+}
+
+
+public class AlertManagement extends AuditEntity {
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+    private UUID alertId;
+    @Column(name = "MID")
+    private String mId;
+    private String alertDescription;
+    private boolean isViewed;
+    private long alertIdentifier;
+}
+
+public class AlertMaster {
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+    private String name;
+    private String description;
+    private String frequency;
+    private String value;
+    private String unit;
+}
+
+please write Junit for this
