@@ -103,3 +103,54 @@ private void buildReport(String mId, List<String> reportMonths, List<Map<String,
 
     fileGeneratorService.generateZipFile(response, ReportFormat.CSV, Report.GST_INVOICE, mId, fileModels);
 }
+
+
+
+
+
+
+
+
+
+private ByteArrayOutputStream generateZipFile(ReportFormat reportFormat, Report report, String mId, List<FileModel> fileModels) throws IOException {
+    log.debug("Generating ZIP file for report: {} with format: {}", report.getName(), reportFormat.name());
+    ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+    
+    try (ZipOutputStream zos = new ZipOutputStream(byteArrayOutputStream)) {  // Open once
+        for (FileModel fileModel : fileModels) {
+            ReportFile reportFile = fileGenerator.generateFile(reportFormat, report, mId, fileModel);
+            ZipEntry zipEntry = new ZipEntry(getZipFileName(reportFormat, report, fileModel));
+            zos.putNextEntry(zipEntry);
+            zos.write(reportFile.getContent());
+            zos.closeEntry();
+        }
+    }
+
+    log.debug("ZIP file generation completed for report: {}", report.getName());
+    return byteArrayOutputStream;
+}
+
+
+
+public void generateZipFile(HttpServletResponse response, ReportFormat reportFormat, Report report, String mId, List<FileModel> fileModels) {
+    log.info("Starting ZIP file generation for report: {} and merchant ID: {}", report.getName(), mId);
+    try {
+        ByteArrayOutputStream byteArrayOutputStream = generateZipFile(reportFormat, report, mId, fileModels);
+        
+        // Set response headers
+        setHeader(response, "application/zip", mId + "_" + report.getName() + ".zip");
+        response.setContentLength(byteArrayOutputStream.size());
+
+        // Write to response
+        try (ServletOutputStream outputStream = response.getOutputStream()) {
+            outputStream.write(byteArrayOutputStream.toByteArray());
+            outputStream.flush();
+        }
+
+        log.info("ZIP file successfully generated and sent to the response.");
+    } catch (Exception e) {
+        log.error("Error occurred during zip file generation: {}", e.getMessage());
+        throw new ReportingException(ErrorConstants.FILE_GENERATION_ERROR_CODE,
+                MessageFormat.format(ErrorConstants.FILE_GENERATION_ERROR_MESSAGE, "zip", e.getMessage()));
+    }
+}
