@@ -1,21 +1,71 @@
- public Long countTransactionsWithFilters(String orderNo, String sbiepayOrderId, String atrn, String bankRefNo, Long startDate, Long endDate, String status) {
-        return transactionViewRefundRepository.countTransactionsWithFilters(orderNo, sbiepayOrderId, atrn, bankRefNo, startDate, endDate, status);
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/eis")
+public class EisController {
+    private final LoggerUtility logger = LoggerFactoryUtility.getLogger(this.getClass());
+    private final EisDcmsValidationService eisDCMSValidationService;
 
+    @PostMapping("/getGstDetails/{gstIn}")
+    @Operation(summary = "GSTIN Number Validation")
+    public TransactionResponse<EncryptedResponse> getGstInDetails(@Valid @RequestBody EncryptedRequest encryptedRequest) {
+        logger.info("gstIn Validation is processing with encryptedRequest : ", encryptedRequest);
+        return eisDCMSValidationService.getGstInDetails(encryptedRequest);
     }
 
-    public Long countTransactionsWithFilters(String mId, String startDate, String endDate) {
-        return viewRecentTxnRepository.countTransactionsByMidAndDateRange(mId, startDate, endDate);
+    @PostMapping("/ecomflag")
+    @Operation(summary = "DCMS Validation")
+    public TransactionResponse<EncryptedResponse> getEcomFlagByDCMS(@Valid @RequestBody EncryptedRequest encryptedRequest) {
+        logger.info("Card Validation is processing with encryptedRequest : ", encryptedRequest);
+        return eisDCMSValidationService.getEcomFlagByDCMS(encryptedRequest);
     }
 
-    public Long countOrderAndRefundTransactionsWithFilters(String mID, long startMilliseconds, long endMilliseconds) {
-        return transactionRepository.countOrderAndRefundTransactionsWithFilters(mID, startMilliseconds, endMilliseconds);
+public class EisDcmsValidationService {
+    private final LoggerUtility logger = LoggerFactoryUtility.getLogger(this.getClass());
+    private final ObjectMapper objectMapper;
+    private final EncryptionDecryptionUtil encryptionDecryptionUtil;
+    private final EPayTokenProvider ePayTokenProvider;
+    private final DcmsServicesClient dcmsServicesClient;
+
+    public TransactionResponse<EncryptedResponse> getGstInDetails(EncryptedRequest encryptedRequest) {
+        try {
+            logger.info("GSTN Validation.");
+            String DecryptRequest = encryptionDecryptionUtil.decryptData(ePayTokenProvider.getToken(), encryptedRequest.getEncryptedRequest());
+            EisCardNumberRequest eisCardNumberRequest = objectMapper.readValue(DecryptRequest, EisCardNumberRequest.class);
+            //1.Validate request Param.
+            if (eisCardNumberRequest.getCardNumber().isEmpty()) {
+                throw new TransactionException(ErrorConstants.NOT_FOUND_ERROR_CODE, MessageFormat.format(ErrorConstants.NOT_FOUND_ERROR_MESSAGE, "Gstn"));
+            }
+
+            Object flagResponse = dcmsServicesClient.getGstnValidate(eisCardNumberRequest);
+            String Value = objectMapper.writeValueAsString(flagResponse);
+            String response = encryptionDecryptionUtil.encryptData(ePayTokenProvider.getToken(), Value);
+            EncryptedResponse encryptedResponse = EncryptedResponse.builder().encryptedResponse(response).build();
+
+            return TransactionResponse.<EncryptedResponse>builder().data(Collections.singletonList(encryptedResponse)).status(SUCCESS_RESPONSE_CODE).count(1L).build();
+        } catch (JsonProcessingException e) {
+            throw new TransactionException(ErrorConstants.JSON_ERROR_CODE, MessageFormat.format(ErrorConstants.JSON_ERROR_MESSAGE, "encrypted Request"));
+        }
     }
 
-    public boolean isTransactionValidForBooking(String sbiOrderRefNumber, List<String> statusList) {
-        return transactionRepository.countBySbiOrderRefNumberAndTransactionStatusInNative(sbiOrderRefNumber, statusList) > 0;
+    public TransactionResponse<EncryptedResponse> getEcomFlagByDCMS(EncryptedRequest encryptedRequest) {
+        try {
+            logger.info("EIS DCSM CardNumber Validation.");
+            String DecryptRequest = encryptionDecryptionUtil.decryptData(ePayTokenProvider.getToken(), encryptedRequest.getEncryptedRequest());
+            EisCardNumberRequest eisCardNumberRequest = objectMapper.readValue(DecryptRequest, EisCardNumberRequest.class);
+            //1.Validate request Param.
+            if (eisCardNumberRequest.getCardNumber().isEmpty()) {
+                throw new TransactionException(ErrorConstants.NOT_FOUND_ERROR_CODE, MessageFormat.format(ErrorConstants.NOT_FOUND_ERROR_MESSAGE, "cardNumberRequest"));
+            }
+
+            Object flagResponse = dcmsServicesClient.getEisDCMSCardNumberValidate(eisCardNumberRequest);
+            String Value = objectMapper.writeValueAsString(flagResponse);
+            String response = encryptionDecryptionUtil.encryptData(ePayTokenProvider.getToken(), Value);
+            EncryptedResponse encryptedResponse = EncryptedResponse.builder().encryptedResponse(response).build();
+
+            return TransactionResponse.<EncryptedResponse>builder().data(Collections.singletonList(encryptedResponse)).status(SUCCESS_RESPONSE_CODE).count(1L).build();
+        } catch (JsonProcessingException e) {
+            throw new TransactionException(ErrorConstants.JSON_ERROR_CODE, MessageFormat.format(ErrorConstants.JSON_ERROR_MESSAGE, "encrypted Request"));
+        }
     }
 
-    public Object[] getRfc(String altHash) {
-        logger.info("Fetching data from MerchantOrderPayment and Order table.");
-        return transactionRepository.rfcCount(altHash);
-    }
+add logger and method defination here
