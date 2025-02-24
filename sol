@@ -1,3 +1,53 @@
+ /**
+ * Class Name: CardController
+ * 
+ * Description: This controller handles BIN check verification for card transactions.
+ * 
+ * Author: NIRMAL GURJAR
+ * 
+ * Copyright (c) 2024 [State Bank of India]
+ * All rights reserved.
+ * 
+ * Version: 1.0
+ */
+@RestController
+@AllArgsConstructor
+@RequestMapping("/cards")
+public class CardController {
+    private final LoggerUtility logger = LoggerFactoryUtility.getLogger(this.getClass());
+    private final CardService cardService;
+
+    /**
+     * Endpoint: /cards/binCheck
+     * 
+     * Description: Validates card number by performing a BIN check.
+     * 
+     * @param encryptedRequest The encrypted request containing card BIN details.
+     * @return TransactionResponse containing encrypted BIN check result.
+     */
+    @PostMapping("/binCheck")
+    @Operation(summary = "Card Number Verification")
+    public TransactionResponse<EncryptedResponse> binCheck(@RequestBody EncryptedRequest encryptedRequest) {
+        logger.info("Received request for BIN check.");
+        try {
+            logger.debug("Processing BIN check with encrypted request: {}", encryptedRequest);
+            TransactionResponse<EncryptedResponse> response = cardService.binCheck(encryptedRequest);
+            logger.info("BIN check request processed successfully.");
+            return response;
+        } catch (Exception e) {
+            logger.error("Error during BIN check: {}", e.getMessage());
+            throw e;
+        }
+    }
+}
+
+
+
+
+
+
+
+
 /**
  * Performs a BIN check by decrypting the request, validating the card BIN, and calling an admin service.
  * 
