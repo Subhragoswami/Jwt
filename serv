@@ -1,71 +1,55 @@
 @RestController
-@RequiredArgsConstructor
-@RequestMapping("/eis")
-public class EisController {
+@AllArgsConstructor
+@RequestMapping("/cards")
+public class CardController {
     private final LoggerUtility logger = LoggerFactoryUtility.getLogger(this.getClass());
-    private final EisDcmsValidationService eisDCMSValidationService;
+    private final CardService cardService;
 
-    @PostMapping("/getGstDetails/{gstIn}")
-    @Operation(summary = "GSTIN Number Validation")
-    public TransactionResponse<EncryptedResponse> getGstInDetails(@Valid @RequestBody EncryptedRequest encryptedRequest) {
-        logger.info("gstIn Validation is processing with encryptedRequest : ", encryptedRequest);
-        return eisDCMSValidationService.getGstInDetails(encryptedRequest);
+    @PostMapping("/binCheck")
+    @Operation(summary = "Card Number Verification")
+    public TransactionResponse<EncryptedResponse> binCheck(@RequestBody EncryptedRequest encryptedRequest) {
+        logger.info("binCheck request : " + encryptedRequest);
+        return cardService.binCheck(encryptedRequest);
     }
 
-    @PostMapping("/ecomflag")
-    @Operation(summary = "DCMS Validation")
-    public TransactionResponse<EncryptedResponse> getEcomFlagByDCMS(@Valid @RequestBody EncryptedRequest encryptedRequest) {
-        logger.info("Card Validation is processing with encryptedRequest : ", encryptedRequest);
-        return eisDCMSValidationService.getEcomFlagByDCMS(encryptedRequest);
+}
+
+public TransactionResponse<EncryptedResponse> binCheck(EncryptedRequest encryptedRequest) {
+        logger.info("Preparing to fetch binCheck status.");
+        String decryptedCardBin = encryptionDecryptionUtil.decryptData(ePayTokenProvider.getToken(), encryptedRequest.getEncryptedRequest());
+        logger.debug("Convert CardBin String to request{}", decryptedCardBin);
+        BinCheckRequest binCheckRequest = convertDectryptDataToBinCheckRequest(decryptedCardBin);
+        logger.info("Calling Admin Service");
+        TransactionResponse<BinCheckResponse> binCheckResponse = adminServicesClient.binCheckRequest(binCheckRequest);
+
+        if (binCheckResponse.getStatus() == RESPONSE_FAILURE) {
+            throw new TransactionException(ErrorConstants.INVALID_ERROR_CODE, MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Card details", "Invalid card."));
+        }
+
+        String responseJson = convertBinCheckResponseToString(binCheckResponse);
+        logger.info("Encrypting response from binCheck ");
+        String encryptedResponse = encryptionDecryptionUtil.encryptData(ePayTokenProvider.getToken(), responseJson);
+        EncryptedResponse response = EncryptedResponse.builder().encryptedResponse(encryptedResponse).build();
+        return TransactionResponse.<EncryptedResponse>builder().status(RESPONSE_SUCCESS).count(1L).data(Collections.singletonList(response)).build();
     }
 
-public class EisDcmsValidationService {
-    private final LoggerUtility logger = LoggerFactoryUtility.getLogger(this.getClass());
-    private final ObjectMapper objectMapper;
-    private final EncryptionDecryptionUtil encryptionDecryptionUtil;
-    private final EPayTokenProvider ePayTokenProvider;
-    private final DcmsServicesClient dcmsServicesClient;
-
-    public TransactionResponse<EncryptedResponse> getGstInDetails(EncryptedRequest encryptedRequest) {
+    private BinCheckRequest convertDectryptDataToBinCheckRequest(String decryptedCardBin) {
         try {
-            logger.info("GSTN Validation.");
-            String DecryptRequest = encryptionDecryptionUtil.decryptData(ePayTokenProvider.getToken(), encryptedRequest.getEncryptedRequest());
-            EisCardNumberRequest eisCardNumberRequest = objectMapper.readValue(DecryptRequest, EisCardNumberRequest.class);
-            //1.Validate request Param.
-            if (eisCardNumberRequest.getCardNumber().isEmpty()) {
-                throw new TransactionException(ErrorConstants.NOT_FOUND_ERROR_CODE, MessageFormat.format(ErrorConstants.NOT_FOUND_ERROR_MESSAGE, "Gstn"));
-            }
-
-            Object flagResponse = dcmsServicesClient.getGstnValidate(eisCardNumberRequest);
-            String Value = objectMapper.writeValueAsString(flagResponse);
-            String response = encryptionDecryptionUtil.encryptData(ePayTokenProvider.getToken(), Value);
-            EncryptedResponse encryptedResponse = EncryptedResponse.builder().encryptedResponse(response).build();
-
-            return TransactionResponse.<EncryptedResponse>builder().data(Collections.singletonList(encryptedResponse)).status(SUCCESS_RESPONSE_CODE).count(1L).build();
+            return mapper.readValue(decryptedCardBin, BinCheckRequest.class);
         } catch (JsonProcessingException e) {
-            throw new TransactionException(ErrorConstants.JSON_ERROR_CODE, MessageFormat.format(ErrorConstants.JSON_ERROR_MESSAGE, "encrypted Request"));
+            throw new TransactionException(ErrorConstants.INVALID_ERROR_CODE, MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Encrypt request", "Requested data is mismatched."));
         }
     }
 
-    public TransactionResponse<EncryptedResponse> getEcomFlagByDCMS(EncryptedRequest encryptedRequest) {
+    private String convertBinCheckResponseToString(TransactionResponse<BinCheckResponse> binCheckResponse) {
+
         try {
-            logger.info("EIS DCSM CardNumber Validation.");
-            String DecryptRequest = encryptionDecryptionUtil.decryptData(ePayTokenProvider.getToken(), encryptedRequest.getEncryptedRequest());
-            EisCardNumberRequest eisCardNumberRequest = objectMapper.readValue(DecryptRequest, EisCardNumberRequest.class);
-            //1.Validate request Param.
-            if (eisCardNumberRequest.getCardNumber().isEmpty()) {
-                throw new TransactionException(ErrorConstants.NOT_FOUND_ERROR_CODE, MessageFormat.format(ErrorConstants.NOT_FOUND_ERROR_MESSAGE, "cardNumberRequest"));
-            }
-
-            Object flagResponse = dcmsServicesClient.getEisDCMSCardNumberValidate(eisCardNumberRequest);
-            String Value = objectMapper.writeValueAsString(flagResponse);
-            String response = encryptionDecryptionUtil.encryptData(ePayTokenProvider.getToken(), Value);
-            EncryptedResponse encryptedResponse = EncryptedResponse.builder().encryptedResponse(response).build();
-
-            return TransactionResponse.<EncryptedResponse>builder().data(Collections.singletonList(encryptedResponse)).status(SUCCESS_RESPONSE_CODE).count(1L).build();
+            return mapper.writeValueAsString(binCheckResponse.getData().getFirst());
         } catch (JsonProcessingException e) {
-            throw new TransactionException(ErrorConstants.JSON_ERROR_CODE, MessageFormat.format(ErrorConstants.JSON_ERROR_MESSAGE, "encrypted Request"));
+            throw new TransactionException(ErrorConstants.INVALID_ERROR_CODE, MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Encrypt request", "Requested data is mismatched."));
         }
     }
 
-add logger and method defination here
+
+
+please do check method names and write metod definations
