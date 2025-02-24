@@ -1,88 +1,48 @@
-
-/**
- * Class Name: TransactionDao
- *
- * Description: This DAO class handles all transaction-related database operations, 
- * including transaction validation, retrieval, saving, and updating.
- *
- * Author: NIRMAL GURJAR
- *
- * Copyright (c) 2024 [State Bank of India]
- * All rights reserved.
- *
- * Version: 1.0
- */
-@Component
-@RequiredArgsConstructor
-public class TransactionDao {
-
+public class EisDcmsValidationService {
     private final LoggerUtility logger = LoggerFactoryUtility.getLogger(this.getClass());
-
-    private final TransactionRepository transactionRepository;
-    private final ViewRecentTxnRepository viewRecentTxnRepository;
     private final ObjectMapper objectMapper;
-    private final TransactionViewRefundRepository transactionViewRefundRepository;
-    private final TransactionMapper transactionMapper;
+    private final EncryptionDecryptionUtil encryptionDecryptionUtil;
+    private final EPayTokenProvider ePayTokenProvider;
+    private final DcmsServicesClient dcmsServicesClient;
 
-    /**
-     * Counts the number of transactions that match the given filters.
-     *
-     * @param orderNo       The order number.
-     * @param sbiepayOrderId SBI Pay Order ID.
-     * @param atrn          The ATRN number.
-     * @param bankRefNo     The bank reference number.
-     * @param startDate     The start date in milliseconds.
-     * @param endDate       The end date in milliseconds.
-     * @param status        The transaction status.
-     * @return The count of matching transactions.
-     */
-    public Long countTransactionsWithFilters(String orderNo, String sbiepayOrderId, String atrn, String bankRefNo, Long startDate, Long endDate, String status) {
-        return transactionViewRefundRepository.countTransactionsWithFilters(orderNo, sbiepayOrderId, atrn, bankRefNo, startDate, endDate, status);
+    public TransactionResponse<EncryptedResponse> getGstInDetails(EncryptedRequest encryptedRequest) {
+        try {
+            logger.info("GSTN Validation.");
+            String DecryptRequest = encryptionDecryptionUtil.decryptData(ePayTokenProvider.getToken(), encryptedRequest.getEncryptedRequest());
+            EisCardNumberRequest eisCardNumberRequest = objectMapper.readValue(DecryptRequest, EisCardNumberRequest.class);
+            //1.Validate request Param.
+            if (eisCardNumberRequest.getCardNumber().isEmpty()) {
+                throw new TransactionException(ErrorConstants.NOT_FOUND_ERROR_CODE, MessageFormat.format(ErrorConstants.NOT_FOUND_ERROR_MESSAGE, "Gstn"));
+            }
+
+            Object flagResponse = dcmsServicesClient.getGstnValidate(eisCardNumberRequest);
+            String Value = objectMapper.writeValueAsString(flagResponse);
+            String response = encryptionDecryptionUtil.encryptData(ePayTokenProvider.getToken(), Value);
+            EncryptedResponse encryptedResponse = EncryptedResponse.builder().encryptedResponse(response).build();
+
+            return TransactionResponse.<EncryptedResponse>builder().data(Collections.singletonList(encryptedResponse)).status(SUCCESS_RESPONSE_CODE).count(1L).build();
+        } catch (JsonProcessingException e) {
+            throw new TransactionException(ErrorConstants.JSON_ERROR_CODE, MessageFormat.format(ErrorConstants.JSON_ERROR_MESSAGE, "encrypted Request"));
+        }
     }
 
-    /**
-     * Counts the number of transactions for a given merchant ID within a date range.
-     *
-     * @param mId       The merchant ID.
-     * @param startDate The start date (formatted as a string).
-     * @param endDate   The end date (formatted as a string).
-     * @return The count of transactions within the date range.
-     */
-    public Long countTransactionsWithFilters(String mId, String startDate, String endDate) {
-        return viewRecentTxnRepository.countTransactionsByMidAndDateRange(mId, startDate, endDate);
-    }
+    public TransactionResponse<EncryptedResponse> getEcomFlagByDCMS(EncryptedRequest encryptedRequest) {
+        try {
+            logger.info("EIS DCSM CardNumber Validation.");
+            String DecryptRequest = encryptionDecryptionUtil.decryptData(ePayTokenProvider.getToken(), encryptedRequest.getEncryptedRequest());
+            EisCardNumberRequest eisCardNumberRequest = objectMapper.readValue(DecryptRequest, EisCardNumberRequest.class);
+            //1.Validate request Param.
+            if (eisCardNumberRequest.getCardNumber().isEmpty()) {
+                throw new TransactionException(ErrorConstants.NOT_FOUND_ERROR_CODE, MessageFormat.format(ErrorConstants.NOT_FOUND_ERROR_MESSAGE, "cardNumberRequest"));
+            }
 
-    /**
-     * Counts the number of orders and refund transactions for a given merchant within a date range.
-     *
-     * @param mID             The merchant ID.
-     * @param startMilliseconds The start date in milliseconds.
-     * @param endMilliseconds   The end date in milliseconds.
-     * @return The count of orders and refund transactions.
-     */
-    public Long countOrderAndRefundTransactionsWithFilters(String mID, long startMilliseconds, long endMilliseconds) {
-        return transactionRepository.countOrderAndRefundTransactionsWithFilters(mID, startMilliseconds, endMilliseconds);
-    }
+            Object flagResponse = dcmsServicesClient.getEisDCMSCardNumberValidate(eisCardNumberRequest);
+            String Value = objectMapper.writeValueAsString(flagResponse);
+            String response = encryptionDecryptionUtil.encryptData(ePayTokenProvider.getToken(), Value);
+            EncryptedResponse encryptedResponse = EncryptedResponse.builder().encryptedResponse(response).build();
 
-    /**
-     * Checks if a transaction is valid for booking based on its status.
-     *
-     * @param sbiOrderRefNumber The SBI order reference number.
-     * @param statusList        A list of valid transaction statuses.
-     * @return True if the transaction is valid for booking, otherwise false.
-     */
-    public boolean isTransactionValidForBooking(String sbiOrderRefNumber, List<String> statusList) {
-        return transactionRepository hii.countBySbiOrderRefNumberAndTransactionStatusInNative(sbiOrderRefNumber, statusList) > 0;
+            return TransactionResponse.<EncryptedResponse>builder().data(Collections.singletonList(encryptedResponse)).status(SUCCESS_RESPONSE_CODE).count(1L).build();
+        } catch (JsonProcessingException e) {
+            throw new TransactionException(ErrorConstants.JSON_ERROR_CODE, MessageFormat.format(ErrorConstants.JSON_ERROR_MESSAGE, "encrypted Request"));
+        }
     }
-
-    /**
-     * Retrieves RFC (Request for Comments) data based on an alternative hash.
-     *
-     * @param altHash The alternative hash.
-     * @return An object array containing RFC data.
-     */
-    public Object[] getRfc(String altHash) {
-        logger.info("Fetching data from MerchantOrderPayment and Order table.");
-        return transactionRepository.rfcCount(altHash);
-    }
-}
