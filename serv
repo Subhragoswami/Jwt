@@ -1,31 +1,137 @@
- private EPayResponseEntity<TransactionSummary> recentMonthlyTransaction(RecentTransactionRequest recentTransactionRequest, String mID, Pageable pageable) throws ParseException {
-        // Set the start date to the first day of the month
-        Calendar startCalendar = Calendar.getInstance();
-        startCalendar.setTime((Date) DateUtil.INPUT_FORMATTER.parse(recentTransactionRequest.getFromDate()));
-        startCalendar.set(Calendar.DAY_OF_MONTH, 1); // Set to the first day of the month
+@Component
+@RequiredArgsConstructor
+public class TransactionDao {
 
-        // Set the end date to the last day of the month
-        Calendar endCalendar = Calendar.getInstance();
-        endCalendar.setTime((Date) DateUtil.INPUT_FORMATTER.parse(recentTransactionRequest.getToDate()));
-        endCalendar.set(Calendar.DAY_OF_MONTH, endCalendar.getActualMaximum(Calendar.DAY_OF_MONTH)); // Set to the last day of the month
+    private final LoggerUtility logger = LoggerFactoryUtility.getLogger(this.getClass());
 
-        // Format the start and end dates
-        String startDate = DateUtil.OUTPUT_FORMATTER.format((TemporalAccessor) startCalendar.getTime());
-        String endDate = DateUtil.OUTPUT_FORMATTER.format((TemporalAccessor) endCalendar.getTime());
+    private final TransactionRepository transactionRepository;
+    private final ViewRecentTxnRepository viewRecentTxnRepository;
+    private final ObjectMapper objectMapper;
+    private final TransactionViewRefundRepository transactionViewRefundRepository;
+    private final TransactionMapper transactionMapper;
 
-        logger.info("Fetching monthly transactions from db by mID and date range: {}, {}, {}", mID, startDate, endDate);
 
-        // Retrieve the recent transactions based on the merchant ID and the monthly date range
-        List<TransactionSummary> recentTxnList = transactionDao.getRecentTransaction(mID, startDate, endDate, pageable);
-
-        // Fetch the total count of records without pagination
-        Long totalCount = transactionDao.countTransactionsWithFilters(mID, startDate, endDate);
-
-        // Return the response
-        return EPayResponseEntity.<TransactionSummary>builder()
-                .data(recentTxnList)
-                .status(SUCCESS_RESPONSE_CODE)
-                .count((long) recentTxnList.size())
-                .total(totalCount)
-                .build();
+    public void isTransactionValidForBooking(String sbiOrderRefNumber) {
+        List<String> statusList = List.of(TransactionStatus.BOOKED.name(), TransactionStatus.PAYMENT_INITIATION_START.name(), TransactionStatus.PAYMENT_IN_VERIFICATION.name(), TransactionStatus.PAYMENT_VERIFIED.name());
+        boolean isExist = transactionRepository.existsBySbiOrderRefNumberAndTransactionStatusIn(sbiOrderRefNumber, statusList);
+        if (isExist) {
+            throw new ValidationException(ErrorConstants.INVALID_ERROR_CODE, MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Order State", "Duplicate request for Order."));
+        }
     }
+
+    public TransactionDto saveTransaction(TransactionDto transactionDto) {
+        MerchantOrderPayment merchantOrderPayment = transactionMapper.transactionDtoToEntity(transactionDto);
+        MerchantOrderPayment merchantOrderPaymentData = transactionRepository.save(merchantOrderPayment);
+        return transactionMapper.TransactionEntityToDto(merchantOrderPaymentData);
+    }
+    
+    public List<MerchantOrderPayment> findTransactionsByMerchantIdAndDateRange(String mID, Long fromDate, Long toDate, Pageable pageable) {
+        return transactionRepository.findTransactionsByMerchantIdAndDateRange(mID, fromDate, toDate, pageable);
+    }
+
+
+    /**
+     * This Method Is Used To Get MerchantOrderPayment And Order Details.
+     *
+     * @param paymentPushVerificationRequest decrypted payment verification request
+     * @return List Of Object.
+     */
+    public List<Object[]> getTransactionAndOrderDetail(PaymentVerificationRequestDto paymentPushVerificationRequest) {
+        logger.info("Fetching data from transaction and order table.");
+        List<Object[]> transactionAndOrderData = transactionRepository.fetchTransactionAndOrderDetail(paymentPushVerificationRequest.getAtrnNumber(), paymentPushVerificationRequest.getOrderRefNumber(), paymentPushVerificationRequest.getSbiOrderRefNumber(), paymentPushVerificationRequest.getOrderAmount()).orElseThrow(() -> new TransactionException(ErrorConstants.SQL_SYNTAX_ERROR_CODE, MessageFormat.format(ErrorConstants.SQL_SYNTAX_ERROR_MESSAGE, "MerchantOrderPayment and Order")));
+        if (transactionAndOrderData.isEmpty()) {
+            throw new TransactionException(ErrorConstants.INVALID_ERROR_CODE, MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Payment request", "Requested data is mismatched."));
+        }
+
+        logger.info("Fetched data from transaction and order table.");
+        return transactionAndOrderData;
+    }
+
+    /**
+     * This Method Is Used To Get MerchantOrderPayment And Order Details list.
+     *
+     * @param paymentVerificationRequest decrypted payment verification request.
+     * @param merchantID                 string
+     * @return List of object.
+     */
+    public List<Object[]> getTransactionAndOrderDetails(PaymentVerificationRequestDto paymentVerificationRequest, String merchantID) {
+        logger.info("Fetching data from MerchantOrderPayment and Order table.");
+        List<Object[]> transactionOrderList = transactionRepository.findTransactionAndOrderDetails(paymentVerificationRequest.getOrderRefNumber(), merchantID, paymentVerificationRequest.getOrderAmount(), paymentVerificationRequest.getAtrnNumber(), paymentVerificationRequest.getSbiOrderRefNumber()).orElseThrow(() -> new TransactionException(ErrorConstants.SQL_SYNTAX_ERROR_CODE, MessageFormat.format(ErrorConstants.SQL_SYNTAX_ERROR_MESSAGE, "MerchantOrderPayment and Order Table")));
+        if (transactionOrderList.isEmpty()) {
+            throw new TransactionException(ErrorConstants.INVALID_ERROR_CODE, MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Payment request", "Requested data is mismatched."));
+        }
+        logger.info("Data successfully fetched from DB.");
+        return transactionOrderList;
+    }
+
+    public List<TransactionSummary> getRecentTransaction(String mID, String toDate, String fromDate, Pageable pageable) {
+        logger.info("Fetching recent transaction data from view recent txn.");
+        List<ViewRecentTxn> viewRecentTxnList = viewRecentTxnRepository.findTransactionsByMidAndDateRange(mID, toDate, fromDate, pageable).orElseThrow(() -> new TransactionException(ErrorConstants.NOT_FOUND_ERROR_CODE, MessageFormat.format(ErrorConstants.NOT_FOUND_ERROR_MESSAGE, "Recent MerchantOrderPayment")));
+        return buildRecentTxn(viewRecentTxnList);
+    }
+
+    private List<TransactionSummary> buildRecentTxn(List<ViewRecentTxn> recentTxnList) {
+        logger.info("Mapping view recent txn to recent txn dto.");
+        return recentTxnList.stream().map(txn -> TransactionSummary.builder().txnCount(txn.getCount()).totalOrderAmount(BigDecimal.valueOf(txn.getAmount())).totalTxnFee(txn.getTax()).creationDate(formatDate(txn.getCreationDate())).refundAmount(txn.getRefundAmount()).refundCount(txn.getRefundCount()).build()).collect(Collectors.toList());
+    }
+
+
+    /**
+     * This Method Is Used To Update MerchantOrderPayment Status.
+     *
+     * @param transactionUpdateRequest
+     * @param mID
+     * @return List of object.
+     */
+    public TransactionDto updateTransactionStatus(TransactionUpdateRequest transactionUpdateRequest, String mID) {
+        logger.debug(" going to start update merchantOrderPayment status: ");
+        Optional<MerchantOrderPayment> transactionByAtrn = transactionRepository.findByAtrnNumberAndMerchantId(transactionUpdateRequest.getAtrn(), mID);
+        if (transactionByAtrn.get().getAtrnNumber() == null || transactionByAtrn.get().getPaymentStatus().equalsIgnoreCase(String.valueOf(TransactionStatus.SUCCESS)) || transactionByAtrn.get().getPaymentStatus().equalsIgnoreCase(String.valueOf(TransactionStatus.FAILED))) {
+            throw new TransactionException(ErrorConstants.INVALID_ERROR_CODE, MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Atrn", "Atrn status is already updated  "));
+
+        }
+        transactionByAtrn.get().setTransactionStatus(String.valueOf(TransactionStatus.FAILED));
+        transactionByAtrn.get().setPaymentStatus(String.valueOf(TransactionStatus.FAILED));
+        transactionByAtrn.get().setUpdatedDate(DateTimeUtils.currentTimeMillis());
+        transactionByAtrn.get().setFailReason(transactionUpdateRequest.getFailReason());
+        MerchantOrderPayment merchantOrderPayment = objectMapper.convertValue(transactionByAtrn.get(), MerchantOrderPayment.class);
+        MerchantOrderPayment merchantOrderPaymentData = transactionRepository.save(merchantOrderPayment);
+        logger.debug(" updated merchantOrderPayment status: " + merchantOrderPaymentData);
+        return objectMapper.convertValue(merchantOrderPaymentData, TransactionDto.class);
+    }
+
+
+    public List<ViewTransactionAndRefund> getFilteredTransaction(String orderNo, String sbiepayOrderId, String atrn, String bankRefNo, Long startDate, Long endDate, String status, Pageable pageable) {
+        return transactionViewRefundRepository.findTransactionsWithFilters(orderNo, sbiepayOrderId, atrn, bankRefNo, startDate, endDate, status, pageable);
+    }
+
+
+    public Long countTransactionsWithFilters(String orderNo, String sbiepayOrderId, String atrn, String bankRefNo, Long startDate, Long endDate, String status) {
+        return transactionViewRefundRepository.countTransactionsWithFilters(orderNo, sbiepayOrderId, atrn, bankRefNo, startDate, endDate, status);
+
+    }
+
+    public Long countTransactionsWithFilters(String mId, String startDate, String endDate) {
+        return viewRecentTxnRepository.countTransactionsByMidAndDateRange(mId, startDate, endDate);
+    }
+
+    public Long countOrderAndRefundTransactionsWithFilters(String mID, long startMilliseconds, long endMilliseconds) {
+        return transactionRepository.countOrderAndRefundTransactionsWithFilters(mID, startMilliseconds, endMilliseconds);
+    }
+
+    public boolean isTransactionValidForBooking(String sbiOrderRefNumber, List<String> statusList) {
+        return transactionRepository.countBySbiOrderRefNumberAndTransactionStatusInNative(sbiOrderRefNumber, statusList) > 0;
+    }
+
+    public Object[] getRfc(String altHash) {
+        logger.info("Fetching data from MerchantOrderPayment and Order table.");
+        return transactionRepository.rfcCount(altHash);
+    }
+
+    public TransactionDto findByAtrnNumber(String atrn) {
+        MerchantOrderPayment merchantOrderPayment = transactionRepository.findByAtrnNumber(atrn).orElseThrow(() -> new TransactionException(ErrorConstants.NOT_FOUND_ERROR_CODE, MessageFormat.format(ErrorConstants.NOT_FOUND_ERROR_MESSAGE, "MerchantOrderPayment detail")));
+        return transactionMapper.TransactionEntityToDto(merchantOrderPayment);
+    }
+
+
+}
