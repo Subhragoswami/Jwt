@@ -1,6 +1,136 @@
-   @PostMapping
-    @Operation(summary = "Pricing  Calculation", description = "")
-    public EPayResponseEntity<EncryptedResponse> calculatePricing(@RequestBody EncryptedRequest encryptedRequest) {
-        logger.info("Request received for calculate price : {}", encryptedRequest);
-        return merchantPricingService.calculatePricingEncrypted(encryptedRequest);
+ private MerchantPricingRequestDto toObject(String decryptedRequest)  {
+
+        try {
+
+            return objectMapper.readValue(decryptedRequest, MerchantPricingRequestDto.class);
+
+        } catch (JsonProcessingException e) {
+
+            throw new TransactionException(ErrorConstants.INVALID_ERROR_CODE,  MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Encrypt request", "Requested data is mismatched."));
+        }
     }
+
+    private String toStr(MerchantFeeDto merchantFeeDto) {
+
+        try {
+
+            return objectMapper.writeValueAsString(merchantFeeDto);
+
+        } catch (JsonProcessingException e) {
+
+            throw new TransactionException(ErrorConstants.INVALID_ERROR_CODE,  MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Encrypt request", "Requested data is mismatched."));
+        }
+    }
+
+    private MerchantFeeDto buildMerchantFeeResponse(MerchantPricingRequestDto merchantPricingRequestDto, MerchantPricingInfo merchantPricingInfo) {
+
+        logger.info("Building Merchant Fee response.");
+
+        return MerchantFeeDto.builder()
+                //Inputs
+                .mId(merchantPricingRequestDto.getMId())
+                .gtwMapsId(merchantPricingRequestDto.getGtwMapsId())
+                .payModeCode(merchantPricingRequestDto.getPayModeCode())
+                .payProcType(merchantPricingRequestDto.getPayProcType())
+                .merchPostedAmt(merchantPricingRequestDto.getTransactionAmount())
+                .atrn(merchantPricingRequestDto.getAtrn())
+                //fee calculations
+                .merchantFeeAbs(merchantPricingInfo.getMerchantFeeAbs())
+                .otherFeeAbs(merchantPricingInfo.getOtherFeeAbs())
+                .gtwFeeAbs(merchantPricingInfo.getGtwFeeAbs())
+                .aggServiceFeeAbs(merchantPricingInfo.getAggServiceFeeAb())
+                //bearable Calculations
+                .postAmount(merchantPricingInfo.getPostAmount())
+                .customerBearableAmt(merchantPricingInfo.getCustomerBearableAmt())
+                .customerBearableServiceTax(merchantPricingInfo.getCustomerBearableServiceTax())
+                .merchantBearableAmt(merchantPricingInfo.getMerchantBearableAmt())
+                .merchantBearableServiceTax(merchantPricingInfo.getMerchantBearableServiceTax())
+                .build();
+    }
+
+    private MerchantPricingInfo calculateFee(MerchantPricingResponseDto pricingStructure, BigDecimal merchPostedAmt) {
+
+        logger.info("Fee calculation started.");
+
+        //Step 1: Merchant Fee Calculation.
+        BigDecimal merchantFeeAbs = calculateFee(pricingStructure.getMerchantFeeApplicable(), pricingStructure.getMerchantFeeType(), pricingStructure.getMerchantFee(), merchPostedAmt);
+
+        //Step 2: Other Fee Calculation
+        BigDecimal otherFeeAbs = calculateFee(pricingStructure.getOtherFeeApplicable(), pricingStructure.getOtherFeeType(), pricingStructure.getOtherFee(), merchPostedAmt);
+
+        //Step 3: Gateway Fee Calculation
+        BigDecimal gtwFeeAbs = calculateFee(pricingStructure.getGtwFeeApplicable(), pricingStructure.getGtwFeeType(), pricingStructure.getGtwFee(), merchPostedAmt);
+
+        //Step 4: Agg Service Fee Calculation
+        BigDecimal aggServiceFeeAbs = calculateFee(pricingStructure.getAggServiceFeeApplicable(), pricingStructure.getAggServiceFeeType(), pricingStructure.getAggServiceFee(), merchPostedAmt);
+
+        return MerchantPricingInfo.builder().merchantFeeAbs(merchantFeeAbs).otherFeeAbs(otherFeeAbs).gtwFeeAbs(gtwFeeAbs).aggServiceFeeAb(aggServiceFeeAbs).build();
+
+    }
+
+    private MerchantPricingResponseDto getMerchantPricingStructure(MerchantPricingRequestDto merchantPricingRequestDto) {
+
+        logger.info("Inside getMerchantPricingStructure for merchantPricingRequestDto: {}", merchantPricingRequestDto);
+
+        TransactionResponse<MerchantPricingResponseDto> pricingStructureResponse = adminServicesClient.getMerchantPricingStructure(merchantPricingRequestDto);
+
+        if (pricingStructureResponse.getStatus() == ResponseStatus.FAIL.ordinal()) {
+            logger.debug("Error in pricingStructureResponse : {}", pricingStructureResponse);
+            throw new ValidationException(pricingStructureResponse.getErrors());
+        }
+
+        return pricingStructureResponse.getData().getFirst();
+    }
+
+please add method description above like this 
+
+
+    /**
+     * This method retrieves the merchant pricing information based on the bearable component.
+     * @param pricingStructure The pricing structure details.
+     * @param merchPostedAmt   The transaction amount.
+     */
+    private void calculateBearableAmount(MerchantPricingResponseDto pricingStructure, BigDecimal merchPostedAmt, MerchantPricingInfo merchantPricingInfo) {
+
+        logger.info("Determining merchant pricing info based on bearable component.");
+
+        //Step 1: for bearable component AMOUNT
+        if (pricingStructure.getBearableComponent().equalsIgnoreCase(ApplicationConstants.BEARABLE_COMPONENT_AMOUNT)) {
+            calculatePricingForBearableComponentAmount(pricingStructure, merchPostedAmt, merchantPricingInfo);
+        }
+
+        //Step 2: for bearable component FEE
+        if (pricingStructure.getBearableComponent().equalsIgnoreCase(ApplicationConstants.BEARABLE_COMPONENT_FEE)) {
+            calculatePricingForBearableComponentFee(pricingStructure, merchPostedAmt, merchantPricingInfo);
+        }
+
+        //Step 3: Calculate total post amount
+        merchantPricingInfo.setPostAmount(merchantPricingInfo.getPostAmount().add(merchantPricingInfo.getGtwFeeAbs()).add(merchantPricingInfo.getOtherFeeAbs()));
+    }
+
+    /**
+     * This method validates and saves the pricing information to the database.
+     * @param merchantPricingRequestDto The request containing the merchant pricing details.
+     * @param merchantPricingInfo       The calculated pricing information.
+     * @param pricingStructure          The pricing structure details.
+     */
+    private void checkAtrnAndSavePricingInfo(MerchantPricingRequestDto merchantPricingRequestDto, MerchantPricingInfo merchantPricingInfo, MerchantPricingResponseDto pricingStructure) {
+
+        //Step 1 : Check if ATRN is passed
+        if (StringUtils.isNotEmpty(merchantPricingRequestDto.getAtrn())) {
+
+            logger.info("Validating atrn and saving pricing info.");
+
+            //Step 2: Match calculated pricing with post amount
+            if (merchantPricingInfo.getPostAmount().compareTo(merchantPricingRequestDto.getPostAmount()) != 0) {
+                logger.debug("Pricing miss match error for ATRN :{}", merchantPricingRequestDto.getAtrn());
+                throw new ValidationException(ErrorConstants.INVALID_ERROR_CODE, MessageFormat.format(ErrorConstants.INVALID_PRICING_MESSAGE, "Pricing info", "Post amount does not match"));
+            }
+
+            //Step 3: Save pricing info
+            merchantOrderHybridFeeDao.savePricingInfo(merchantPricingRequestDto, merchantPricingInfo, pricingStructure);
+            logger.info("Merchant Order Hybrid Fee saved successfully.");
+        }
+    }
+
+and please verify method names are proper or can be changed
