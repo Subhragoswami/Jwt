@@ -1,55 +1,40 @@
-@RestController
-@AllArgsConstructor
-@RequestMapping("/cards")
-public class CardController {
-    private final LoggerUtility logger = LoggerFactoryUtility.getLogger(this.getClass());
-    private final CardService cardService;
-
-    @PostMapping("/binCheck")
-    @Operation(summary = "Card Number Verification")
-    public TransactionResponse<EncryptedResponse> binCheck(@RequestBody EncryptedRequest encryptedRequest) {
-        logger.info("binCheck request : " + encryptedRequest);
-        return cardService.binCheck(encryptedRequest);
+   public ReportingResponse<RecentTransactionReport> getRecentTransactionsSummary(String mId, RecentTransactionRequest recentTransactionRequest, Pageable pageable) {
+        //transactionDashboardValidator.validateRequest(mId, recentTransactionRequest);
+        log.info("Fetching Recent Transaction for MerchantId: {} and frequency {}", mId, recentTransactionRequest);
+        List<RecentTransactionReport> transactionDailyTrends = transactionDashboardDao.getRecentTransactionSummary(mId, recentTransactionRequest, pageable);
+        return ReportingResponse.<RecentTransactionReport>builder().data(transactionDailyTrends).count((long) transactionDailyTrends.size()).build();
     }
 
-}
-
-public TransactionResponse<EncryptedResponse> binCheck(EncryptedRequest encryptedRequest) {
-        logger.info("Preparing to fetch binCheck status.");
-        String decryptedCardBin = encryptionDecryptionUtil.decryptData(ePayTokenProvider.getToken(), encryptedRequest.getEncryptedRequest());
-        logger.debug("Convert CardBin String to request{}", decryptedCardBin);
-        BinCheckRequest binCheckRequest = convertDectryptDataToBinCheckRequest(decryptedCardBin);
-        logger.info("Calling Admin Service");
-        TransactionResponse<BinCheckResponse> binCheckResponse = adminServicesClient.binCheckRequest(binCheckRequest);
-
-        if (binCheckResponse.getStatus() == RESPONSE_FAILURE) {
-            throw new TransactionException(ErrorConstants.INVALID_ERROR_CODE, MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Card details", "Invalid card."));
-        }
-
-        String responseJson = convertBinCheckResponseToString(binCheckResponse);
-        logger.info("Encrypting response from binCheck ");
-        String encryptedResponse = encryptionDecryptionUtil.encryptData(ePayTokenProvider.getToken(), responseJson);
-        EncryptedResponse response = EncryptedResponse.builder().encryptedResponse(encryptedResponse).build();
-        return TransactionResponse.<EncryptedResponse>builder().status(RESPONSE_SUCCESS).count(1L).data(Collections.singletonList(response)).build();
-    }
-
-    private BinCheckRequest convertDectryptDataToBinCheckRequest(String decryptedCardBin) {
+ public List<RecentTransactionReport> getRecentTransactionSummaryDailyOrMonthly(String mId, RecentTransactionRequest recentTransactionRequest, Pageable pageable) {
         try {
-            return mapper.readValue(decryptedCardBin, BinCheckRequest.class);
-        } catch (JsonProcessingException e) {
-            throw new TransactionException(ErrorConstants.INVALID_ERROR_CODE, MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Encrypt request", "Requested data is mismatched."));
+            String sql = TransactionDashboardQueries.JDBC_DAILY_RECENT_TRANSACTION;
+            if (Frequency.MONTHLY.name().equalsIgnoreCase(recentTransactionRequest.getFrequency())) {
+                sql = TransactionDashboardQueries.JDBC_MONTHLY_RECENT_TRANSACTION;
+            }
+            MapSqlParameterSource parameters = new MapSqlParameterSource();
+            parameters.addValue(MID, mId);
+            parameters.addValue(FROM_DATE, recentTransactionRequest.getFromDate());
+            parameters.addValue(TO_DATE, recentTransactionRequest.getToDate());
+            parameters.addValue(FIRST, pageable.getPageSize());
+            parameters.addValue(OFFSET, pageable.getPageNumber() * pageable.getPageSize());
+            return namedParameterJdbcTemplate.query(sql, parameters, new BeanPropertyRowMapper<>(RecentTransactionReport.class));
+        } catch (EmptyResultDataAccessException e) {
+            throw new ReportingException(ErrorConstants.NOT_FOUND_ERROR_CODE, MessageFormat.format(ErrorConstants.NOT_FOUND_ERROR_MESSAGE, TRANSACTION));
         }
     }
 
-    private String convertBinCheckResponseToString(TransactionResponse<BinCheckResponse> binCheckResponse) {
-
-        try {
-            return mapper.writeValueAsString(binCheckResponse.getData().getFirst());
-        } catch (JsonProcessingException e) {
-            throw new TransactionException(ErrorConstants.INVALID_ERROR_CODE, MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Encrypt request", "Requested data is mismatched."));
-        }
-    }
-
-
-
-please do check method names and write metod definations
+  public static String JDBC_DAILY_RECENT_TRANSACTION =  """ 
+            SELECT SUM(TOTAL_TRANSACTION_COUNT) AS totalTransactionCount,
+            SUM(TOTAL_ORDER_AMOUNT) AS totalOrderAmount,
+            SUM(TOTAL_REFUND_AMOUNT) AS totalRefundAmount,
+            SUM(TOTAL_TAX_AMOUNT) AS totalTaxAmount,
+            SUM(TOTAL_NET_SETTLEMENT_AMOUNT) AS totalNetSettlementAmount,
+            SUM(TOTAL_SETTLED_AMOUNT) AS totalSettledAmount,
+            SUM(TOTAL_PENDING_SETTLEMENT_AMOUNT) AS totalPendingSettlementAmount,
+            TO_CHAR(TRANSACTION_DATE, 'DD-MM-YY') AS transactionDate
+            FROM VIEW_TRANSACTION_DASHBOARD_REPORT
+            WHERE MID = :mId
+            AND TRANSACTION_DATE BETWEEN :fromDate AND :toDate
+            GROUP BY TRANSACTION_DATE ORDER BY TRANSACTION_DATE DESC
+            OFFSET :offset ROWS FETCH FIRST :first ROWS ONLY
+            """;
