@@ -1,3 +1,129 @@
-List<HelpSupport> findBymIdIsNullAndStatusIsActiveAndType(HelpSupportType helpSupportType);
+    @Test
+    void testGetHelpSupports() {
+        String mId = "testMId";
+        HelpSupport activeSupport = new HelpSupport();
+        activeSupport.setMId(mId);
+        activeSupport.setType(HelpSupportType.EMAIL);
+        activeSupport.setStatus(STATUS_ACTIVE);
 
-Caused by: java.lang.IllegalArgumentException: Failed to create query for method public abstract java.util.List com.epay.merchant.repository.HelpSupportRepository.findBymIdIsNullAndStatusIsActiveAndType(com.epay.merchant.util.enums.HelpSupportType); No property 'isActive' found for type 'String'; Traversed path: HelpSupport.status
+        HelpSupport defaultSupport = new HelpSupport();
+        defaultSupport.setMId(null);
+        defaultSupport.setType(HelpSupportType.EMAIL);
+
+        List<HelpSupport> activeSupports = List.of(activeSupport);
+        List<HelpSupport> missingDefaultSupport = List.of(defaultSupport);
+
+        HelpSupportDto activeDto = new HelpSupportDto();
+        activeDto.setType(HelpSupportType.EMAIL);
+        HelpSupportDto defaultDto = new HelpSupportDto();
+        defaultDto.setType(HelpSupportType.EMAIL);
+
+        when(helpSupportRepository.findBymIdAndStatus(mId, STATUS_ACTIVE)).thenReturn(activeSupports);
+        when(helpSupportRepository.findBymIdIsNullAndStatusAndType(STATUS_ACTIVE, HelpSupportType.EMAIL)).thenReturn(missingDefaultSupport);
+        when(helpSupportMapper.mapEntityListToDtoList(any())).thenReturn(List.of(activeDto, defaultDto));
+
+        List<HelpSupportDto> result = helpSupportDao.getHelpSupports(mId);
+
+        assertEquals(2, result.size());
+        assertEquals(HelpSupportType.EMAIL,result.get(0).getType());
+        assertEquals(HelpSupportType.EMAIL, result.get(1).getType());
+    }
+
+> Task :bootBuildInfo
+> Task :compileJava UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :classes
+> Task :compileTestJava UP-TO-DATE
+> Task :processTestResources NO-SOURCE
+> Task :testClasses UP-TO-DATE
+Connected to the target VM, address: 'localhost:65321', transport: 'socket'
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+WARNING: A Java agent has been loaded dynamically (C:\Users\v1014352\.gradle\caches\modules-2\files-2.1\net.bytebuddy\byte-buddy-agent\1.14.19\154da3a65b4f4a909d3e5bdec55d1b2b4cbb6ce1\byte-buddy-agent-1.14.19.jar)
+WARNING: If a serviceability tool is in use, please run with -XX:+EnableDynamicAgentLoading to hide this warning
+WARNING: If a serviceability tool is not in use, please run with -Djdk.instrument.traceUsage for more information
+WARNING: Dynamic loading of agents will be disallowed by default in a future release
+19:45:48,094 |-INFO in ch.qos.logback.classic.LoggerContext[default] - This is logback-classic version 1.5.12
+19:45:48,100 |-INFO in ch.qos.logback.classic.util.ContextInitializer@550de6b8 - Here is a list of configurators discovered as a service, by rank: 
+19:45:48,100 |-INFO in ch.qos.logback.classic.util.ContextInitializer@550de6b8 -   org.springframework.boot.logging.logback.RootLogLevelConfigurator
+19:45:48,100 |-INFO in ch.qos.logback.classic.util.ContextInitializer@550de6b8 - They will be invoked in order until ExecutionStatus.DO_NOT_INVOKE_NEXT_IF_ANY is returned.
+19:45:48,100 |-INFO in ch.qos.logback.classic.util.ContextInitializer@550de6b8 - Constructed configurator of type class org.springframework.boot.logging.logback.RootLogLevelConfigurator
+19:45:48,112 |-INFO in ch.qos.logback.classic.util.ContextInitializer@550de6b8 - org.springframework.boot.logging.logback.RootLogLevelConfigurator.configure() call lasted 1 milliseconds. ExecutionStatus=INVOKE_NEXT_IF_ANY
+19:45:48,112 |-INFO in ch.qos.logback.classic.util.ContextInitializer@550de6b8 - Trying to configure with ch.qos.logback.classic.joran.SerializedModelConfigurator
+19:45:48,113 |-INFO in ch.qos.logback.classic.util.ContextInitializer@550de6b8 - Constructed configurator of type class ch.qos.logback.classic.joran.SerializedModelConfigurator
+19:45:48,118 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.scmo]
+19:45:48,118 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback.scmo]
+19:45:48,118 |-INFO in ch.qos.logback.classic.util.ContextInitializer@550de6b8 - ch.qos.logback.classic.joran.SerializedModelConfigurator.configure() call lasted 5 milliseconds. ExecutionStatus=INVOKE_NEXT_IF_ANY
+19:45:48,118 |-INFO in ch.qos.logback.classic.util.ContextInitializer@550de6b8 - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+19:45:48,120 |-INFO in ch.qos.logback.classic.util.ContextInitializer@550de6b8 - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+19:45:48,120 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+19:45:48,126 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [file:/C:/Users/v1014352/E-Pay/epay_merchant_service/build/resources/main/logback.xml]
+19:45:48,128 |-WARN in ch.qos.logback.classic.util.DefaultJoranConfigurator@3a1706e1 - Resource [logback.xml] occurs multiple times on the classpath.
+19:45:48,128 |-WARN in ch.qos.logback.classic.util.DefaultJoranConfigurator@3a1706e1 - Resource [logback.xml] occurs at [jar:file:/C:/Users/v1014352/E-Pay/epay_merchant_service/libs/logging-service-1.0-SNAPSHOT.jar!/logback.xml]
+19:45:48,128 |-WARN in ch.qos.logback.classic.util.DefaultJoranConfigurator@3a1706e1 - Resource [logback.xml] occurs at [jar:file:/C:/Users/v1014352/E-Pay/epay_merchant_service/libs/notification-service-0.0.1-SNAPSHOT.jar!/logback.xml]
+19:45:48,128 |-WARN in ch.qos.logback.classic.util.DefaultJoranConfigurator@3a1706e1 - Resource [logback.xml] occurs at [file:/C:/Users/v1014352/E-Pay/epay_merchant_service/build/resources/main/logback.xml]
+19:45:48,358 |-WARN in ch.qos.logback.core.joran.action.ConversionRuleAction - [converterClass] attribute is deprecated and replaced by [class]. See element [conversionRule] near line 2
+19:45:48,359 |-WARN in ch.qos.logback.core.joran.action.ConversionRuleAction - [converterClass] attribute is deprecated and replaced by [class]. See element [conversionRule] near line 3
+19:45:48,359 |-WARN in ch.qos.logback.core.joran.action.ConversionRuleAction - [converterClass] attribute is deprecated and replaced by [class]. See element [conversionRule] near line 4
+19:45:48,508 |-INFO in ch.qos.logback.core.model.processor.ConversionRuleModelHandler - registering conversion word methodOrMDC with class [com.sbi.epay.logging.converter.MethodOrMDCConverter]
+19:45:48,508 |-INFO in ch.qos.logback.core.model.processor.ConversionRuleModelHandler - registering conversion word classOrMDC with class [com.sbi.epay.logging.converter.ClassOrMDCConverter]
+19:45:48,508 |-INFO in ch.qos.logback.core.model.processor.ConversionRuleModelHandler - registering conversion word lineOrMDC with class [com.sbi.epay.logging.converter.LineOrMDCConverter]
+19:45:48,527 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [CONSOLE]
+19:45:48,527 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+19:45:48,555 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+19:45:48,640 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [FILE]
+19:45:48,640 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.rolling.RollingFileAppender]
+19:45:48,679 |-INFO in c.q.l.core.rolling.TimeBasedRollingPolicy@1013728905 - No compression will be used
+19:45:48,683 |-INFO in c.q.l.core.rolling.TimeBasedRollingPolicy@1013728905 - Will use the pattern logs/app.%d{yyyy-MM-dd}.log for the active file
+19:45:48,697 |-INFO in c.q.l.core.rolling.DefaultTimeBasedFileNamingAndTriggeringPolicy - The date pattern is 'yyyy-MM-dd' from file name pattern 'logs/app.%d{yyyy-MM-dd}.log'.
+19:45:48,697 |-INFO in c.q.l.core.rolling.DefaultTimeBasedFileNamingAndTriggeringPolicy - Roll-over at midnight.
+19:45:48,699 |-INFO in c.q.l.core.rolling.DefaultTimeBasedFileNamingAndTriggeringPolicy - Setting initial period to 2025-02-27T14:15:48.698Z
+19:45:48,702 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+19:45:48,712 |-WARN in ch.qos.logback.core.rolling.RollingFileAppender[FILE] - Setting "File" property to null on account of prudent mode
+19:45:48,712 |-INFO in ch.qos.logback.core.rolling.RollingFileAppender[FILE] - Active log file name: logs/app.2025-02-27.log
+19:45:48,713 |-INFO in ch.qos.logback.core.rolling.RollingFileAppender[FILE] - File property is set to [null]
+19:45:48,721 |-WARN in ch.qos.logback.core.model.processor.AppenderModelHandler - Appender named [JSON_FILE] not referenced. Skipping further processing.
+19:45:48,721 |-WARN in ch.qos.logback.core.model.processor.AppenderModelHandler - Appender named [Logstash] not referenced. Skipping further processing.
+19:45:48,721 |-INFO in ch.qos.logback.classic.model.processor.RootLoggerModelHandler - Setting level of ROOT logger to INFO
+19:45:48,722 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [CONSOLE] to Logger[ROOT]
+19:45:48,723 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [FILE] to Logger[ROOT]
+19:45:48,723 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@63cf9de0 - End of configuration.
+19:45:48,725 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@594d9f07 - Registering current configuration as safe fallback point
+19:45:48,725 |-INFO in ch.qos.logback.classic.util.ContextInitializer@550de6b8 - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 605 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+
+java.lang.UnsupportedOperationException
+	at java.base/java.util.ImmutableCollections.uoe(ImmutableCollections.java:142)
+	at java.base/java.util.ImmutableCollections$AbstractImmutableCollection.addAll(ImmutableCollections.java:148)
+	at com.epay.merchant.dao.HelpSupportDao.lambda$addDefaultHelpSupport$2(HelpSupportDao.java:96)
+	at java.base/java.util.stream.ForEachOps$ForEachOp$OfRef.accept(ForEachOps.java:184)
+	at java.base/java.util.stream.ReferencePipeline$2$1.accept(ReferencePipeline.java:179)
+	at java.base/java.util.Spliterators$ArraySpliterator.forEachRemaining(Spliterators.java:1024)
+	at java.base/java.util.stream.AbstractPipeline.copyInto(AbstractPipeline.java:509)
+	at java.base/java.util.stream.AbstractPipeline.wrapAndCopyInto(AbstractPipeline.java:499)
+	at java.base/java.util.stream.ForEachOps$ForEachOp.evaluateSequential(ForEachOps.java:151)
+	at java.base/java.util.stream.ForEachOps$ForEachOp$OfRef.evaluateSequential(ForEachOps.java:174)
+	at java.base/java.util.stream.AbstractPipeline.evaluate(AbstractPipeline.java:234)
+	at java.base/java.util.stream.ReferencePipeline.forEach(ReferencePipeline.java:596)
+	at com.epay.merchant.dao.HelpSupportDao.addDefaultHelpSupport(HelpSupportDao.java:94)
+	at com.epay.merchant.dao.HelpSupportDao.getHelpSupports(HelpSupportDao.java:53)
+	at com.epay.merchant.dao.HelpSupportDaoTest.testGetHelpSupports(HelpSupportDaoTest.java:66)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+
+
+> Task :test
+Disconnected from the target VM, address: 'localhost:65321', transport: 'socket'
+HelpSupportDaoTest > testGetHelpSupports() FAILED
+    java.lang.UnsupportedOperationException at HelpSupportDaoTest.java:66
+1 test completed, 1 failed
+> Task :test FAILED
+FAILURE: Build failed with an exception.
+* What went wrong:
+Execution failed for task ':test'.
+> There were failing tests. See the report at: file:///C:/Users/v1014352/E-Pay/epay_merchant_service/build/reports/tests/test/index.html
+* Try:
+> Run with --scan to get full insights.
+BUILD FAILED in 2m 24s
+
+
