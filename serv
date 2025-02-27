@@ -1,7 +1,51 @@
-INSERT INTO HELP_SUPPORT_TEAM(TYPE, VALUE, STATUS, CREATED_BY, CREATED_AT)
-VALUES('EMAIL', 'support.sbiepay@sbi.co.in', 'Active', 'SBI ePay',
-(SELECT ROUND(((TRUNC(SYSTIMESTAMP,'MI')-DATE '1970-01-01') * 24 * 60 * 60) + EXTRACT (SECOND FROM SYSTIMESTAMP), 3)*1000 FROM DUAL));
+2025-02-27 17:50:56.898 WARN | com.epay.merchant.exceptionhandlers.MerchantExceptionHandler:100 | principal=  | scenario=/merchant/v1/help/1000003 | operation=GET | correlation=d5b4ccad-36ed-4366-9cc1-7dea70445acd | handleDBException | Resolved [org.springframework.orm.jpa.JpaSystemException: Could not extract column [10] from JDBC ResultSet [ORA-17004: Invalid column type: getARRAY not implemented for class oracle.jdbc.driver.T4CClobAccessor<EOL><EOL>https://docs.oracle.com/error-help/db/ora-17004/] [n/a]]
 
-here in value I want to store this two as list so what will be the query
-.New Feature : Check the health status of all payment channels in one place.
-Notice: RBI mandates additional authentication for high-value transactions.
+
+  public MerchantResponse<HelpSupportResponse> getHelpSupports(String mId) {
+        log.info("Method getHelpSupports started for mId: {}", mId);
+        //Step 1 : Validate mId
+        helpSupportValidator.validatedHelpSupportMId(mId);
+        //Step 2 : Get Help Support Data from DB.
+        List<HelpSupportDto> helpSupport = helpSupportDao.getHelpSupports(mId);
+        HelpSupportResponse helpSupportResponse = HelpSupportResponse.builder().helpSupports(helpSupport).build();
+        //Step 2 : Build MerchantResponse and return to caller
+        log.info("Returning helpSupportResponse of getHelpSupports method");
+        return MerchantResponse.<HelpSupportResponse>builder().data(List.of(helpSupportResponse)).status(MerchantConstant.RESPONSE_SUCCESS).count(1L).build();
+    }
+
+public List<HelpSupportDto> getHelpSupports(String mId) {
+        List<HelpSupport> helpSupports = helpSupportRepository.findBymIdAndStatus(mId, STATUS_ACTIVE);
+        addDefaultHelpSupport(helpSupports);
+        return helpSupportMapper.mapEntityListToDtoList(helpSupports);
+    }
+    List<HelpSupport> findBymIdAndStatus(String mId, String status);
+
+    List<HelpSupport> findBymIdIsNull();
+
+    @Query("SELECT hs FROM HelpSupport hs WHERE hs.mId = :mId AND hs.type = :type")
+    Optional<HelpSupport> findByMidAndType(@Param("mId")String mId, @PathVariable("type") HelpSupportType type);
+
+    Optional<HelpSupport> findBymIdIsNullAndType(HelpSupportType helpSupportType);
+
+
+ private void addDefaultHelpSupport(final List<HelpSupport> helpSupports) {
+        List<HelpSupportType> presentTypesMid = helpSupports.stream().map(HelpSupport::getType).toList();
+        Stream.of(HelpSupportType.values()).filter(hpt -> presentTypesMid.stream().noneMatch(eptPresent -> eptPresent.equals(hpt))).forEach(typeToBeAdded -> {
+            Optional<HelpSupport> helpSupport = helpSupportRepository.findBymIdIsNullAndType(typeToBeAdded);
+            helpSupport.ifPresent(helpSupports::add);
+        });
+    }
+
+public class HelpSupport extends AuditEntity {
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+    @Column(name = "MID")
+    private String mId;
+    private String aggregatorId;
+    @Enumerated(EnumType.STRING)
+    private HelpSupportType type;
+    private List<String> value;
+    private String status;
+}
+
