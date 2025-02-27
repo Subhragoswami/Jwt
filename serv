@@ -27,12 +27,10 @@ VALUES('EMAIL', 'support.sbiepay@sbi.co.in', 'Active', 'SBI ePay',
 
 commit;
 
+
 --liquibase formatted sql
 --changeset Subhra:2
-ALTER TABLE HELP_SUPPORT_TEAM MODIFY VALUE CLOB;
-
-
-Caused by: liquibase.exception.CommandExecutionException: liquibase.exception.ValidationFailedException: Validation Failed:
-
-          db/changelog/scripts/1738762770866_create_table_help_support_team.sql::1::Hrishikesh was: 9:26e1f0e7df8b527fb9c2f971fd6ab18d but is now: 9:e2ada2503f2884951d4e72713a215469
-
+ALTER TABLE HELP_SUPPORT_TEAM ADD VALUE_TEMP CLOB;
+UPDATE HELP_SUPPORT_TEAM SET VALUE_TEMP = VALUE;
+ALTER TABLE HELP_SUPPORT_TEAM DROP VALUE;
+ALTER TABLE HELP_SUPPORT_TEAM RENAME COLUMN VALUE_TEMP TO VALUE;
