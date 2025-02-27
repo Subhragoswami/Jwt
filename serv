@@ -1,40 +1,32 @@
-   public ReportingResponse<RecentTransactionReport> getRecentTransactionsSummary(String mId, RecentTransactionRequest recentTransactionRequest, Pageable pageable) {
-        //transactionDashboardValidator.validateRequest(mId, recentTransactionRequest);
-        log.info("Fetching Recent Transaction for MerchantId: {} and frequency {}", mId, recentTransactionRequest);
-        List<RecentTransactionReport> transactionDailyTrends = transactionDashboardDao.getRecentTransactionSummary(mId, recentTransactionRequest, pageable);
-        return ReportingResponse.<RecentTransactionReport>builder().data(transactionDailyTrends).count((long) transactionDailyTrends.size()).build();
-    }
+--liquibase formatted sql
+--changeset Hrishikesh:1
 
- public List<RecentTransactionReport> getRecentTransactionSummaryDailyOrMonthly(String mId, RecentTransactionRequest recentTransactionRequest, Pageable pageable) {
-        try {
-            String sql = TransactionDashboardQueries.JDBC_DAILY_RECENT_TRANSACTION;
-            if (Frequency.MONTHLY.name().equalsIgnoreCase(recentTransactionRequest.getFrequency())) {
-                sql = TransactionDashboardQueries.JDBC_MONTHLY_RECENT_TRANSACTION;
-            }
-            MapSqlParameterSource parameters = new MapSqlParameterSource();
-            parameters.addValue(MID, mId);
-            parameters.addValue(FROM_DATE, recentTransactionRequest.getFromDate());
-            parameters.addValue(TO_DATE, recentTransactionRequest.getToDate());
-            parameters.addValue(FIRST, pageable.getPageSize());
-            parameters.addValue(OFFSET, pageable.getPageNumber() * pageable.getPageSize());
-            return namedParameterJdbcTemplate.query(sql, parameters, new BeanPropertyRowMapper<>(RecentTransactionReport.class));
-        } catch (EmptyResultDataAccessException e) {
-            throw new ReportingException(ErrorConstants.NOT_FOUND_ERROR_CODE, MessageFormat.format(ErrorConstants.NOT_FOUND_ERROR_MESSAGE, TRANSACTION));
-        }
-    }
+CREATE TABLE HELP_SUPPORT_TEAM (
+    ID RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+    MID VARCHAR2(50 CHAR),
+    AGGREGATOR_ID	VARCHAR2(50 CHAR),
+    TYPE	VARCHAR2(20 CHAR),
+    VALUE	VARCHAR2(320 CHAR),
+    STATUS	VARCHAR2(20 CHAR),
+    CREATED_BY	VARCHAR2(50 CHAR),
+    CREATED_AT	NUMBER,
+    UPDATED_BY	VARCHAR2(50 CHAR),
+    UPDATED_AT	NUMBER
+);
 
-  public static String JDBC_DAILY_RECENT_TRANSACTION =  """ 
-            SELECT SUM(TOTAL_TRANSACTION_COUNT) AS totalTransactionCount,
-            SUM(TOTAL_ORDER_AMOUNT) AS totalOrderAmount,
-            SUM(TOTAL_REFUND_AMOUNT) AS totalRefundAmount,
-            SUM(TOTAL_TAX_AMOUNT) AS totalTaxAmount,
-            SUM(TOTAL_NET_SETTLEMENT_AMOUNT) AS totalNetSettlementAmount,
-            SUM(TOTAL_SETTLED_AMOUNT) AS totalSettledAmount,
-            SUM(TOTAL_PENDING_SETTLEMENT_AMOUNT) AS totalPendingSettlementAmount,
-            TO_CHAR(TRANSACTION_DATE, 'DD-MM-YY') AS transactionDate
-            FROM VIEW_TRANSACTION_DASHBOARD_REPORT
-            WHERE MID = :mId
-            AND TRANSACTION_DATE BETWEEN :fromDate AND :toDate
-            GROUP BY TRANSACTION_DATE ORDER BY TRANSACTION_DATE DESC
-            OFFSET :offset ROWS FETCH FIRST :first ROWS ONLY
-            """;
+CREATE INDEX IDX_HELP_SUPPORT_TEAM_MID ON HELP_SUPPORT_TEAM(MID);
+CREATE INDEX IDX_TYPE ON HELP_SUPPORT_TEAM(TYPE);
+
+INSERT INTO HELP_SUPPORT_TEAM(TYPE, VALUE, STATUS, CREATED_BY, CREATED_AT)
+VALUES('PHONE_NUMBER', '+91-22-20876156', 'Active', 'SBI ePay',
+(SELECT ROUND(((TRUNC(SYSTIMESTAMP,'MI')-DATE '1970-01-01') * 24 * 60 * 60) + EXTRACT (SECOND FROM SYSTIMESTAMP), 3)*1000 FROM DUAL));
+
+INSERT INTO HELP_SUPPORT_TEAM(TYPE, VALUE, STATUS, CREATED_BY, CREATED_AT)
+VALUES('EMAIL', 'support.sbiepay@sbi.co.in', 'Active', 'SBI ePay',
+(SELECT ROUND(((TRUNC(SYSTIMESTAMP,'MI')-DATE '1970-01-01') * 24 * 60 * 60) + EXTRACT (SECOND FROM SYSTIMESTAMP), 3)*1000 FROM DUAL));
+
+commit;
+
+--liquibase formatted sql
+--changeset Subhra:2
+ALTER TABLE HELP_SUPPORT_TEAM MODIFY VALUE CLOB;
