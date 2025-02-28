@@ -1,29 +1,13 @@
-   public List<HelpSupportDto> getHelpSupports(String mId) {
-        List<HelpSupport> helpSupports = helpSupportRepository.findBymIdAndStatus(mId, STATUS_ACTIVE);
-        addDefaultHelpSupport(helpSupports);
-        return helpSupportMapper.mapEntityListToDtoList(helpSupports);
+    void validateMerchantUser(OtpGenerationRequest otpGenerationRequest) {
+        boolean merchantUserExists;
+        if (!RequestType.CHANGE_PASSWORD.getName().equals(otpGenerationRequest.getRequestType())){
+            merchantUserExists = otpManagementDao.isValidMerchantUserExists(otpGenerationRequest.getUserName(), UserStatus.ACTIVE);
+        }else
+        {
+            merchantUserExists = otpManagementDao.isValidMerchantUserExists(otpGenerationRequest.getUserName(), UserStatus.EXPIRED);
+        }
+        if (!merchantUserExists) {
+            addError("Active Merchant User", ErrorConstants.NOT_FOUND_ERROR_CODE, ErrorConstants.NOT_FOUND_ERROR_MESSAGE);
+        }
+        throwIfErrors();
     }
-public interface HelpSupportRepository extends JpaRepository<HelpSupport, UUID> {
-
-    List<HelpSupport> findBymIdAndStatus(String mId, String status);
-
-    List<HelpSupport> findBymIdIsNull();
-
-    @Query("SELECT hs FROM HelpSupport hs WHERE hs.mId = :mId AND hs.type = :type")
-    Optional<HelpSupport> findByMidAndType(@Param("mId")String mId, @PathVariable("type") HelpSupportType type);
-
-    List<HelpSupport> findBymIdIsNullAndStatusAndType(String status, HelpSupportType helpSupportType);
-}
-  private void addDefaultHelpSupport(final List<HelpSupport> helpSupports) {
-        List<HelpSupportType> presentTypesMid = helpSupports.stream().map(HelpSupport::getType).toList();
-        Stream.of(HelpSupportType.values()).filter(hpt -> presentTypesMid.stream().noneMatch(eptPresent -> eptPresent.equals(hpt))).forEach(typeToBeAdded -> {
-                List<HelpSupport> helpSupport = helpSupportRepository.findBymIdIsNullAndStatusAndType(STATUS_ACTIVE, typeToBeAdded);
-                helpSupports.addAll(helpSupport);
-        });
-    }
-public enum HelpSupportType {
-    PHONE_NUMBER, EMAIL, IMPORTANT_NOTICE;
-    public static HelpSupportType getType(String type) {
-        return Arrays.stream(values()).filter(r -> r.name().equalsIgnoreCase(type)).findFirst().orElseThrow(() -> new MerchantException(ErrorConstants.INVALID_ERROR_CODE, MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Type", "Valid HelpSupportType are " + Arrays.toString(HelpSupportType.values()))));
-    }
-}
