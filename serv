@@ -1,29 +1,15 @@
-   public List<TransactionSummaryReport> getTransactionSummaryReport(String mId, TransactionSummaryRequest transactionSummaryRequest) {
-        log.info("Fetching transaction summary report for merchant ID: {} from {} to {}", mId, transactionSummaryRequest.getFromDate(), transactionSummaryRequest.getToDate());
-        List<TransactionSummaryReport> transactionSummaryReports = new ArrayList<>();
-        Optional<TransactionSummaryReport> transactionSummaryDataOptional = transactionDashboardRepository.getTransactionSummaryReport(mId, transactionSummaryRequest.getFromDate(), transactionSummaryRequest.getToDate());
-        transactionSummaryDataOptional.ifPresentOrElse(transactionSummaryReport -> {
-            List<TransactionFailureSummaryReport> transactionDailyFailures = transactionDashboardRepository.getTransactionFailureSummaryReport(mId, transactionSummaryRequest.getFromDate(), transactionSummaryRequest.getToDate());
-            transactionDailyFailures.forEach(transactionDailyFailure -> transactionDailyFailure.setFailurePercentage(BigDecimal.valueOf((transactionDailyFailure.getFailureCount() * 100) / transactionSummaryReport.getTotalFailureCount()).setScale(2, RoundingMode.HALF_UP).doubleValue()));
-            transactionSummaryReport.setTransactionDailyFailure(transactionDailyFailures);
-            log.info("Transaction summary report for merchant ID: {} fetched successfully.", mId);
-            transactionSummaryReports.add(transactionSummaryReport);
-        }, () -> log.info("No transaction summary record found for mId: {}, fromDate: {} and toDate: {}", mId, transactionSummaryRequest.getFromDate(), transactionSummaryRequest.getToDate()));
-        return transactionSummaryReports;
-    }
+SELECT TO_CHAR(TO_DATE(TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') as transactionDate,
+            SUM(SUCCESS_COUNT) as totalSuccessCount, sum(FAIL_COUNT) as totalFailureCount,
+            round(sum(SUCCESS_COUNT)/(sum(SUCCESS_COUNT)+sum(FAIL_COUNT)) * 100, 2) as successPercentage,
+            round(sum(FAIL_COUNT)/(sum(SUCCESS_COUNT)+sum(FAIL_COUNT)) * 100, 2) as failPercentage
+            FROM PAYAGGREPORT.VIEW_TRANSACTION_DAILY_REPORT
+            WHERE MID = 1000003 AND TRANSACTION_DATE BETWEEN TO_DATE('01-01-2025', 'DD-MM-YYYY') AND TO_DATE('30-04-2025', 'DD-MM-YYYY')
+            GROUP BY TO_CHAR(TO_DATE(TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY')
+            Order By transactionDate desc
 
-here in this line it's breaking  Optional<TransactionSummaryReport> transactionSummaryDataOptional
-because i'm getting data like this
-Mar-2025	14	167	7.73	92.27
+here I'm getting the data like this
+
+Mar-2025	16	204	7.27	92.73
 Feb-2025	23	128	15.23	84.77
 
-
-{
-    "status": 0,
-    "errors": [
-        {
-            "errorCode": "8042",
-            "errorMessage": "Incorrect result size: expected 1, actual 2"
-        }
-    ]
-}
+but I need whole data sum and I don't need transactionDate anymore.
