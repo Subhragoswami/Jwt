@@ -1,40 +1,13 @@
-  @PostMapping("/user/captcha")
-    @Operation(summary = "Merchant User with Validation during Login", description = "Merchant User and captcha Validation during Login via userName,Email or MobileNumber fields")
-    public MerchantResponse<String> validateUserWithCaptcha(@Valid @RequestBody UserCaptchaValidationRequest userCaptchaValidationRequest) {
-        log.info("Received request for User Validation {}", userCaptchaValidationRequest);
-        return validationService.validateUserWithCaptcha(userCaptchaValidationRequest);
-    }
-
-   public MerchantResponse<String> validateUserWithCaptcha(UserCaptchaValidationRequest userCaptchaValidationRequest){
-        log.info("Validating user request for user: {}", userCaptchaValidationRequest.getUserName());
-        validationValidator.validateUserCaptchaValidationRequest(userCaptchaValidationRequest);
-        return buildSuccessResponse(USER_VALIDATED);
-    }
-
-    public void validateUserCaptchaValidationRequest(UserCaptchaValidationRequest userCaptchaValidationRequest) {
-        logger.debug("starting validation for {}", userCaptchaValidationRequest);
-        errorDtoList = new ArrayList<>();
-        validateRequestType(userCaptchaValidationRequest.getRequestType());
-        validatedMerchantUser(userCaptchaValidationRequest.getUserName());
-        captchaValidator.captchaValueValidation(userCaptchaValidationRequest.getRequestId(), userCaptchaValidationRequest.getCaptchaText());
-    }
-
-
-
-
-add method defination and logger like this
-
-   /**
-     * Validates both the access to the merchant ID (MID) and checks if the MID is active.
-     * This method ensures that the logged-in user has access to the MID and that the MID is in an active state.
-     *
-     * @param userName The username of the logged-in user.
-     * @param mId      The merchant ID to check for access and active status.
-     * @return A MerchantResponse containing the result of the access validation and active status check.
-     */
-    @GetMapping("/access/active/{userName}/{mId}")
-    @Operation(summary = "Merchant User MID Access validation and Check MID is Active or not for Logged in User")
-    public MerchantResponse<String> validateActiveMIdAccess(@Parameter(description = "Username of the logged-in user", required = true) @PathVariable String userName, @Parameter(description = "MID of the merchant to be validated and checked for active status", required = true) @PathVariable String mId) {
-        log.info("Received request for MId access Validation and Active Status");
-        return validationService.validateActiveMId(userName, mId);
+   public List<TransactionSummaryReport> getTransactionSummaryReport(String mId, TransactionSummaryRequest transactionSummaryRequest) {
+        log.info("Fetching transaction summary report for merchant ID: {} from {} to {}", mId, transactionSummaryRequest.getFromDate(), transactionSummaryRequest.getToDate());
+        List<TransactionSummaryReport> transactionSummaryReports = new ArrayList<>();
+        Optional<TransactionSummaryReport> transactionSummaryDataOptional = transactionDashboardRepository.getTransactionSummaryReport(mId, transactionSummaryRequest.getFromDate(), transactionSummaryRequest.getToDate());
+        transactionSummaryDataOptional.ifPresentOrElse(transactionSummaryReport -> {
+            List<TransactionFailureSummaryReport> transactionDailyFailures = transactionDashboardRepository.getTransactionFailureSummaryReport(mId, transactionSummaryRequest.getFromDate(), transactionSummaryRequest.getToDate());
+            transactionDailyFailures.forEach(transactionDailyFailure -> transactionDailyFailure.setFailurePercentage(BigDecimal.valueOf((transactionDailyFailure.getFailureCount() * 100) / transactionSummaryReport.getTotalFailureCount()).setScale(2, RoundingMode.HALF_UP).doubleValue()));
+            transactionSummaryReport.setTransactionDailyFailure(transactionDailyFailures);
+            log.info("Transaction summary report for merchant ID: {} fetched successfully.", mId);
+            transactionSummaryReports.add(transactionSummaryReport);
+        }, () -> log.info("No transaction summary record found for mId: {}, fromDate: {} and toDate: {}", mId, transactionSummaryRequest.getFromDate(), transactionSummaryRequest.getToDate()));
+        return transactionSummaryReports;
     }
