@@ -3,7 +3,7 @@
     "errors": [
         {
             "errorCode": "500",
-            "errorMessage": "Type definition error: [simple type, class com.epay.kms.model.request.APIKeyValidationRequest]"
+            "errorMessage": "getReader() has already been called for this request"
         }
     ]
 }
