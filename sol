@@ -8,7 +8,7 @@
         END, 
         k.createdAt DESC
 """)
-Page<KmsManagement> findByMIdWithPriorityStatus(
+Page<KmsManagement> findBymIdOrderByCreatedAtDesc(
     @Param("mId") String mId,
     @Param("status") KeyStatus status,
     Pageable pageable
