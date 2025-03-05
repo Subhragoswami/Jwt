@@ -1,21 +1,9 @@
-@Data
-@Builder
-public class APIKeyValidationRequest {
-    @NotBlank(message = "API Key is mandatory")
-    private String apiKey;
-    @NotBlank(message = "API KeySecret is mandatory")
-    private String apiKeySecret;
+{
+    "status": 0,
+    "errors": [
+        {
+            "errorCode": "500",
+            "errorMessage": "Type definition error: [simple type, class com.epay.kms.model.request.APIKeyValidationRequest]"
+        }
+    ]
 }
-
-
-here I'm passing this keys multiple times from postman but still not getting any error
-
-
-
-{  
-     "apiKey":"3TkKAk0p/uVqDQ44P8iJeA==", 
-   "apiKeySecret":"krB8Qd+kCq0zKKeKPAPqywiV+4tkznmmJdDIC88mgqQ=",
-   "apiKey":"3TkKAk0p/uVqDQ44P8iJeA==", 
-   "apiKeySecret":"krB8Qd+kCq0zKKeKPAPqywiV+4tkznmmJdDIC88mgqQ="
-}
-
