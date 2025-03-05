@@ -1,9 +1,19 @@
-{
-    "status": 0,
-    "errors": [
-        {
-            "errorCode": "500",
-            "errorMessage": "getReader() has already been called for this request"
-        }
-    ]
+Page<KmsManagement> findBymIdOrderByCreatedAtDesc(String mId, Pageable pageable);
+
+here I want data sorted by CreatedAtDesc and active status 
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "id", nullable = false, updatable = false, unique = true)
+    private UUID id;
+    @Column(name = "MID")
+    private String mId;
+    private String keyId;
+    private String keySecret;
+    private String keyAlgo;
+    private long expiryTime;
+    @Enumerated(EnumType.STRING)
+    private KeyStatus status;
+
+public enum KeyStatus {
+    ACTIVE, INACTIVE, EXPIRED, NEED_TO_BE_ACTIVE
 }
