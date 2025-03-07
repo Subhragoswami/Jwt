@@ -1,19 +1,346 @@
-Page<KmsManagement> findBymIdOrderByCreatedAtDesc(String mId, Pageable pageable);
+public class HazelcastConstants {
+    public static final String HAZELCAST_1001 = "1001";
+    public static final String HAZELCAST_1001_MSG = "Unable to add details in cache.";
+    public static final String HAZELCAST_1002 = "1002";
+    public static final String HAZELCAST_1002_MSG = "Details not found in cache fot given key.";
+    public static final String HAZELCAST_1003 = "1003";
+    public static final String HAZELCAST_1003_MSG = "Details not found in cache for provided sql condition.";
+    public static final String HAZELCAST_1004 = "1004";
+    public static final String HAZELCAST_1004_MSG = "Details not found in cache for provided predicate.";
+    public static final String HAZELCAST_1005 = "1005";
+    public static final String HAZELCAST_1005_MSG = "Unable to add details in cache for given JSON object.";
+    public static final String HAZELCAST_1006 = "1006";
+    public static final String HAZELCAST_1006_MSG = "Details not found in cache fot given mapName and predicate condition.";
+    public static final String HAZELCAST_1007 = "1007";
+    public static final String HAZELCAST_1007_MSG = "Failed to remove from cache.";
+    public static final String HAZELCAST_1008 = "1008";
+    public static final String HAZELCAST_1008_MSG = "Failed to update the cache.";
+    public static final String HAZELCAST_1009 = "1009";
+    public static final String HAZELCAST_1009_MSG = "Failed to update the JSON value in cache.";
+    public static final String DATA_ADDED ="Data added in cache successfully";
+    public static final String DATA_REMOVED ="Data removed from cache successfully";
+    public static final String DATA_UPDATE ="Data updated in cache successfully";
 
-here I want data sorted by CreatedAtDesc and active status 
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "id", nullable = false, updatable = false, unique = true)
-    private UUID id;
-    @Column(name = "MID")
-    private String mId;
-    private String keyId;
-    private String keySecret;
-    private String keyAlgo;
-    private long expiryTime;
-    @Enumerated(EnumType.STRING)
-    private KeyStatus status;
+}
 
-public enum KeyStatus {
-    ACTIVE, INACTIVE, EXPIRED, NEED_TO_BE_ACTIVE
+public class ErrorInfoDto {
+	protected String errorCode;
+	protected String errorMessage;
+	public String getErrorCode() {
+		return errorCode;
+	}
+	public void setErrorCode(String errorCode) {
+		this.errorCode = errorCode;
+	}
+	public String getErrorMessage() {
+		return errorMessage;
+	}
+	public void setErrorMessage(String errorMessage) {
+		this.errorMessage = errorMessage;
+	}
+	
+}
+
+public class HazelcastException extends HazelcastMgmtException {
+
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 6449448937575072256L;
+	public HazelcastException(String errorCode, String errorMessage) {
+		super(errorCode, errorMessage);
+	}
+
+	public HazelcastException(String message, String errorCode, String errorMessage) {
+		super(message, errorCode, errorMessage);
+	}
+
+	public HazelcastException(String message, Throwable cause, String errorCode, String errorMessage) {
+		super(message, cause, errorCode, errorMessage);
+	}
+
+}
+
+public class HazelcastMgmtException extends Exception {
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -4462743110687012478L;
+	
+	
+	protected ErrorInfoDto errorInfo;
+	public HazelcastMgmtException(String errorCode, String errorMessage) {
+		super();
+		errorInfo = fromErrorInfo(errorCode, errorMessage);
+	}
+
+	public HazelcastMgmtException(String message, Throwable cause, String errorCode, String errorMessage) {
+		super(message, cause);
+		errorInfo = fromErrorInfo(errorCode, errorMessage);
+	}
+
+	public HazelcastMgmtException(String message, String errorCode, String errorMessage) {
+		super(message);
+		errorInfo = fromErrorInfo(errorCode, errorMessage);
+	}
+
+	private ErrorInfoDto fromErrorInfo(String errorCode, String errorMessage) {
+		ErrorInfoDto errorInfo = null;
+
+		errorInfo = new ErrorInfoDto();
+		errorInfo.setErrorCode(errorCode);
+		errorInfo.setErrorMessage(errorMessage);
+		return errorInfo;
+	}
+
+	public ErrorInfoDto getErrorInfo() {
+		return errorInfo;
+	}
+
+}
+
+@Data
+@Builder
+public class CacheableEntity implements Serializable {
+    /**
+     *
+     */
+    @Serial
+    private static final long serialVersionUID = -5378486477607481094L;
+    private String mapName;
+    private String key;
+    private EPayCachebleData cacheableEntityData;
+    private HazelCastJsonValueData hazelCastJsonValueData;
+    private Collection<Object> responseData;
+
+}
+
+public interface EPayCachebleData extends Serializable {
+}
+
+@Getter
+@Setter
+@AllArgsConstructor
+public class HazelCastJsonValueData implements  EPayCachebleData{
+    HazelcastJsonValue hazelcastJsonValue;
+}
+
+@Getter
+@Setter
+@AllArgsConstructor
+public class InputForSQLPredicate implements EPayCachebleData{
+    /**
+     *
+     */
+
+    private String mapName;
+    private String sqlConditions;
+}
+
+@Getter
+@Setter
+@AllArgsConstructor
+public class JsonValueInput implements EPayCachebleData {
+
+    /**
+     *
+     */
+    private String mapName;
+    private String keyName;
+    private String jsonString;
+}
+
+@Getter
+@Setter
+@AllArgsConstructor
+public class PredicateInput implements EPayCachebleData {
+    /**
+     *
+     */
+    private String mapName;
+    private Predicate<String,Object> predicate;
+    private String key;
+}
+
+@Service
+public class HazelcastService {
+    /**
+     * This method will be used for adding data to cache
+     *
+     * @param inputObject it is an instance of CacheableEntity as input.
+     * @param hazelcastInstance an instance of Hazelcast
+     * @return a success String if data added to cache.
+     */
+    private static final LoggerUtility log= LoggerFactoryUtility.getLogger(HazelcastService.class);
+    public  String addDataToCache(CacheableEntity inputObject,HazelcastInstance hazelcastInstance) throws HazelcastException {
+        try {
+            log.debug("HazelcastService :: addDataToCache ");
+            IMap<String, Object> myMap = hazelcastInstance.getMap(inputObject.getMapName());
+            myMap.put(inputObject.getKey(), inputObject.getCacheableEntityData());
+            return HazelcastConstants.DATA_ADDED;
+        } catch (NullPointerException e) {
+            log.error("HazelcastService :: addDataToCache "+e.getMessage());
+            throw new HazelcastException(HazelcastConstants.HAZELCAST_1001, HazelcastConstants.HAZELCAST_1001_MSG);
+        }
+    }
+
+    /**
+     * This method will be used for fetching data from cache using key.
+     *
+     * @param mapName it is a String which representing  name of a map where we have stored the data.
+     * @param key     it a String against which we will fetch a specific data related to key.
+     * @param hazelcastInstance an instance of Hazelcast
+     * @return ResponseDto .
+     */
+    public  CacheableEntity getDataByKey(String mapName, String key,HazelcastInstance hazelcastInstance) throws HazelcastException {
+        try {
+            log.debug("HazelcastService :: getDataByKey ");
+            IMap<String, Object> myMap = hazelcastInstance.getMap(mapName);
+            return CacheableEntity.builder().key(key).mapName(mapName).cacheableEntityData((EPayCachebleData) myMap.get(key)).build();
+        } catch (NullPointerException e) {
+            log.error("HazelcastService :: getDataByKey "+e.getMessage());
+            throw new HazelcastException(HazelcastConstants.HAZELCAST_1002, HazelcastConstants.HAZELCAST_1002_MSG);
+        }
+
+    }
+
+    /**
+     * This method will be used for fetching data from cache using SQL condition.
+     *
+     * @param mapName      it is a String which representing a name of a map where we have stored the data.
+     * @param sqlCondition it a String which we will use as a SQL condition to fetch a data.
+     * @param hazelcastInstance an instance of Hazelcast
+     * @return ResponseDto .
+     */
+    public  CacheableEntity getDataBySql(String mapName, String sqlCondition,HazelcastInstance hazelcastInstance) throws HazelcastException {
+        try {
+            log.debug("HazelcastService :: getDataBySql ");
+            IMap<String, Object> myMap = hazelcastInstance.getMap(mapName);
+            return CacheableEntity.builder().mapName(mapName).responseData(myMap.values(Predicates.sql(sqlCondition))).build();
+        } catch (NullPointerException e) {
+            log.error("HazelcastService :: getDataBySql "+e.getMessage());
+            throw new HazelcastException(HazelcastConstants.HAZELCAST_1003, HazelcastConstants.HAZELCAST_1003_MSG);
+        }
+    }
+
+    /**
+     * This method will be used for fetching data from cache using Predicate.
+     *
+     * @param predicateInput it is an Object of PredicateInput which contains a name of a map where we have stored the data and a Predicate instance.
+     * @param hazelcastInstance an instance of Hazelcast
+     * @return ResponseDto .
+     */
+    public  CacheableEntity getDataByPredicate(PredicateInput predicateInput,HazelcastInstance hazelcastInstance) throws HazelcastException {
+        try {
+            log.debug("HazelcastService :: getDataByPredicate ");
+            IMap<String, Object> myMap = hazelcastInstance.getMap(predicateInput.getMapName());
+            QueryResultCollection queryResultCollection = (QueryResultCollection) myMap.values(predicateInput.getPredicate());
+            EPayCachebleData ePayCacheableData = (EPayCachebleData) queryResultCollection.stream().iterator().next();
+            return CacheableEntity.builder().key(predicateInput.getKey()).mapName(predicateInput.getMapName()).cacheableEntityData(ePayCacheableData).build();
+        } catch (QueryResultSizeExceededException |NullPointerException e) {
+            log.error("HazelcastService :: getDataByPredicate "+e.getMessage());
+            throw new HazelcastException(HazelcastConstants.HAZELCAST_1004, HazelcastConstants.HAZELCAST_1004_MSG);
+        }
+    }
+
+    /**
+     * This method will be used for adding data into cache directly in JSON format.
+     *
+     * @param mapName    it is a String which representing a name of a map where we have stored the data.
+     * @param key        it a String against which we will fetch a specific data related to key
+     * @param jsonString it a JSON String which we will store into cache.
+     * @param hazelcastInstance an instance of Hazelcast
+     * @return ResponseDto.
+     */
+    public  String saveDataByJsonObject(String mapName, String key, String jsonString,HazelcastInstance hazelcastInstance) throws HazelcastException {
+        try {
+            log.debug("HazelcastService :: saveDataByJsonObject ");
+            IMap<String, HazelcastJsonValue> myMap = hazelcastInstance.getMap(mapName);
+            myMap.put(key, new HazelcastJsonValue(jsonString));
+            return HazelcastConstants.DATA_ADDED;
+        } catch (NullPointerException e) {
+            log.error("HazelcastService :: saveDataByJsonObject "+e.getMessage());
+            throw new HazelcastException(HazelcastConstants.HAZELCAST_1005, HazelcastConstants.HAZELCAST_1005_MSG);
+        }
+    }
+
+    /**
+     * This method will be used for adding data into cache directly in JSON format.
+     *
+     * @param mapName    it is a String which representing a name of a map where we have stored the data.
+     * @param key        it a String against which we will fetch a specific data related to key
+     * @param hazelcastInstance an instance of Hazelcast
+     * @return ResponseDto.
+     */
+    public  CacheableEntity getJSONData(String mapName, String key, HazelcastInstance hazelcastInstance) throws HazelcastException {
+        try {
+            log.debug("HazelcastService :: getJSONData ");
+            IMap<String, HazelcastJsonValue> myMap = hazelcastInstance.getMap(mapName);
+            return CacheableEntity.builder().key(key).mapName(mapName).hazelCastJsonValueData(new HazelCastJsonValueData(myMap.get(key))).build();
+        } catch (Exception e) {
+            log.error("HazelcastService :: getJSONData "+e.getMessage());
+            throw new HazelcastException(HazelcastConstants.HAZELCAST_1006, HazelcastConstants.HAZELCAST_1006_MSG);
+        }
+    }
+
+    /**
+     * This method will be used for removing data from cache.
+     *
+     * @param mapName it is a String which representing a name of a map where we have stored the data.
+     * @param key     it a String against which we will fetch a specific data related to key
+     * @param hazelcastInstance an instance of Hazelcast
+     * @return success String.
+     */
+    public  String removeData(String mapName, String key,HazelcastInstance hazelcastInstance) throws HazelcastException {
+        try {
+            log.debug("HazelcastService :: removeData ");
+            IMap<String, HazelcastJsonValue> myMap = hazelcastInstance.getMap(mapName);
+            myMap.remove(key);
+            return HazelcastConstants.DATA_REMOVED;
+        } catch (Exception e) {
+            log.error("HazelcastService :: removeData "+e.getMessage());
+            throw new HazelcastException(HazelcastConstants.HAZELCAST_1007, HazelcastConstants.HAZELCAST_1007_MSG);
+        }
+    }
+
+    /**
+     * This method will be used for update data of a map with specific key present in cache.
+     *
+     * @param inputObject it is an object of CacheableEntity which contains a name of a map where we have stored the data and CacheableEntity object
+     * @param hazelcastInstance an instance of Hazelcast
+     * @return success String.
+     */
+    public  String updateData(CacheableEntity inputObject,HazelcastInstance hazelcastInstance) throws HazelcastException {
+        try {
+            log.debug("HazelcastService :: updateData ");
+            IMap<String, Object> myMap = hazelcastInstance.getMap(inputObject.getMapName());
+            myMap.put(inputObject.getKey(), inputObject.getCacheableEntityData());
+            return HazelcastConstants.DATA_UPDATE;
+        } catch (Exception e) {
+            log.error("HazelcastService :: updateData "+e.getMessage());
+            throw new HazelcastException(HazelcastConstants.HAZELCAST_1008, HazelcastConstants.HAZELCAST_1008_MSG);
+        }
+    }
+
+    /**
+     * This method will be used for update data of a map with specific key present in cache.
+     *
+     * @param mapName it is a String which representing a name of a map where we have stored the data.
+     * @param key     it a String against which we will fetch a specific data related to key
+     * @param hazelcastInstance an instance of Hazelcast
+     * @return success String.
+     */
+    public  String updateJsonData(String mapName, String key, String jsonString, HazelcastInstance hazelcastInstance) throws HazelcastException {
+        try {
+            log.debug("HazelcastService :: updateJsonData ");
+            IMap<String, Object> myMap = hazelcastInstance.getMap(mapName);
+            myMap.put(key, new HazelcastJsonValue(jsonString));
+            return HazelcastConstants.DATA_UPDATE;
+        } catch (Exception e) {
+            log.error("HazelcastService :: updateJsonData "+e.getMessage());
+            throw new HazelcastException(HazelcastConstants.HAZELCAST_1009, HazelcastConstants.HAZELCAST_1009_MSG);
+        }
+    }
 }
