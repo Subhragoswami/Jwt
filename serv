@@ -1,7 +1,34 @@
-Cannot resolve method 'thenReturn(IMap<String, Object>)' 
+Wanted but not invoked:
+mockMap.put(
+    "testKey",
+    Mock for EPayCachebleData, hashCode: 201245433
+);
+-> at service.HazelcastServiceTest.testAddDataToCache_Success(HazelcastServiceTest.java:60)
+Actually, there were zero interactions with this mock.
 
-   @BeforeEach
-    void setUp() {
-        when(hazelcastInstance.getMap(MAP_NAME)).thenReturn(mockMap);
-        when(hazelcastInstance.getMap(MAP_NAME)).thenReturn(jsonMockMap);
+Wanted but not invoked:
+mockMap.put(
+    "testKey",
+    Mock for EPayCachebleData, hashCode: 201245433
+);
+-> at service.HazelcastServiceTest.testAddDataToCache_Success(HazelcastServiceTest.java:60)
+Actually, there were zero interactions with this mock.
+
+	at service.HazelcastServiceTest.testAddDataToCache_Success(HazelcastServiceTest.java:60)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+
+    @Test
+    void testAddDataToCache_Success() throws HazelcastException {
+        CacheableEntity entity = CacheableEntity.builder()
+                .mapName(MAP_NAME)
+                .key(KEY)
+                .cacheableEntityData(mock(EPayCachebleData.class))
+                .build();
+
+        String response = hazelcastService.addDataToCache(entity, hazelcastInstance);
+
+        verify(mockMap, times(1)).put(KEY, entity.getCacheableEntityData());
+        assertEquals(HazelcastConstants.DATA_ADDED, response);
     }
