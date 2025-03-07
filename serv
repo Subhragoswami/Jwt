@@ -1,7 +1,7 @@
-Unexpected exception type thrown, expected: <com.sbi.epay.hazelcast.exception.HazelcastException> but was: <org.mockito.exceptions.misusing.PotentialStubbingProblem>
-Expected :class com.sbi.epay.hazelcast.exception.HazelcastException
-Actual   :class org.mockito.exceptions.misusing.PotentialStubbingProblem
-
+  @BeforeEach
+    void setUp() {
+        lenient().when(hazelcastInstance.<String, Object>getMap(MAP_NAME)).thenReturn(mockMap);
+    }
     @Test
     void testAddDataToCache_NullPointerException() {
         CacheableEntity entity = CacheableEntity.builder().mapName(null).key(KEY).build();
@@ -12,3 +12,6 @@ Actual   :class org.mockito.exceptions.misusing.PotentialStubbingProblem
 
         assertEquals(HazelcastConstants.HAZELCAST_1001_MSG, exception.getMessage());
     }
+
+Expected :Unable to add details in cache.
+Actual   :null
