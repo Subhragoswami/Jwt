@@ -14,3 +14,10 @@ void testAddDataToCache_NullPointerException() {
 
     assertEquals(HazelcastConstants.HAZELCAST_1001_MSG, exception.getMessage());
 }
+
+
+
+@BeforeEach
+void setUp() {
+    lenient().when(hazelcastInstance.<String, Object>getMap(MAP_NAME)).thenReturn(mockMap);
+}
