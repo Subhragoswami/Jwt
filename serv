@@ -1,10 +1,30 @@
-   @Test
-    void testSaveDataByJsonObject_Success() throws HazelcastException {
-        when(hazelcastInstance.getMap(MAP_NAME)).thenReturn(jsonMockMap);
+public static final String JDBC_TRANSACTION_PAYMODE = """
+            SELECT TO_CHAR(TO_DATE(TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY') as transactionDate,
+            PAYMODE_CODE as payMode, sum(SUCCESS_COUNT) as totalSuccessCount, sum(FAIL_COUNT)as totalFailCount,
+            round(sum(SUCCESS_COUNT)/(sum(SUCCESS_COUNT)+sum(FAIL_COUNT)) * 100, 2) as successPercentage
+            FROM PAYAGGREPORT.VIEW_TRANSACTION_PAYMODE_DAILY_REPORT
+            WHERE MID = :mId AND PAYMODE_CODE is NOT NULL AND
+            TRANSACTION_DATE BETWEEN TO_DATE(:startDate, 'DD-MM-YYYY') AND TO_DATE(:endDate, 'DD-MM-YYYY')
+            GROUP BY TO_CHAR(TO_DATE(TRANSACTION_DATE, 'DD-MM-YY'), 'Mon-YYYY'), PAYMODE_CODE
+            Order By transactionDate desc
+            """;
 
-        String response = hazelcastService.saveDataByJsonObject(MAP_NAME, KEY, JSON_STRING, hazelcastInstance);
+public class TransactionPaymodeReport {
 
-        verify(jsonMockMap, times(1)).put(KEY, new HazelcastJsonValue(JSON_STRING));
-        assertEquals(HazelcastConstants.DATA_ADDED, response);
-    }
-Cannot resolve method 'thenReturn(IMap<String, HazelcastJsonValue>)'
+    private String paymodeCode;
+    private Long totalSuccessCount;
+    private Long totalFailCount;
+    private Double successPercentage;
+    private String transactionDate;
+}
+
+
+   "status": 1,
+    "data": [
+        {
+            "paymodeCode": null,
+            "totalSuccessCount": 0,
+            "totalFailCount": 1,
+            "successPercentage": 0.0,
+            "transactionDate": "Mar-2025"
+        },
