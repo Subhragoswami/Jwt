@@ -1,5 +1,8 @@
- <h2>API Credentials</h2>
+ public static final String API_KEY = "API";
+    public static final String API_KEY_SECRET = "APIK";
+
+  <h2>API Credentials</h2>
     <ul>
-        <li><strong>API Key ID:</strong> <span th:text="${map.API-Key}"></span></li>
-        <li><strong>API Key Secret:</strong> <span th:text="${map.API-Key-Secret}"></span></li>
+        <li><strong>API Key ID:</strong> <span th:text="${map['API']}"></span></li>
+        <li><strong>API Key Secret:</strong> <span th:text="${map.['APIK']}"></span></li>
     </ul>
