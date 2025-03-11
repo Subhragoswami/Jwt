@@ -1,83 +1,20 @@
- size = 2
+ public static final String MAP = "map";
+  private String getPdfContent(Map<String, String> input, String template) {
+        logger.debug("Processing PDF content for template: {}", template);
+        Context context = new Context();
+
+        context.setVariable(MerchantConstant.MAP, input);
+        return templateEngine.process(template, context);
+    }
 
     protected ByteArrayOutputStream apiPdfFileGenerator(String mId, String ApiKey, String KeySecret, UUID id) {
         String password = passwordGenerator.generatePassword();
         Map<String, String> input = new HashMap<>();
-        input.put(MerchantConstant.API_KEY,ApiKey);
-        input.put(MerchantConstant.API_KEY_SECRET,KeySecret);
+        input.put("API-KEY",ApiKey);
+        //input.put(MerchantConstant.API_KEY_SECRET,KeySecret);
         ByteArrayOutputStream byteArrayOutputStream = pdfService.generatedPDF(input, password,"api_key");
         // Step 3 : Send Notification to Merchant
         keyDao.saveNotification(KeyType.ENCRYPTION, id, "Encryption Key PDF file Password is :" + password, mId);
         logger.info("File Generate for encryptionKey");
         return byteArrayOutputStream;
-
-    public static final String API_KEY = "API-Key";
-
-    public ByteArrayOutputStream generatedPDF(Map<String, String> input, String pwd, String template) {
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        // Write the PDF content to the response output stream
-        try {
-            logger.debug("Rendering PDF content for template: {}", template);
-            ITextRenderer renderer = new ITextRenderer();
-            renderer.setDocumentFromString(getPdfContent(input, template));
-            renderer.layout();
-            renderer.createPDF(outputStream);
-            securePdf(outputStream, pwd);
-            logger.info("PDF generated and written to response successfully.");
-        } catch (Exception e) {
-            logger.error("An error occurred in downloadPdfFile method: {}", e.getMessage());
-            throw new MerchantException(ErrorConstants.FILE_GENERATION_ERROR_CODE, MessageFormat.format(ErrorConstants.FILE_GENERATION_ERROR_MESSAGE, "pdf", e.getMessage()));
-        }
-        return outputStream;
     }
-
-<!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
-<head>
-    <title>API Credentials</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-
-        h1 {
-            color: #0033a0;
-        }
-        .important {
-            font-weight: bold;
-        }
-        .logo {
-            text-align: right;
-        }
-    </style>
-</head>
-<body>
-
-<div class="logo">
-    <img class="imgSbi" alt="SBI ePay"
-         src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAOsAAABBCAMAAAAHU6NvAAAABGdBTUEAALGPC/xhBQAAAsdQTFRFFG65KABwKABwKABwKABwAKnfKQB0KABwAKvhKABwKABwKABwKABwKABxKABxAKviKABwKABxAKngKABwAKrhAKngAKrhKAByKABwKABwKABwKABwAKnfKABwKABwKABwKABwAKviAKnfAKnfKABwKQB1KABwKABwAK3kKABwAKrhAKnfAKviAKngKABxAK3kKABwKABxKABwKABwKAByKAByAKviKABwKABwKABwKABwAKngAKrgAKngAKngAKrgAKrgKABwKABwKABwKABwAKrhKABwAKnfAKngAKzjKABwKABwAKnfKgB3KABxAKnfAKrgAKngAKnfAKngAKngKABwAKnfKABwAKnfAKviAKngAKngAKnfAKrhAKzkKABxOACeAKngAK3kAKngAKrhAKrgAKngAKngAKnfAKrgAKnfKABwKABwAKngKABwAKrgKABwKABwAKviKABwAKnfAKngKABwAKnfAKnfAKrgAKnfAKrhAKngAKnfAKnfAKrgKABxAKngAK7mAKzjAKviAKngAKnfALjyAKrgAKnfAKrgKABwALDpALLrAKnfAKngAKnfAKngAKngKABwAKngKABwKgB3AKnfMQCMALPsKABwAL35AKrgKABwKgB2KgB5ALjzLwCGALDpKABwAKngKgB3AOz/AKnfKABwALHqKABxKABwAKnfAKnfAKzjALjyKABwKABwAMb+KABwAMf9LQCAAMb6AMT2KABwAKnfAP3/AKnfAKnfPwCxAKnfKABwAKnfAAAALQB+AL36AMX/ALjzALv3ALbxKQByALTtALn0ALjyALHpALPtALXwAKzkALTuKwB6ALDoALPsAK7lAKngALr2ALHqKQB1ALLrAKvhAK3lAK3kKgB4AK7mKQBzALDpKABxAK/oKQB0KgB2ALbwAKviAKzjAKrhAKrgKAByKABwAKnfOY8kaQAAAMJ0Uk5TBqfBPsK2D5ompoO1RSUoFy8klG4ruD4Zu+y5s8udo3K+JOzULAljUxihRLU5VSId50KPiB4NMmm/8tSRckV2PGVsN0nkWn+3jidMlcEHHO5ul8+dmvbSX8UfX67lSBszAqcVokGIfmzfYcjgeFhaT/jIKdvnhaq+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"/>
-</div>
-
-    <p>Thank you for using <strong>SBI ePay Merchant Portal</strong>. This document contains important details for accessing the <strong>SBI ePay</strong> APIs securely.</p>
-
-    <h2>API Credentials</h2>
-    <ul>
-        <li><strong>API Key ID:</strong> <span th:text="${map.API_KEY}"></span></li>
-
-    </ul>
-
-    <p class="important">Important: Keep your API credentials confidential. Do not share them publicly, and store them in a secure location. The API Key Secret should never be exposed in your code or in public-facing systems.</p>
-</body>
-</html>
-
-
-{
-    "status": 0,
-    "errors": [
-        {
-            "errorCode": "4104",
-            "errorMessage": "Error in pdf Generation, An error happened during template parsing (template: \"templates/api_key.html\")"
-        }
-    ]
-}
