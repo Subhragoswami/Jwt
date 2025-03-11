@@ -1,20 +1,5 @@
- public static final String MAP = "map";
-  private String getPdfContent(Map<String, String> input, String template) {
-        logger.debug("Processing PDF content for template: {}", template);
-        Context context = new Context();
-
-        context.setVariable(MerchantConstant.MAP, input);
-        return templateEngine.process(template, context);
-    }
-
-    protected ByteArrayOutputStream apiPdfFileGenerator(String mId, String ApiKey, String KeySecret, UUID id) {
-        String password = passwordGenerator.generatePassword();
-        Map<String, String> input = new HashMap<>();
-        input.put("API-KEY",ApiKey);
-        //input.put(MerchantConstant.API_KEY_SECRET,KeySecret);
-        ByteArrayOutputStream byteArrayOutputStream = pdfService.generatedPDF(input, password,"api_key");
-        // Step 3 : Send Notification to Merchant
-        keyDao.saveNotification(KeyType.ENCRYPTION, id, "Encryption Key PDF file Password is :" + password, mId);
-        logger.info("File Generate for encryptionKey");
-        return byteArrayOutputStream;
-    }
+ <h2>API Credentials</h2>
+    <ul>
+        <li><strong>API Key ID:</strong> <span th:text="${map.API-Key}"></span></li>
+        <li><strong>API Key Secret:</strong> <span th:text="${map.API-Key-Secret}"></span></li>
+    </ul>
