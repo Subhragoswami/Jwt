@@ -1,41 +1,45 @@
-package com.epay.merchant.service;
+/*
+ *
+ *  Copyright (c) [2024] [State Bank of India]
+ *  All rights reserved.
+ *
+ *  Author:@V0000001(Shilpa Kothre)
+ *  Version:1.0
+ *
+ */
 
-import com.epay.merchant.dao.KeyDao;
-import com.epay.merchant.document.pdf.PDFService;
-import com.epay.merchant.exception.MerchantException;
-import com.epay.merchant.externalservice.response.KMSAPIKeysResponse;
-import com.epay.merchant.externalservice.response.KMSEncryptionKeysResponse;
-import com.epay.merchant.externalservice.response.KMSKeyResponse;
-import com.epay.merchant.model.request.APIKeyValidationRequest;
-import com.epay.merchant.model.request.KeyGenerationRequest;
-import com.epay.merchant.model.response.MerchantResponse;
-import com.epay.merchant.util.ErrorConstants;
-import com.epay.merchant.util.MerchantConstant;
-import com.epay.merchant.util.MerchantUtil;
-import com.epay.merchant.util.PasswordGenerator;
-import com.epay.merchant.util.enums.KeyType;
-import com.epay.merchant.validator.KeyValidator;
+
+package com.epay.kms.exceptionhandlers;
+
+
+import com.epay.kms.dto.ErrorDto;
+import com.epay.kms.exception.KeyManagementException;
+import com.epay.kms.model.response.KMSResponse;
+import com.epay.kms.util.ErrorConstant;
+import com.epay.kms.util.KmsConstant;
+import com.sbi.epay.encryptdecrypt.exception.EncryptionDecryptionException;
 import com.sbi.epay.logging.utility.LoggerFactoryUtility;
 import com.sbi.epay.logging.utility.LoggerUtility;
-import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Pageable;
-import org.springframework.http.MediaType;
-import org.springframework.stereotype.Service;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.text.MessageFormat;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.ArrayList;
+import java.util.List;
 
+import static com.epay.kms.util.ErrorConstant.INVALID_ERROR_CODE;
+import static com.epay.kms.util.ErrorConstant.INVALID_ERROR_MESSAGE;
 
 /**
- * Class Name: KeyService
+ * Class Name: KMSExceptionHandler
  * *
- * Description:
+ * Description: This class handles global exception.
  * *
  * Author: V1017903(bhushan wadekar)
  * <p>
@@ -44,255 +48,109 @@ import java.util.UUID;
  * *
  * Version:1.0
  */
+@ControllerAdvice
+public class KMSExceptionHandler {
+    LoggerUtility logger = LoggerFactoryUtility.getLogger(this.getClass());
 
-@Service
-@RequiredArgsConstructor
-public class KeyService {
+    @ExceptionHandler(value = {KeyManagementException.class})
+    public ResponseEntity<Object> handleKMSException(KeyManagementException ex) {
+        ErrorDto errorDto = ErrorDto.builder().errorCode(ex.getErrorCode()).errorMessage(ex.getErrorMessage()).build();
+        return generateResponseWithErrors(List.of(errorDto));
+    }
 
-    private final LoggerUtility logger = LoggerFactoryUtility.getLogger(this.getClass());
-    private final KeyValidator keyValidator;
-    private final KeyDao keyDao;
-    private final PasswordGenerator passwordGenerator;
-    private final PDFService pdfService;
-
-    /**
-     * Handles the generation of keys (API or Encryption) for merchants.
-     * Logs details about the key generation process and errors, if any.
-     *
-     * @param type                 KeyType The type of key to generate (API or Encryption).
-     * @param keyGenerationRequest keyGenerationRequest Request body containing key generation details.
-     * @param response             HttpServletResponse HTTP response object for sending the generated file.
-     */
-    public void generateKey(KeyType type, KeyGenerationRequest keyGenerationRequest, HttpServletResponse response) {
-        logger.info("Started generateKey for type: {}", type);
-        ByteArrayOutputStream pdfStream;
-        // Step 1 : Validate the KMSKeyGenerationRequest
-        keyValidator.validateKeyGenerationRequest(keyGenerationRequest);
-        switch (type) {
-            case API -> pdfStream = apiKeyGeneration(keyGenerationRequest);
-            case ENCRYPTION -> pdfStream = encryptionKeyGeneration(keyGenerationRequest);
-            default -> {
-                logger.error("Invalid KeyType provided: {}", type);
-                throw new MerchantException(ErrorConstants.INVALID_ERROR_CODE, MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "KeyType", "Valid Key Type are " + Arrays.toString(KeyType.values())));
-            }
-        }
-        fileResponse(type, keyGenerationRequest, response, pdfStream);
-        logger.info("Completed generateKey for type: {}", type);
+    @ExceptionHandler(value = {EncryptionDecryptionException.class})
+    public ResponseEntity<Object> handleEncryptionDecryptionException(EncryptionDecryptionException ex) {
+        ErrorDto errorDto = ErrorDto.builder().errorCode(ex.getErrorCode()).errorMessage(ex.getErrorMessage()).build();
+        return generateResponseWithErrors(List.of(errorDto));
     }
 
     /**
-     * Validates an API key and returns the validation status.
-     * Logs the validation process and potential errors.
+     * Handle handleMethodArgumentTypeMismatch
      *
-     * @param apiKeyValidationRequest APIKeyValidationRequest Request body containing API key validation details.
-     * @return MerchantResponse containing validation status.
+     * @param ex MethodArgumentTypeMismatchException
+     * @return ResponseEntity
      */
-    public MerchantResponse<String> validatedAPIKey(APIKeyValidationRequest apiKeyValidationRequest) {
-        logger.info("Started validatedAPIKey for request: {}", apiKeyValidationRequest);
-        keyValidator.validateAPIKeyValidationRequest(apiKeyValidationRequest);
-        logger.info("Validation of validatedAPIKey Completed for request: {}", apiKeyValidationRequest);
-        return keyDao.validatedAPIKey(apiKeyValidationRequest);
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Object> handleMethodArgumentTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        logger.error("Error in handleMethodArgumentTypeMismatch with message: {}", ex.getMessage());
+        ErrorDto errorDto = ErrorDto.builder().errorCode(INVALID_ERROR_CODE).errorMessage(MessageFormat.format(INVALID_ERROR_MESSAGE, ex.getPropertyName(), ex.getValue() + " is not a valid input.")).build();
+        return generateResponseWithErrors(List.of(errorDto));
     }
 
     /**
-     * Retrieves encryption keys for a given merchant ID.
-     * Logs the retrieval process and potential errors.
+     * Handle ResourceException
      *
-     * @param mId String Merchant ID for which encryption keys are fetched.
-     * @return MerchantResponse containing encryption key details.
+     * @param ex NoResourceFoundException
+     * @return ResponseEntity
      */
-    public MerchantResponse<KMSEncryptionKeysResponse> getMerchantEncryptionKeys(String mId) {
-        logger.info("Started getMerchantEncryptionKeys for a merchant: {}", mId);
-        keyValidator.validateMId(mId);
-        logger.info("Completed getMerchantEncryptionKeys for merchant {}", mId);
-        return keyDao.getMerchantEncryptionKeys(mId);
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<Object> handleResourceException(NoResourceFoundException ex) {
+        logger.error("Error in handleResourceException for resource: {}, message: {}", ex.getResourcePath(), ex.getMessage());
+        ErrorDto errorDto = ErrorDto.builder().errorCode(INVALID_ERROR_CODE).errorMessage(MessageFormat.format(INVALID_ERROR_MESSAGE, ex.getResourcePath(), ex.getResourcePath() + " is not a valid url.")).build();
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(KMSResponse.builder().status(KmsConstant.RESPONSE_FAILURE).errors(List.of(errorDto)).build());
+    }
+
+
+    @ExceptionHandler(value = {Exception.class})
+    public ResponseEntity<Object> handleGenericException(Exception ex) {
+        logger.error("Error in handleGenericException ", ex);
+        ErrorDto errorDto = ErrorDto.builder().errorCode(INVALID_ERROR_CODE).errorMessage(ex.getMessage()).build();
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(KMSResponse.builder().status(KmsConstant.RESPONSE_FAILURE).errors(List.of(errorDto)).build());
+    }
+
+    @ExceptionHandler(value = {MethodArgumentNotValidException.class})
+    protected ResponseEntity<Object> handleValidationException(MethodArgumentNotValidException ex) {
+        logger.error("Error in handleValidationException with message: {}", ex.getMessage());
+        List<ErrorDto> errors = new ArrayList<>();
+        ex.getBindingResult().getFieldErrors().forEach(fieldError -> errors.add(ErrorDto.builder().errorCode(ErrorConstant.KMS_ERROR_CODE).errorMessage(fieldError.getField() + ":" + fieldError.getDefaultMessage()).build()));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(KMSResponse.builder().status(KmsConstant.RESPONSE_FAILURE).errors(errors).build());
+    }
+
+    @ExceptionHandler(value = {IllegalArgumentException.class})
+    protected ResponseEntity<Object> handleConflict(RuntimeException ex) {
+        logger.error("Error in handleConflict ", ex);
+        ErrorDto errorDto = ErrorDto.builder().errorCode(String.valueOf(HttpStatus.CONFLICT.value())).errorMessage(ex.getMessage()).build();
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(KMSResponse.builder().status(KmsConstant.RESPONSE_FAILURE).errors(List.of(errorDto)).build());
+    }
+
+    private ResponseEntity<Object> generateResponseWithErrors(List<ErrorDto> errors) {
+        return ResponseEntity.ok().body(KMSResponse.builder().status(KmsConstant.RESPONSE_FAILURE).errors(errors).build());
     }
 
     /**
-     * This method generates an encryption key and creates a pwd-protected PDF file.
+     * Handle EnumConversionException
      *
-     * @param keyGenerationRequest KeyGenerationRequest The request object containing key generation details
-     * @return ByteArrayOutputStream containing the generated PDF file
+     * @param e MethodArgumentTypeMismatchException
+     * @return ResponseEntity
      */
-    private ByteArrayOutputStream encryptionKeyGeneration(KeyGenerationRequest keyGenerationRequest) {
-        logger.info("Started encryptionKeyGeneration for request: {}", keyGenerationRequest);
-        // Step 1 : Call the KMS APIs
-        KMSEncryptionKeysResponse kmsEncryptionKeysResponse = keyDao.generateEncryptionKey(keyGenerationRequest);
-        // Step 2 : Generate the pwd-protected PDF File
-        return pdfFileGenerator(keyGenerationRequest.getMId(), kmsEncryptionKeysResponse.getMek(), kmsEncryptionKeysResponse.getId());
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Object> handleEnumConversionException(HttpMessageNotReadableException e) {
+        logger.error("Error in handleEnumConversionException with message: {}", e.getMessage());
+        ErrorDto errorDto = ErrorDto.builder().errorCode(INVALID_ERROR_CODE).errorMessage(e.getMessage()).build();
+        return generateResponseWithErrors(List.of(errorDto));
     }
 
-    /**
-     * This method generates an API Key and creates a pwd-protected PDF file.
-     *
-     * @param keyGenerationRequest KeyGenerationRequest The request object containing API key generation details
-     * @return ByteArrayOutputStream containing the generated PDF file
-     */
-    private ByteArrayOutputStream apiKeyGeneration(KeyGenerationRequest keyGenerationRequest) {
-        logger.info("Started apiKeyGeneration for request: {}", keyGenerationRequest);
-        // Step 1 : Call the KMS APIs
-        KMSAPIKeysResponse kmsapiKeysResponse = keyDao.generateApiKey(keyGenerationRequest.getMId());
-        // Step 2 : Generate the pwd-protected PDF File
-        return apiPdfFileGenerator(keyGenerationRequest.getMId(), kmsapiKeysResponse.getApiKey(), kmsapiKeysResponse.getApiKeySecret(), kmsapiKeysResponse.getId());
-    }
-
-    /**
-     * Fetches the keys associated with a given merchant ID and key type.
-     * Logs the retrieval process and any errors encountered.
-     *
-     * @param keyType  Key type to filter (API or Encryption).
-     * @param mId      String Merchant ID for which keys are fetched.
-     * @param pageable Pageable object for pagination.
-     * @return MerchantResponse containing the list of keys.
-     */
-    public MerchantResponse<KMSKeyResponse> getKeysByMerchant(KeyType keyType, String mId, Pageable pageable) {
-        logger.info("Fetching key by merchant keyType: {}, mId: {}", keyType, mId);
-        return keyDao.getKeysByMerchant(keyType, mId, pageable);
-    }
-
-    /**
-     * This method retrieves a Encryption key for the given Merchant ID (mId),
-     * generates a pwd-protected PDF, and sends it as a downloadable response.
-     *
-     * @param mId      Merchant ID for which the decryption key is to be fetched.
-     * @param response HttpServletResponse object to send the generated PDF as a response.
-     */
-    public void getMerchantEncryptionKeysForDownload(String mId, HttpServletResponse response) {
-        // Step 1: validate the mId
-        keyValidator.validateMId(mId);
-        // Step 2: Fetch the decrypted key
-        String mek = keyDao.getMerchantEncryptionKeysForDownload(mId);
-        // Step 3: Generate a pwd for the PDF
-        ByteArrayOutputStream pdfStream = pdfFileGenerator(mId, mek, UUID.randomUUID());
-        fileResponse(KeyType.ENCRYPTION, KeyGenerationRequest.builder().mId(mId).build(), response, pdfStream);
-    }
-
-    /**
-     * This method writes the generated PDF file to the HTTP response.
-     *
-     * @param keyGenerationRequest KeyGenerationRequest  The request object containing key generation details
-     * @param type                 KeyType The type of key to generate (API or Encryption).
-     * @param response             HttpServletResponse the HttpServletResponse to send the PDF file
-     * @param pdfStream            ByteArrayOutputStream  containing the generated PDF data
-     */
-    protected void fileResponse(KeyType type, KeyGenerationRequest keyGenerationRequest, HttpServletResponse response, ByteArrayOutputStream pdfStream) {
-        logger.info("Started fileResponse for type: {}, request: {}", type, keyGenerationRequest);
-        try {
-            String fileName = type.name() + "_" + keyGenerationRequest.getMId() + "_" + System.currentTimeMillis() + ".pdf";
-            MerchantUtil.setHeader(response, MediaType.APPLICATION_PDF_VALUE, fileName);
-            response.getOutputStream().write(pdfStream.toByteArray());
-            response.getOutputStream().flush();
-            logger.info("Completed fileResponse for type: {}, request: {}", type, keyGenerationRequest);
-        } catch (IOException e) {
-            logger.error("Error in PDF File Generation ", e);
-            throw new MerchantException(ErrorConstants.GENERATION_ERROR_CODE, MessageFormat.format(ErrorConstants.GENERATION_ERROR_MESSAGE, type.name() + "Key"));
-        }
-    }
-
-    /**
-     *
-     * @param mId String
-     * @param mek String
-     * @param id UUID
-     * @return ByteArrayOutputStream
-     */
-    protected ByteArrayOutputStream pdfFileGenerator(String mId, String mek, UUID id) {
-        String password = passwordGenerator.generatePassword();
-        Map<String, String> input = new HashMap<>();
-        input.put(MerchantConstant.MEK,mek);
-        ByteArrayOutputStream byteArrayOutputStream = pdfService.generatedPDF(input, password,"encryption_key");
-        // Step 3 : Send Notification to Merchant
-        keyDao.saveNotification(KeyType.ENCRYPTION, id, "Encryption Key PDF file Password is :" + password, mId);
-        logger.info("File Generate for encryptionKey");
-        return byteArrayOutputStream;
-    }
-
-    protected ByteArrayOutputStream apiPdfFileGenerator(String mId, String ApiKey, String KeySecret, UUID id) {
-        String password = passwordGenerator.generatePassword();
-        Map<String, String> input = new HashMap<>();
-        input.put(MerchantConstant.API_KEY,ApiKey);
-        input.put(MerchantConstant.API_KEY_SECRET,KeySecret);
-        ByteArrayOutputStream byteArrayOutputStream = pdfService.generatedPDF(input, password,"api_key");
-        // Step 3 : Send Notification to Merchant
-        keyDao.saveNotification(KeyType.ENCRYPTION, id, "Encryption Key PDF file Password is :" + password, mId);
-        logger.info("File Generate for encryptionKey");
-        return byteArrayOutputStream;
-    }
 
 }
+
+for this if I do post call to get call it
+s not throwing get is not suppported
+
 @Data
 @Builder
-public class KeyGenerationRequest {
-
-    @JsonProperty("mId")
-    @Schema(description = "Merchant ID", example = "MID7")
-    @NotBlank(message = MANDATORY_FIELD)
-    private String mId;
-    @Schema(description = "oldKeyExpiryInHr", example = "30")
-    private int oldKeyExpiryInHr;
+public class APIKeyValidationRequest {
+    @NotBlank(message = "API Key is mandatory")
+    private String apiKey;
+    @NotBlank(message = "API KeySecret is mandatory")
+    private String apiKeySecret;
 }
- public KMSAPIKeysResponse generateApiKey(String mId) {
-        try {
-            MerchantResponse<KMSAPIKeysResponse> kmsResponse = kmsClient.generateAPIKeys(mId, merchantConfig.getApiKeyExpiryTime());
-            if (kmsResponse.getStatus() == MerchantConstant.RESPONSE_SUCCESS && CollectionUtils.isNotEmpty(kmsResponse.getData())) {
-                UUID keyId = saveKey(mId, KeyType.API, MerchantConstant.RESPONSE_SUCCESS, API_KEY_GENERATED);
-                KMSAPIKeysResponse kmsapiKeysResponse = kmsResponse.getData().getFirst();
-                kmsapiKeysResponse.setId(keyId);
-                return kmsapiKeysResponse;
-            } else if (kmsResponse.getStatus() == MerchantConstant.RESPONSE_FAILURE) {
-                saveKey(mId, KeyType.API, MerchantConstant.RESPONSE_FAILURE, Arrays.toString(kmsResponse.getErrors().toArray(new ErrorDto[0])));
-                throw new ValidationException(kmsResponse.getErrors());
-            }
-            saveKey(mId, KeyType.API, MerchantConstant.RESPONSE_FAILURE, ERROR_IN_API_KEY_GENERATED);
-            throw new MerchantException(ErrorConstants.GENERATION_ERROR_CODE, MessageFormat.format(ErrorConstants.GENERATION_ERROR_MESSAGE, API_KEY));
-        } catch (Exception e) {
-            log.error("Error in API Key Generation : ", e);
-            saveKey(mId, KeyType.API, MerchantConstant.RESPONSE_FAILURE, ERROR_IN_API_KEY_GENERATED + e.getMessage());
-            throw new MerchantException(ErrorConstants.GENERATION_ERROR_CODE, MessageFormat.format(ErrorConstants.GENERATION_ERROR_MESSAGE, API_KEY));
+
+instead of that it's throwing {
+    "status": 0,
+    "errors": [
+        {
+            "errorCode": "7022",
+            "errorMessage": "Invalid keyType. Reason : validated is not a valid input."
         }
-    }
-    public ByteArrayOutputStream generatedPDF(Map<String, String> input, String pwd, String template) {
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        // Write the PDF content to the response output stream
-        try {
-            logger.debug("Rendering PDF content for template: {}", template);
-            ITextRenderer renderer = new ITextRenderer();
-            renderer.setDocumentFromString(getPdfContent(input, template));
-            renderer.layout();
-            renderer.createPDF(outputStream);
-            securePdf(outputStream, pwd);
-            logger.info("PDF generated and written to response successfully.");
-        } catch (Exception e) {
-            logger.error("An error occurred in downloadPdfFile method: {}", e.getMessage());
-            throw new MerchantException(ErrorConstants.FILE_GENERATION_ERROR_CODE, MessageFormat.format(ErrorConstants.FILE_GENERATION_ERROR_MESSAGE, "pdf", e.getMessage()));
-        }
-        return outputStream;
-    }
-  private String getPdfContent(Map<String, String> input, String template) {
-        logger.debug("Processing PDF content for template: {}", template);
-        Context context = new Context();
-        context.setVariable(MerchantConstant.MAP, input);
-        return templateEngine.process(template, context);
-    }
-
-please write JUnit for this methods
-
-    private ByteArrayOutputStream apiKeyGeneration(KeyGenerationRequest keyGenerationRequest) {
-        logger.info("Started apiKeyGeneration for request: {}", keyGenerationRequest);
-        // Step 1 : Call the KMS APIs
-        KMSAPIKeysResponse kmsapiKeysResponse = keyDao.generateApiKey(keyGenerationRequest.getMId());
-        // Step 2 : Generate the pwd-protected PDF File
-        return apiPdfFileGenerator(keyGenerationRequest.getMId(), kmsapiKeysResponse.getApiKey(), kmsapiKeysResponse.getApiKeySecret(), kmsapiKeysResponse.getId());
-    }
-
-    protected ByteArrayOutputStream apiPdfFileGenerator(String mId, String ApiKey, String KeySecret, UUID id) {
-        String password = passwordGenerator.generatePassword();
-        Map<String, String> input = new HashMap<>();
-        input.put(MerchantConstant.API_KEY,ApiKey);
-        input.put(MerchantConstant.API_KEY_SECRET,KeySecret);
-        ByteArrayOutputStream byteArrayOutputStream = pdfService.generatedPDF(input, password,"api_key");
-        // Step 3 : Send Notification to Merchant
-        keyDao.saveNotification(KeyType.ENCRYPTION, id, "Encryption Key PDF file Password is :" + password, mId);
-        logger.info("File Generate for encryptionKey");
-        return byteArrayOutputStream;
-    }
+    ]
+}
