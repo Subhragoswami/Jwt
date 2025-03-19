@@ -36,3 +36,9 @@ INSERT INTO MENU_INFO(CODE, NAME, PARENT_ID, DESCRIPTION)
 VALUES('TOOL_MAPPING', 'Tool Mapping', (SELECT ID FROM MENU_INFO WHERE CODE = 'USER_MGMT'), 'User can visit Tool Mapping');
 
 commit;
+
+
+INSERT INTO MENU_INFO(CODE, NAME, DESCRIPTION)
+VALUES('ACC_SETTING', 'Account & Setting', 'User can visit Account and Setting');
+
+here I need to change Account & Setting to Account & Settings
