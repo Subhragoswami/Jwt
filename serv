@@ -1,44 +1,4 @@
---liquibase formatted sql
---changeset Hrishikesh:1
-
-CREATE TABLE MENU_INFO (
-    ID	RAW(16) DEFAULT SYS_GUID() PRIMARY KEY NOT NULL,
-    CODE	VARCHAR2(20) NOT NULL UNIQUE,
-    Name	VARCHAR2(20) NOT NULL UNIQUE,
-    PARENT_ID	RAW(16),
-    DESCRIPTION	VARCHAR2(100)
-);
-
-
-INSERT INTO MENU_INFO(CODE, NAME, DESCRIPTION)
-VALUES('DASHBOARD', 'Dashboard', 'Dashboard Menu');
-INSERT INTO MENU_INFO(CODE, NAME, DESCRIPTION)
-VALUES('REPORT', 'Report', 'Report Generation Menu');
-INSERT INTO MENU_INFO(CODE, NAME, DESCRIPTION)
-VALUES('TRX_REFUND', 'Transaction & Refund', 'User can visit Transaction and Refund');
-INSERT INTO MENU_INFO(CODE, NAME, DESCRIPTION)
-VALUES('INVOICE', 'Invoice', 'User can visit Invoice');
-INSERT INTO MENU_INFO(CODE, NAME, DESCRIPTION)
-VALUES('USER_MGMT', 'User Management', 'User can visit User Management');
-INSERT INTO MENU_INFO(CODE, NAME, DESCRIPTION)
-VALUES('ACC_SETTING', 'Account & Setting', 'User can visit Account and Setting');
-INSERT INTO MENU_INFO(CODE, NAME, DESCRIPTION)
-VALUES('HELP_SUPPORT', 'Help & Support', 'User can visit Help and Support');
-INSERT INTO MENU_INFO(CODE, NAME, PARENT_ID, DESCRIPTION)
-VALUES('PROFILE', 'Profile', (SELECT ID FROM MENU_INFO WHERE CODE = 'USER_MGMT'), 'User can visit Profile');
-INSERT INTO MENU_INFO(CODE, NAME, PARENT_ID, DESCRIPTION)
-VALUES('MANAGE_USERS', 'Manage Users', (SELECT ID FROM MENU_INFO WHERE CODE = 'USER_MGMT'), 'User can visit Manage Users');
-INSERT INTO MENU_INFO(CODE, NAME, PARENT_ID, DESCRIPTION)
-VALUES('ACTIVE_USERS', 'Active Users', (SELECT ID FROM MENU_INFO WHERE CODE = 'USER_MGMT'), 'User can visit Active Users');
-INSERT INTO MENU_INFO(CODE, NAME, PARENT_ID, DESCRIPTION)
-VALUES('MID_MAPPING', 'MID Mapping', (SELECT ID FROM MENU_INFO WHERE CODE = 'USER_MGMT'), 'User can visit MID Mapping');
-INSERT INTO MENU_INFO(CODE, NAME, PARENT_ID, DESCRIPTION)
-VALUES('TOOL_MAPPING', 'Tool Mapping', (SELECT ID FROM MENU_INFO WHERE CODE = 'USER_MGMT'), 'User can visit Tool Mapping');
-
-commit;
-
-
-INSERT INTO MENU_INFO(CODE, NAME, DESCRIPTION)
-VALUES('ACC_SETTING', 'Account & Setting', 'User can visit Account and Setting');
-
-here I need to change Account & Setting to Account & Settings
+Caused by: liquibase.exception.ValidationFailedException: Validation Failed:
+     1 changesets check sum
+          db/changelog/scripts/1738755190265_create_table_menu_info.sql::1::Hrishikesh was: 9:c451484cd8b54b4be21745d0cd5089f2 but is now: 9:3cdf2dd45b2e7ed012a31b5828dd58c5
+Caused by: liquibase.exception.ValidationFailedException: Validation Failed:
