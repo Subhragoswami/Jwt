@@ -1,16 +1,38 @@
- public List<AdminDowntimePayModeInfo> getDowntimeAPIs() {
-        URI uri = URI.create(getBaseUrl() + DOWNTIME_API_ENDPOINT);
-        return getWebClient().post().uri(uri).retrieve().onStatus(httpStatusCode -> httpStatusCode.is4xxClientError() || httpStatusCode.is5xxServerError(), clientResponse -> Mono.error(new MerchantException(ErrorConstants.INVALID_ERROR_CODE, ErrorConstants.INVALID_ERROR_CODE))).bodyToMono(new ParameterizedTypeReference<MerchantResponse<AdminDowntimePayModeInfo>>() {
-        }).map(MerchantResponse::getData).block();
-    }
+--liquibase formatted sql
+--changeset Hrishikesh:1
 
- private Set<String> getMerchantDowntimeAPIs() {
-        URI uri = URI.create(getBaseUrl() + DOWNTIME_API_ENDPOINT);
-        List<HashMap<String, String>> block = getWebClient().post().uri(uri).retrieve().onStatus(httpStatusCode -> httpStatusCode.is4xxClientError() || httpStatusCode.is5xxServerError(), clientResponse -> Mono.error(new MerchantException(ErrorConstants.INVALID_ERROR_CODE, ErrorConstants.INVALID_ERROR_CODE))).bodyToMono(new ParameterizedTypeReference<MerchantResponse<HashMap<String, String>>>() {
-        }).map(MerchantResponse::getData).block();
+CREATE TABLE MENU_INFO (
+    ID	RAW(16) DEFAULT SYS_GUID() PRIMARY KEY NOT NULL,
+    CODE	VARCHAR2(20) NOT NULL UNIQUE,
+    Name	VARCHAR2(20) NOT NULL UNIQUE,
+    PARENT_ID	RAW(16),
+    DESCRIPTION	VARCHAR2(100)
+);
 
-        if (CollectionUtils.isNotEmpty(block)) {
-            return block.stream().filter(map -> map.containsKey("gatewayId")).map(map -> map.get("gatewayId")).collect(Collectors.toSet());
-        }
-        return new HashSet<>();
-    }
+
+INSERT INTO MENU_INFO(CODE, NAME, DESCRIPTION)
+VALUES('DASHBOARD', 'Dashboard', 'Dashboard Menu');
+INSERT INTO MENU_INFO(CODE, NAME, DESCRIPTION)
+VALUES('REPORT', 'Report', 'Report Generation Menu');
+INSERT INTO MENU_INFO(CODE, NAME, DESCRIPTION)
+VALUES('TRX_REFUND', 'Transaction & Refund', 'User can visit Transaction and Refund');
+INSERT INTO MENU_INFO(CODE, NAME, DESCRIPTION)
+VALUES('INVOICE', 'Invoice', 'User can visit Invoice');
+INSERT INTO MENU_INFO(CODE, NAME, DESCRIPTION)
+VALUES('USER_MGMT', 'User Management', 'User can visit User Management');
+INSERT INTO MENU_INFO(CODE, NAME, DESCRIPTION)
+VALUES('ACC_SETTING', 'Account & Setting', 'User can visit Account and Setting');
+INSERT INTO MENU_INFO(CODE, NAME, DESCRIPTION)
+VALUES('HELP_SUPPORT', 'Help & Support', 'User can visit Help and Support');
+INSERT INTO MENU_INFO(CODE, NAME, PARENT_ID, DESCRIPTION)
+VALUES('PROFILE', 'Profile', (SELECT ID FROM MENU_INFO WHERE CODE = 'USER_MGMT'), 'User can visit Profile');
+INSERT INTO MENU_INFO(CODE, NAME, PARENT_ID, DESCRIPTION)
+VALUES('MANAGE_USERS', 'Manage Users', (SELECT ID FROM MENU_INFO WHERE CODE = 'USER_MGMT'), 'User can visit Manage Users');
+INSERT INTO MENU_INFO(CODE, NAME, PARENT_ID, DESCRIPTION)
+VALUES('ACTIVE_USERS', 'Active Users', (SELECT ID FROM MENU_INFO WHERE CODE = 'USER_MGMT'), 'User can visit Active Users');
+INSERT INTO MENU_INFO(CODE, NAME, PARENT_ID, DESCRIPTION)
+VALUES('MID_MAPPING', 'MID Mapping', (SELECT ID FROM MENU_INFO WHERE CODE = 'USER_MGMT'), 'User can visit MID Mapping');
+INSERT INTO MENU_INFO(CODE, NAME, PARENT_ID, DESCRIPTION)
+VALUES('TOOL_MAPPING', 'Tool Mapping', (SELECT ID FROM MENU_INFO WHERE CODE = 'USER_MGMT'), 'User can visit Tool Mapping');
+
+commit;
