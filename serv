@@ -1,4 +1,4 @@
-Caused by: liquibase.exception.ValidationFailedException: Validation Failed:
-     1 changesets check sum
-          db/changelog/scripts/1738755190265_create_table_menu_info.sql::1::Hrishikesh was: 9:c451484cd8b54b4be21745d0cd5089f2 but is now: 9:3cdf2dd45b2e7ed012a31b5828dd58c5
-Caused by: liquibase.exception.ValidationFailedException: Validation Failed:
+logging.level:
+  liquibase: INFO
+  org.apache.kafka: ERROR
+  com.epay.merchant: INFO
