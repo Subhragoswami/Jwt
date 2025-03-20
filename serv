@@ -1,4 +1,10 @@
-logging.level:
-  liquibase: INFO
-  org.apache.kafka: ERROR
-  com.epay.merchant: INFO
+update merchant_user set first_name="nee" where user_name="Neeraj3"
+
+Error starting at line : 1 in command -
+update merchant_user set first_name="nee" where user_name="Neeraj3"
+Error at Command Line : 1 Column : 59
+Error report -
+SQL Error: ORA-00904: "Neeraj3": invalid identifier
+00904. 00000 -  "%s: invalid identifier"
+*Cause:    
+*Action:
