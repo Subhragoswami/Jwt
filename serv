@@ -1,10 +1,188 @@
-update merchant_user set first_name="nee" where user_name="Neeraj3"
+package com.epay.merchant.externalservice;
 
-Error starting at line : 1 in command -
-update merchant_user set first_name="nee" where user_name="Neeraj3"
-Error at Command Line : 1 Column : 59
-Error report -
-SQL Error: ORA-00904: "Neeraj3": invalid identifier
-00904. 00000 -  "%s: invalid identifier"
-*Cause:    
-*Action:
+
+import com.epay.merchant.client.ApiClient;
+import com.epay.merchant.exception.MerchantException;
+import com.epay.merchant.externalservice.request.AdminBankVerification;
+import com.epay.merchant.externalservice.response.AdminDowntimePayModeInfo;
+import com.epay.merchant.externalservice.response.MerchantDownTimeDetails;
+import com.epay.merchant.externalservice.response.MerchantDownTimeResponse;
+import com.epay.merchant.model.response.MerchantResponse;
+import com.epay.merchant.util.ErrorConstants;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.collections4.CollectionUtils;
+import org.springframework.core.ParameterizedTypeReference;
+import reactor.core.publisher.Mono;
+
+import java.net.URI;
+import java.util.*;
+import java.util.stream.Collectors;
+
+/**
+ * Class Name: AdminServicesClient
+ * *
+ * Description: This class provides methods for interacting with the transaction downtime API. It includes functionality
+ * for managing and retrieving transaction downtime details for various merchants. The class extends the base class
+ * `ApiClient`, inheriting common functionality for API communication while focusing on the specific logic needed for
+ * handling transaction downtime requests and responses.
+ * Author: V1018491
+ * Copyright (c) 2024 [State Bank of India]
+ * All rights reserved
+ * *
+ * Version:1.0
+ */
+public class AdminServicesClient extends ApiClient {
+
+    public static final String DOWNTIME_API_ENDPOINT = "/payMode/downtime";
+    public static final String MERCHANT_PAYMODE_API = "/merchant/paymode/";
+    public static final String BANK_ACCOUNT_VALIDATION = "/bank/validate";
+
+    public static final String DATA = "data";
+    public static final String PAY_MODES = "paymodes";
+    public static final String PREFERRED_OPTIONS = "preferredOptions";
+    public static final String PAYMENT_OPTIONS = "otherPaymentOptions";
+    public static final String INB = "INB";
+    public static final String UPI = "UPI";
+    public static final String UPI_KEY_BHIMQR = "BHIMQR";
+    public static final String UPI_KEY_SELF = "self";
+
+    private final ObjectMapper mapper = new ObjectMapper();
+
+    public AdminServicesClient(String baseUrl) {
+        super(baseUrl);
+    }
+
+    /**
+     * Set up merchant downtime response
+     *
+     * @param merchantDownTimeResponses HashMap
+     * @param payMode                   String
+     * @param downtimeDetails           List of merchant downtime details
+     * @param downTimeResponse          MerchantDownTimeResponse
+     */
+    private static void setUpMerchantDownTimeResponse(HashMap<String, MerchantDownTimeResponse> merchantDownTimeResponses, String payMode, List<MerchantDownTimeDetails> downtimeDetails, MerchantDownTimeResponse downTimeResponse) {
+
+        if (merchantDownTimeResponses.containsKey(payMode)) {
+            MerchantDownTimeResponse merchantDownTimeResponse = merchantDownTimeResponses.get(payMode);
+            int downTimeCount = setDowntimeCount(downtimeDetails);
+            merchantDownTimeResponse.setDowntimeCount(downTimeResponse.getDowntimeCount() + downTimeCount);
+            merchantDownTimeResponse.getDownTimeDetails().addAll(downtimeDetails);
+
+        } else {
+            downTimeResponse.setDownTimeDetails(downtimeDetails);
+            int downTimeCount = setDowntimeCount(downtimeDetails);
+            downTimeResponse.setDowntimeCount(downTimeResponse.getDowntimeCount() + downTimeCount);
+            merchantDownTimeResponses.put(payMode, downTimeResponse);
+        }
+    }
+
+    private static int setDowntimeCount(List<MerchantDownTimeDetails> downtimeDetails) {
+        return (int) downtimeDetails.stream().filter(MerchantDownTimeDetails::isPayModeDown).count();
+    }
+
+    public List<AdminDowntimePayModeInfo> getDowntimeAPIs() {
+        URI uri = URI.create(getBaseUrl() + DOWNTIME_API_ENDPOINT);
+        return getWebClient().get().uri(uri).retrieve().onStatus(httpStatusCode -> httpStatusCode.is4xxClientError() || httpStatusCode.is5xxServerError(), clientResponse -> Mono.error(new MerchantException(ErrorConstants.INVALID_ERROR_CODE, ErrorConstants.INVALID_ERROR_CODE))).bodyToMono(new ParameterizedTypeReference<MerchantResponse<AdminDowntimePayModeInfo>>() {
+        }).map(MerchantResponse::getData).block();
+    }
+
+    public List<MerchantDownTimeResponse> getMerchantDowntimeAPIs(String mId) {
+        Set<String> paymentGateWayId = getMerchantDowntimeAPIs();
+        URI uri = URI.create(getBaseUrl() + MERCHANT_PAYMODE_API + mId);
+        JsonNode responseNode = getWebClient().post().uri(uri).retrieve().onStatus(httpStatusCode -> httpStatusCode.is4xxClientError() || httpStatusCode.is5xxServerError(), clientResponse -> Mono.error(new MerchantException(ErrorConstants.INVALID_ERROR_CODE, ErrorConstants.INVALID_ERROR_CODE))).bodyToMono(JsonNode.class).block();
+        HashMap<String, MerchantDownTimeResponse> merchantDownTimeResponses = new HashMap<>();
+        if (responseNode != null && responseNode.path(DATA) != null && !responseNode.path(DATA).isEmpty() && responseNode.path(DATA).get(0).path(PAY_MODES) != null) {
+            JsonNode payModes = responseNode.path(DATA).get(0).path(PAY_MODES);
+            setUpDownTimeForPayModes(payModes, PREFERRED_OPTIONS, merchantDownTimeResponses, paymentGateWayId);
+            setUpDownTimeForPayModes(payModes, PAYMENT_OPTIONS, merchantDownTimeResponses, paymentGateWayId);
+        }
+        return merchantDownTimeResponses.keySet().stream().map(merchantDownTimeResponses::get).collect(Collectors.toList());
+    }
+
+    public MerchantResponse<String> validateBankDetails(String bankName, String branchName, String ifscCode) {
+        URI uri = URI.create(getBaseUrl() + BANK_ACCOUNT_VALIDATION);
+        return getWebClient().post().uri(uri).bodyValue(AdminBankVerification.builder().bankName(bankName).branchName(branchName).ifscCode(ifscCode).build()).retrieve().onStatus(httpStatusCode -> httpStatusCode.is4xxClientError() || httpStatusCode.is5xxServerError(), clientResponse -> Mono.error(new MerchantException(ErrorConstants.GENERATION_ERROR_CODE, ErrorConstants.GENERATION_ERROR_MESSAGE))).bodyToMono(new ParameterizedTypeReference<MerchantResponse<String>>() {
+        }).block();
+    }
+
+    private Set<String> getMerchantDowntimeAPIs() {
+        URI uri = URI.create(getBaseUrl() + DOWNTIME_API_ENDPOINT);
+        List<HashMap<String, String>> block = getWebClient().get().uri(uri).retrieve().onStatus(httpStatusCode -> httpStatusCode.is4xxClientError() || httpStatusCode.is5xxServerError(), clientResponse -> Mono.error(new MerchantException(ErrorConstants.INVALID_ERROR_CODE, ErrorConstants.INVALID_ERROR_CODE))).bodyToMono(new ParameterizedTypeReference<MerchantResponse<HashMap<String, String>>>() {
+        }).map(MerchantResponse::getData).block();
+
+        if (CollectionUtils.isNotEmpty(block)) {
+            return block.stream().filter(map -> map.containsKey("gatewayId")).map(map -> map.get("gatewayId")).collect(Collectors.toSet());
+        }
+        return new HashSet<>();
+    }
+
+    private void setUpDownTimeForPayModes(JsonNode payModes, String option, HashMap<String, MerchantDownTimeResponse> merchantDownTimeResponses, Set<String> paymentGateWayId) {
+        if (payModes.path(option) != null) {
+            JsonNode preferredOptions = payModes.path(option);
+            setUpDowntimeInfo(preferredOptions, merchantDownTimeResponses, paymentGateWayId);
+        }
+    }
+
+    private void setUpDowntimeInfo(JsonNode preferredOptions, HashMap<String, MerchantDownTimeResponse> merchantDownTimeResponses, Set<String> paymentGateWayId) {
+        setUPIPayMode(preferredOptions, merchantDownTimeResponses, paymentGateWayId);
+        setUpINBPayMode(preferredOptions, merchantDownTimeResponses, paymentGateWayId);
+        setCardsPayMode(preferredOptions, merchantDownTimeResponses, paymentGateWayId);
+    }
+
+    private void setUPIPayMode(JsonNode preferredOptions, HashMap<String, MerchantDownTimeResponse> merchantDownTimeResponses, Set<String> paymentGateWayId) {
+        HashMap<String, Object> upiResponses = mapper.convertValue(preferredOptions.path("upi"), mapper.getTypeFactory().constructMapType(HashMap.class, String.class, Object.class));
+        if (!upiResponses.isEmpty() && upiResponses.containsKey(UPI_KEY_SELF) && upiResponses.get(UPI_KEY_SELF) != null) {
+            HashMap<String, Object> selfResponse = (HashMap<String, Object>) upiResponses.get(UPI_KEY_SELF);
+            if (!selfResponse.isEmpty() && selfResponse.keySet().containsAll(List.of("bankName", "aggregatorGatewayMapId"))) {
+                List<MerchantDownTimeDetails> downtimeDetails = new ArrayList<>();
+                downtimeDetails.add(MerchantDownTimeDetails.builder().code("UPI").name((String) selfResponse.get("bankName")).paymentGateWayId((String) selfResponse.get("aggregatorGatewayMapId")).isPayModeDown(paymentGateWayId.contains((String) selfResponse.get("aggregatorGatewayMapId"))).build());
+                setUpMerchantDownTimeResponse(merchantDownTimeResponses, UPI, downtimeDetails, MerchantDownTimeResponse.builder().payMode(UPI).build());
+            }
+        }
+        if (!upiResponses.isEmpty() && upiResponses.containsKey(UPI_KEY_BHIMQR) && upiResponses.get(UPI_KEY_BHIMQR) != null) {
+            HashMap<String, Object> qrResponse = (HashMap<String, Object>) upiResponses.get(UPI_KEY_BHIMQR);
+            if (!qrResponse.isEmpty() && qrResponse.keySet().containsAll(List.of("bankName", "aggregatorGatewayMapId"))) {
+                List<MerchantDownTimeDetails> downtimeDetails = new ArrayList<>();
+                downtimeDetails.add(MerchantDownTimeDetails.builder().code("QR").name((String) qrResponse.get("bankName")).paymentGateWayId((String) qrResponse.get("aggregatorGatewayMapId")).isPayModeDown(paymentGateWayId.contains((String) qrResponse.get("aggregatorGatewayMapId"))).build());
+                setUpMerchantDownTimeResponse(merchantDownTimeResponses, UPI, downtimeDetails, MerchantDownTimeResponse.builder().payMode(UPI).build());
+            }
+        }
+    }
+
+    private void setUpINBPayMode(JsonNode preferredOptions, HashMap<String, MerchantDownTimeResponse> merchantDownTimeResponses, Set<String> paymentGateWayId) {
+        List<HashMap<String, Object>> bankResponses = mapper.convertValue(preferredOptions.path("inb"), mapper.getTypeFactory().constructCollectionType(List.class, HashMap.class));
+        if (CollectionUtils.isNotEmpty(bankResponses)) {
+            List<MerchantDownTimeDetails> downtimeDetails = new ArrayList<>();
+            for (HashMap<String, Object> map : bankResponses) {
+                if (!map.isEmpty() && map.keySet().containsAll(List.of("bankId", "bankName", "aggregatorGatewayMapId"))) {
+                    downtimeDetails.add(MerchantDownTimeDetails.builder().code((String) map.get("bankId")).name((String) map.get("bankName")).paymentGateWayId((String) map.get("aggregatorGatewayMapId")).isPayModeDown(paymentGateWayId.contains((String) map.get("aggregatorGatewayMapId"))).build());
+                }
+            }
+            setUpMerchantDownTimeResponse(merchantDownTimeResponses, INB, downtimeDetails, MerchantDownTimeResponse.builder().payMode(INB).build());
+        }
+    }
+
+    private void setCardsPayMode(JsonNode preferredOptions, HashMap<String, MerchantDownTimeResponse> merchantDownTimeResponses, Set<String> paymentGateWayId) {
+        HashMap<String, Object> cardResponses = mapper.convertValue(preferredOptions.path("cards"), mapper.getTypeFactory().constructMapType(HashMap.class, String.class, Object.class));
+        setCardPayMode(cardResponses, "cc", merchantDownTimeResponses, paymentGateWayId);
+        setCardPayMode(cardResponses, "dc", merchantDownTimeResponses, paymentGateWayId);
+        setCardPayMode(cardResponses, "pc", merchantDownTimeResponses, paymentGateWayId);
+    }
+
+    private void setCardPayMode(HashMap<String, Object> cardResponses, String cardType, HashMap<String, MerchantDownTimeResponse> merchantDownTimeResponses, Set<String> paymentGateWayId) {
+        if (cardResponses.get(cardType) != null) {
+            List<MerchantDownTimeDetails> downtimeDetails = new ArrayList<>();
+            List<HashMap<String, Object>> dcCardDetails = mapper.convertValue(cardResponses.get(cardType), mapper.getTypeFactory().constructCollectionType(List.class, HashMap.class));
+            for (HashMap<String, Object> cardInfo : dcCardDetails) {
+                if (!cardInfo.isEmpty() && cardInfo.keySet().containsAll(List.of("payproc", "bankName", "aggregatorGatewayMapId"))) {
+                    downtimeDetails.add(MerchantDownTimeDetails.builder().code((String) cardInfo.get("payproc")).name((String) cardInfo.get("bankName")).paymentGateWayId((String) cardInfo.get("aggregatorGatewayMapId")).isPayModeDown(paymentGateWayId.contains((String) cardInfo.get("aggregatorGatewayMapId"))).build());
+                }
+            }
+            setUpMerchantDownTimeResponse(merchantDownTimeResponses, cardType, downtimeDetails, MerchantDownTimeResponse.builder().payMode("cards").subPayMode(cardType).build());
+        }
+    }
+}
+
+
+here why are calling getDowntimeAPIs and getMerchantDowntimeAPIs
