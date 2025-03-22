@@ -29,3 +29,7 @@
     public List<BranchResponse> getAllBranches(String bankId) {
         return adminServicesClient.getAllBranches(bankId).getData();
     }
+
+
+
+add here also
