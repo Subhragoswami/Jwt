@@ -1,35 +1,17 @@
-   @GetMapping("/bank")
+ public MerchantResponse<BankDetailsResponse> getBankDetailsByIfscCode( String ifscCode) {
+        URI uri = URI.create(getBaseUrl() + BANK_ENDPOINT + "/" + ifscCode);
+        return getWebClient().get().uri(uri).retrieve().onStatus(httpStatusCode -> httpStatusCode.is4xxClientError() || httpStatusCode.is5xxServerError(), clientResponse -> Mono.error(new MerchantException(ErrorConstants.GENERIC_ERROR_CODE, ErrorConstants.GENERIC_ERROR_MESSAGE))).bodyToMono(new ParameterizedTypeReference<MerchantResponse<BankDetailsResponse>>() {
+        }).block();
+    }
+
     public MerchantResponse<BankResponse> getAllBanks() {
-        return adminService.getAllBanks();
+        URI uri = URI.create(getBaseUrl() + BANK_ENDPOINT);
+        return getWebClient().get().uri(uri).retrieve().onStatus(httpStatusCode -> httpStatusCode.is4xxClientError() || httpStatusCode.is5xxServerError(), clientResponse -> Mono.error(new MerchantException(ErrorConstants.GENERIC_ERROR_CODE, ErrorConstants.GENERIC_ERROR_MESSAGE))).bodyToMono(new ParameterizedTypeReference<MerchantResponse<BankResponse>>() {
+        }).block();
     }
 
-    @GetMapping("/bank/branch/{bankId}")
-    public MerchantResponse<BranchResponse> getAllBranches(@PathVariable String bankId) {
-        return adminService.getAllBranches(bankId);
+    public MerchantResponse<BranchResponse> getAllBranches(String bankId) {
+        URI uri = URI.create(getBaseUrl() + BRANCH_DETAILS_ENDPOINT + bankId);
+        return getWebClient().get().uri(uri).retrieve().onStatus(httpStatusCode -> httpStatusCode.is4xxClientError() || httpStatusCode.is5xxServerError(), clientResponse -> Mono.error(new MerchantException(ErrorConstants.GENERIC_ERROR_CODE, ErrorConstants.GENERIC_ERROR_MESSAGE))).bodyToMono(new ParameterizedTypeReference<MerchantResponse<BranchResponse>>() {
+        }).block();
     }
-
-   public MerchantResponse<BankResponse> getAllBanks(){
-        log.info("Fetching bank ");
-        List<BankResponse> bankResponse = adminDao.getAllBanks();
-        log.info("Fetched bank details: {}", bankResponse);
-        return MerchantResponse.<BankResponse>builder().data(bankResponse).build();
-    }
-
-    public MerchantResponse<BranchResponse> getAllBranches(String bankId){
-        log.info("Fetching bank ");
-        List<BranchResponse> branchResponse = adminDao.getAllBranches(bankId);
-        log.info("Fetched bank details: {}", branchResponse);
-        return MerchantResponse.<BranchResponse>builder().data(branchResponse).build();
-    }
-
-  public List<BankResponse> getAllBanks() {
-        return adminServicesClient.getAllBanks().getData();
-    }
-
-    public List<BranchResponse> getAllBranches(String bankId) {
-        return adminServicesClient.getAllBranches(bankId).getData();
-    }
-
-
-
-add here also
