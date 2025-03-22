@@ -1,49 +1,31 @@
-  @GetMapping("/bank/{ifscCode}")
-    public MerchantResponse<BankDetailsResponse> getBankDetailsByIfscCode(@PathVariable String ifscCode) {
-        return adminService.getBankDetailsByIfscCode(ifscCode);
+   @GetMapping("/bank")
+    public MerchantResponse<BankResponse> getAllBanks() {
+        return adminService.getAllBanks();
     }
 
-   public MerchantResponse<BankDetailsResponse> getBankDetailsByIfscCode(String ifscCode){
-        BankDetailsResponse bankDetailsResponse = adminDao.getBankDetailsByIfscCode(ifscCode);
-        return MerchantResponse.<BankDetailsResponse>builder().data(List.of(bankDetailsResponse)).build();
-    }
-    public BankDetailsResponse getBankDetailsByIfscCode(String ifsc) {
-        return adminServicesClient.getBankDetailsByIfscCode(ifsc).getData().getFirst();
+    @GetMapping("/bank/branch/{bankId}")
+    public MerchantResponse<BranchResponse> getAllBranches(@PathVariable String bankId) {
+        return adminService.getAllBranches(bankId);
     }
 
-
-add logger and method defination like this
-
-    /**
-     * Approve Bank Account
-     *
-     * @param bankAccountApprovalRequest MerchantBankAccountApprovalRequest
-     * @return MerchantResponse
-     * Description - Merchant will use this API to get approvedBankAccount
-     **/
-    @PutMapping("/bank/approval")
-    @Operation(summary = "Update Bank Account")
-    public MerchantResponse<String> approvedBankAccount(@Valid @RequestBody MerchantBankAccountApprovalRequest bankAccountApprovalRequest) {
-        return adminService.approvedBankAccount(bankAccountApprovalRequest);
+   public MerchantResponse<BankResponse> getAllBanks(){
+        log.info("Fetching bank ");
+        List<BankResponse> bankResponse = adminDao.getAllBanks();
+        log.info("Fetched bank details: {}", bankResponse);
+        return MerchantResponse.<BankResponse>builder().data(bankResponse).build();
     }
 
-/**
-     * Map a user to an entity.
-     * Destination: AdminDao.updateUserRole
-     *
-     * @param userEntityMappingRequest UserEntityMappingRequest
-     * @return MerchantResponse with mapping status
-     */
-    public MerchantResponse<String> userEntityMapping(UserEntityMappingRequest userEntityMappingRequest) {
-        log.info("Received request to map entity with details: {}", userEntityMappingRequest);
+    public MerchantResponse<BranchResponse> getAllBranches(String bankId){
+        log.info("Fetching bank ");
+        List<BranchResponse> branchResponse = adminDao.getAllBranches(bankId);
+        log.info("Fetched bank details: {}", branchResponse);
+        return MerchantResponse.<BranchResponse>builder().data(branchResponse).build();
+    }
 
-        // Step 1: Validate the request
-        adminValidator.userEntityRequestValidator(userEntityMappingRequest);
+  public List<BankResponse> getAllBanks() {
+        return adminServicesClient.getAllBanks().getData();
+    }
 
-        // Step 2: Perform action based on user role
-        adminDao.updateUserRole(userEntityMappingRequest.getUserId(), userEntityMappingRequest.getUserName(), userEntityMappingRequest.getEntityId());
-
-        // Step 3: Build and return the response
-        log.info("Returning merchant success response");
-        return MerchantResponse.<String>builder().status(MerchantConstant.RESPONSE_SUCCESS).data(List.of("role has been updated successfully")).count(1L).total(1L).build();
+    public List<BranchResponse> getAllBranches(String bankId) {
+        return adminServicesClient.getAllBranches(bankId).getData();
     }
