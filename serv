@@ -1,17 +1,11 @@
- public MerchantResponse<BankDetailsResponse> getBankDetailsByIfscCode( String ifscCode) {
-        URI uri = URI.create(getBaseUrl() + BANK_ENDPOINT + "/" + ifscCode);
-        return getWebClient().get().uri(uri).retrieve().onStatus(httpStatusCode -> httpStatusCode.is4xxClientError() || httpStatusCode.is5xxServerError(), clientResponse -> Mono.error(new MerchantException(ErrorConstants.GENERIC_ERROR_CODE, ErrorConstants.GENERIC_ERROR_MESSAGE))).bodyToMono(new ParameterizedTypeReference<MerchantResponse<BankDetailsResponse>>() {
-        }).block();
+   public MerchantResponse<BranchResponse> getAllBranches(String bankId){
+        log.info("Fetching all branches from DAO for bank ID: {}", bankId);
+        List<BranchResponse> branchResponseList = adminDao.getAllBranches(bankId);
+        log.info("Fetched branches: {}", branchResponseList.size());
+        return MerchantResponse.<BranchResponse>builder().data(branchResponseList).build();
     }
 
-    public MerchantResponse<BankResponse> getAllBanks() {
-        URI uri = URI.create(getBaseUrl() + BANK_ENDPOINT);
-        return getWebClient().get().uri(uri).retrieve().onStatus(httpStatusCode -> httpStatusCode.is4xxClientError() || httpStatusCode.is5xxServerError(), clientResponse -> Mono.error(new MerchantException(ErrorConstants.GENERIC_ERROR_CODE, ErrorConstants.GENERIC_ERROR_MESSAGE))).bodyToMono(new ParameterizedTypeReference<MerchantResponse<BankResponse>>() {
-        }).block();
-    }
 
-    public MerchantResponse<BranchResponse> getAllBranches(String bankId) {
-        URI uri = URI.create(getBaseUrl() + BRANCH_DETAILS_ENDPOINT + bankId);
-        return getWebClient().get().uri(uri).retrieve().onStatus(httpStatusCode -> httpStatusCode.is4xxClientError() || httpStatusCode.is5xxServerError(), clientResponse -> Mono.error(new MerchantException(ErrorConstants.GENERIC_ERROR_CODE, ErrorConstants.GENERIC_ERROR_MESSAGE))).bodyToMono(new ParameterizedTypeReference<MerchantResponse<BranchResponse>>() {
-        }).block();
-    }
+here i got a comment Use CollectionUtil.size to print size.
+log.info("Fetched branches: {}", branchResponseList.size());
+to avoid null pointer
