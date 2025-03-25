@@ -1,11 +1,6 @@
-   public MerchantResponse<BranchResponse> getAllBranches(String bankId){
-        log.info("Fetching all branches from DAO for bank ID: {}", bankId);
-        List<BranchResponse> branchResponseList = adminDao.getAllBranches(bankId);
-        log.info("Fetched branches: {}", branchResponseList.size());
-        return MerchantResponse.<BranchResponse>builder().data(branchResponseList).build();
-    }
+-- liquibase formatted sql
+-- changeset Subhra:1
 
+ALTER TABLE MERCHANT_BANK_ACCOUNT_AUDIT ADD COLUMN REV NUMBER(19) NOT NULL;
 
-here i got a comment Use CollectionUtil.size to print size.
-log.info("Fetched branches: {}", branchResponseList.size());
-to avoid null pointer
+Caused by: java.sql.SQLSyntaxErrorException: ORA-00904: "COLUMN": invalid identifier
