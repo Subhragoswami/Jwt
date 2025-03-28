@@ -1,26 +1,60 @@
---liquibase formatted sql
---changeset Subhra:1
-CREATE OR REPLACE  VIEW VIEW_REFUND_REPORT (TRANSACTION_DATE, MID, REFUND_TYPE, SBI_ORDER_REF_NUMBER, MERCHANT_ORDER_NUMBER, ATRN_NUM, BANK_NAME, PAYMODE_CODE, TRANSACTION_STATUS, ORDER_AMOUNT, REFUND_AMOUNT, COMMENTS, REFUND_STATUS, REMARKS, ARRN_NUM) AS
-  SELECT TO_DATE('1970-01-01','YYYY-MM-DD')+(T.CREATED_DATE_NUM/1000/86400) AS TRANSACTION_DATE,
-  T.MERCHANT_ID as MID,
-  R.REFUND_TYPE,
-  T.SBI_ORDER_REF_NUMBER,
-  T.ORDER_REF_NUMBER AS MERCHANT_ORDER_NUMBER,
-  T.ATRN_NUM,
-  T.CHANNEL_BANK AS BANK_NAME,
-  T.PAY_MODE     AS PAYMODE_CODE,
-  T.TRANSACTION_STATUS,
-  T.ORDER_AMOUNT,
-  R.REFUND_AMOUNT,
-  R.COMMENTS,
-  R.REFUND_STATUS,
-  '' AS REMARKS,
-  R.ARRN_NUM
-FROM MERCHANT_ORDER_PAYMENTS_TXN T ,
-  REFUND_BOOKING_TXN R
-WHERE T.MERCHANT_ID       =R.MERCHANT_ID
-AND T.ATRN_NUM=R.ATRN_NUM
-AND T.SBI_ORDER_REF_NUMBER=R.SBI_ORDER_REF_NUMBER;
+public MerchantResponse<Object> merchantLogin(MerchantLoginRequest merchantLoginRequest) {
+        log.info("Started merchantLogin for userName: {}", merchantLoginRequest.getUserName());
+        try {
+            log.info("validating Merchant login request for userName : {}", merchantLoginRequest.getUserName());
+            merchantLoginValidator.validateMerchantLoginRequest(merchantLoginRequest);
+            loginDao.saveLoginAudit(merchantLoginRequest.getUserName(), RequestType.LOGIN, true, MessageFormat.format(SUCCESS_MESSAGE, "Logged In User Found"));
+            loginDao.updateCaptchaIsVerified(merchantLoginRequest.getRequestId());
+            merchantLoginValidator.validatedMerchantUser(merchantLoginRequest.getUserName());
+            return MerchantResponse.builder().status(RESPONSE_SUCCESS).data(List.of(MessageFormat.format(SUCCESS_MESSAGE, "Logged In User Found"))).build();
+        } catch (ValidationException e) {
+            e.getErrorMessages().stream().filter(errorCode -> ErrorConstants.MANDATORY_ERROR_CODE.equals(errorCode.getErrorCode())).forEach(errorCode -> {
+                throw e;
+            });
+            log.error("Login Validation Failed for userName {} with error {}", merchantLoginRequest.getUserName(), e.getErrorMessages().toString());
+            return handleLoginFailure(merchantLoginRequest.getUserName(), e.getErrorMessages().stream().map(ErrorDto::toString).collect(Collectors.joining(", ")), e.getErrorMessages());
+        } catch (MerchantException e) {
+            log.error("MerchantException : Login Failed for userName {} ", merchantLoginRequest.getUserName());
+            return handleLoginFailure(merchantLoginRequest.getUserName(), e.getErrorMessage(), List.of(ErrorDto.builder().errorCode(e.getErrorCode()).errorMessage(e.getErrorMessage()).build()));
+        } catch (Exception e) {
+            log.error("GenericException : Login Failed for userName {} ", merchantLoginRequest.getUserName(), e.getMessage());
+            return handleLoginFailure(merchantLoginRequest.getUserName(), e.getLocalizedMessage(), List.of(ErrorDto.builder().errorCode(GENERIC_ERROR_CODE).errorMessage(e.getMessage()).build()));
+        }
+    }
 
+ public void validateMerchantLoginRequest(MerchantLoginRequest merchantLoginRequest) {
+        logger.debug("Merchant validation start for {}", merchantLoginRequest);
+        errorDtoList = new ArrayList<>();
+        validateMandatoryFields(merchantLoginRequest);
+        logger.debug("Mandatory validation completed for {}", merchantLoginRequest);
+        captchaValidator.captchaValueValidation(merchantLoginRequest.getRequestId(), merchantLoginRequest.getCaptchaText());
+        logger.debug("captcha validation completed for {}", merchantLoginRequest);
+        isUserExist(merchantLoginRequest);
+        logger.debug("user status check completed for {}", merchantLoginRequest);
+    }
 
-Caused by: liquibase.exception.DatabaseException: ORA-00904: "R"."COMMENTS": invalid identifier
+private MerchantResponse<Object> handleLoginFailure(String userName, String e, List<ErrorDto> errors) {
+        log.info("Started handleLoginFailure for userName: {}",userName);
+        int loginFailureCount = 0;
+        if (StringUtils.isNotEmpty(userName)) {
+            try {
+                log.info("Updating login failure count for userName: {}",userName);
+                loginFailureCount = tokenService.updateMerchantUserForLogin(userName, false);
+                if(loginFailureCount > 0) {
+                    log.info("Saving login audit for userName: {},loginFailureCount :{}",userName,loginFailureCount);
+                    loginDao.saveLoginAudit(userName, RequestType.LOGIN, false, e);
+                }
+            } catch (MerchantException ex) {
+                log.error("MerchantException in handleLoginFailure for userName {}", userName, ex.getErrorMessage());
+            } catch (Exception ex) {
+                log.error("GenericException  in handleLoginFailure for userName {}", userName, ex.getMessage());
+            }
+        }
+        if(loginFailureCount > 0) {
+            log.info("Returning  response with  login failure count :{} for userName ;{}",loginFailureCount,userName);
+            return MerchantResponse.builder().data(List.of(Map.of("loginFailAttempt", loginFailureCount))).status(RESPONSE_FAILURE).errors(errors).build();
+        } else {
+            log.info("Returning  failure response for userName ;{}",userName);
+            return MerchantResponse.builder().status(RESPONSE_FAILURE).errors(errors).build();
+        }
+    }
