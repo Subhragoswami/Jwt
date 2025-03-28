@@ -58,3 +58,22 @@ private MerchantResponse<Object> handleLoginFailure(String userName, String e, L
             return MerchantResponse.builder().status(RESPONSE_FAILURE).errors(errors).build();
         }
     }
+
+
+
+
+here if captcha is not matching then loginFailureCount should not be counted
+
+ public void captchaValueValidation(UUID requestId, String captchaText) {
+        errorDtoList = new ArrayList<>();
+        CaptchaManagement captchaDetails = captchaDao.getActiveCaptchaByRequestId(requestId);
+        isCaptchaExpiry(DateTimeUtils.isPastDate(captchaDetails.getExpiryTime()));
+        matchCaptcha(captchaText, captchaDetails.getCaptchaText());
+    }
+
+ private void matchCaptcha(String loginCaptchaImage, String dbCaptchaTextHash) {
+        if (!StringUtils.equals(loginCaptchaImage, dbCaptchaTextHash)) {
+            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.NOT_FOUND_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.NOT_FOUND_ERROR_MESSAGE, CAPTCHA)).build());
+        }
+        throwIfErrors();
+    }
