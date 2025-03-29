@@ -1,4 +1,4 @@
-public MerchantResponse<Object> merchantLogin(MerchantLoginRequest merchantLoginRequest) {
+  public MerchantResponse<Object> merchantLogin(MerchantLoginRequest merchantLoginRequest) {
         log.info("Started merchantLogin for userName: {}", merchantLoginRequest.getUserName());
         try {
             log.info("validating Merchant login request for userName : {}", merchantLoginRequest.getUserName());
@@ -11,69 +11,19 @@ public MerchantResponse<Object> merchantLogin(MerchantLoginRequest merchantLogin
             e.getErrorMessages().stream().filter(errorCode -> ErrorConstants.MANDATORY_ERROR_CODE.equals(errorCode.getErrorCode())).forEach(errorCode -> {
                 throw e;
             });
+            e.getErrorMessages().stream().filter(errorCode -> ErrorConstants.NOT_FOUND_ERROR_CODE.equals(errorCode.getErrorCode())).forEach(errorCode -> {
+                throw e;
+            });
             log.error("Login Validation Failed for userName {} with error {}", merchantLoginRequest.getUserName(), e.getErrorMessages().toString());
             return handleLoginFailure(merchantLoginRequest.getUserName(), e.getErrorMessages().stream().map(ErrorDto::toString).collect(Collectors.joining(", ")), e.getErrorMessages());
         } catch (MerchantException e) {
             log.error("MerchantException : Login Failed for userName {} ", merchantLoginRequest.getUserName());
+            if(ErrorConstants.INVALID_ERROR_CODE.equals(e.getErrorCode())){
+                throw e;
+            }
             return handleLoginFailure(merchantLoginRequest.getUserName(), e.getErrorMessage(), List.of(ErrorDto.builder().errorCode(e.getErrorCode()).errorMessage(e.getErrorMessage()).build()));
         } catch (Exception e) {
             log.error("GenericException : Login Failed for userName {} ", merchantLoginRequest.getUserName(), e.getMessage());
             return handleLoginFailure(merchantLoginRequest.getUserName(), e.getLocalizedMessage(), List.of(ErrorDto.builder().errorCode(GENERIC_ERROR_CODE).errorMessage(e.getMessage()).build()));
         }
-    }
-
- public void validateMerchantLoginRequest(MerchantLoginRequest merchantLoginRequest) {
-        logger.debug("Merchant validation start for {}", merchantLoginRequest);
-        errorDtoList = new ArrayList<>();
-        validateMandatoryFields(merchantLoginRequest);
-        logger.debug("Mandatory validation completed for {}", merchantLoginRequest);
-        captchaValidator.captchaValueValidation(merchantLoginRequest.getRequestId(), merchantLoginRequest.getCaptchaText());
-        logger.debug("captcha validation completed for {}", merchantLoginRequest);
-        isUserExist(merchantLoginRequest);
-        logger.debug("user status check completed for {}", merchantLoginRequest);
-    }
-
-private MerchantResponse<Object> handleLoginFailure(String userName, String e, List<ErrorDto> errors) {
-        log.info("Started handleLoginFailure for userName: {}",userName);
-        int loginFailureCount = 0;
-        if (StringUtils.isNotEmpty(userName)) {
-            try {
-                log.info("Updating login failure count for userName: {}",userName);
-                loginFailureCount = tokenService.updateMerchantUserForLogin(userName, false);
-                if(loginFailureCount > 0) {
-                    log.info("Saving login audit for userName: {},loginFailureCount :{}",userName,loginFailureCount);
-                    loginDao.saveLoginAudit(userName, RequestType.LOGIN, false, e);
-                }
-            } catch (MerchantException ex) {
-                log.error("MerchantException in handleLoginFailure for userName {}", userName, ex.getErrorMessage());
-            } catch (Exception ex) {
-                log.error("GenericException  in handleLoginFailure for userName {}", userName, ex.getMessage());
-            }
-        }
-        if(loginFailureCount > 0) {
-            log.info("Returning  response with  login failure count :{} for userName ;{}",loginFailureCount,userName);
-            return MerchantResponse.builder().data(List.of(Map.of("loginFailAttempt", loginFailureCount))).status(RESPONSE_FAILURE).errors(errors).build();
-        } else {
-            log.info("Returning  failure response for userName ;{}",userName);
-            return MerchantResponse.builder().status(RESPONSE_FAILURE).errors(errors).build();
-        }
-    }
-
-
-
-
-here if captcha is not matching then loginFailureCount should not be counted
-
- public void captchaValueValidation(UUID requestId, String captchaText) {
-        errorDtoList = new ArrayList<>();
-        CaptchaManagement captchaDetails = captchaDao.getActiveCaptchaByRequestId(requestId);
-        isCaptchaExpiry(DateTimeUtils.isPastDate(captchaDetails.getExpiryTime()));
-        matchCaptcha(captchaText, captchaDetails.getCaptchaText());
-    }
-
- private void matchCaptcha(String loginCaptchaImage, String dbCaptchaTextHash) {
-        if (!StringUtils.equals(loginCaptchaImage, dbCaptchaTextHash)) {
-            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.NOT_FOUND_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.NOT_FOUND_ERROR_MESSAGE, CAPTCHA)).build());
-        }
-        throwIfErrors();
     }
