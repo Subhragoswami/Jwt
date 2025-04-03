@@ -1,33 +1,153 @@
-    @Test
-    void testValidateMerchantAccountApprovalRequest() {
+package com.epay.kms.exceptionhandlers;
 
-        List<MerchantInfoDto> merchantInfoForMerchantUser = List.of(new MerchantInfoDto("mid123", "aregtaerta", "ACTIVE", 4), new MerchantInfoDto("mid123", "aregtaerta", "ACTIVE", 4));
-        SecurityContextHolder.getContext().setAuthentication(mock(Authentication.class));
-        when(SecurityContextHolder.getContext().getAuthentication().getPrincipal()).thenReturn(mockPrincipal);
-        when(merchantInfoDao.getAllAccessMerchantInfoForMerchantUser("userName")).thenReturn(merchantInfoForMerchantUser);
-        try (MockedStatic<EPayIdentityUtil> mocked = Mockito.mockStatic(EPayIdentityUtil.class, Mockito.CALLS_REAL_METHODS)) {
-            mocked.when(() -> EPayIdentityUtil.getUserPrincipal().getUsername()).thenReturn("userName");
+import com.epay.kms.dto.ErrorDto;
+import com.epay.kms.exception.KeyManagementException;
+import com.epay.kms.model.response.KMSResponse;
+import com.sbi.epay.encryptdecrypt.exception.EncryptionDecryptionException;
+import com.sbi.epay.logging.utility.LoggerFactoryUtility;
+import com.sbi.epay.logging.utility.LoggerUtility;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.validation.FieldError;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
+
+import java.text.MessageFormat;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
+import static com.epay.kms.util.ErrorConstant.*;
+import static com.epay.kms.util.KmsConstant.RESPONSE_FAILURE;
+
+/**
+ * Class Name: KMSExceptionHandler
+ * *
+ * Description: This class handles global exception.
+ * *
+ * Author: V1017903(bhushan wadekar)
+ * <p>
+ * Copyright (c) 2024 [State Bank of India]
+ * All rights reserved
+ * *
+ * Version:1.0
+ */
+@ControllerAdvice
+public class KMSExceptionHandler {
+    LoggerUtility logger = LoggerFactoryUtility.getLogger(this.getClass());
+
+    @ExceptionHandler(value = {KeyManagementException.class})
+    public ResponseEntity<Object> handleKMSException(KeyManagementException ex) {
+        ErrorDto errorDto = ErrorDto.builder().errorCode(ex.getErrorCode()).errorMessage(ex.getErrorMessage()).build();
+        return generateResponseWithErrors(List.of(errorDto));
+    }
+
+    @ExceptionHandler(value = {EncryptionDecryptionException.class})
+    public ResponseEntity<Object> handleEncryptionDecryptionException(EncryptionDecryptionException ex) {
+        ErrorDto errorDto = ErrorDto.builder().errorCode(ex.getErrorCode()).errorMessage(ex.getErrorMessage()).build();
+        return generateResponseWithErrors(List.of(errorDto));
+    }
+
+    /**
+     * Handle handleMethodArgumentTypeMismatch
+     *
+     * @param ex MethodArgumentTypeMismatchException
+     * @return ResponseEntity
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Object> handleMethodArgumentTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        logger.error("Error in handleMethodArgumentTypeMismatch with message: {}", ex.getMessage());
+        ErrorDto errorDto = ErrorDto.builder().errorCode(INVALID_ERROR_CODE)
+                .errorMessage(MessageFormat.format(INVALID_ERROR_MESSAGE, ex.getPropertyName(), ex.getValue() + NOT_A_VALID_INPUT))
+                .build();
+        return generateResponseWithErrors(List.of(errorDto));
+    }
+
+    /**
+     * Handle ResourceException
+     *
+     * @param ex NoResourceFoundException
+     * @return ResponseEntity
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<Object> handleResourceException(NoResourceFoundException ex) {
+        logger.error("Error in handleResourceException for resource: {}, message: {}", ex.getResourcePath(), ex.getMessage());
+        ErrorDto errorDto = ErrorDto.builder().errorCode(INVALID_ERROR_CODE)
+                .errorMessage(MessageFormat.format(INVALID_ERROR_MESSAGE, ex.getResourcePath(), ex.getResourcePath() + NOT_A_VALID_URL)).build();
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(KMSResponse.builder().status(RESPONSE_FAILURE).errors(List.of(errorDto)).build());
+    }
+
+    @ExceptionHandler(value = {Exception.class})
+    public ResponseEntity<Object> handleGenericException(Exception ex) {
+        logger.error("Error in handleGenericException ", ex);
+        ErrorDto errorDto = ErrorDto.builder().errorCode(UNCATEGORIZED_ERROR_CODE).errorMessage(UNCATEGORIZED_ERROR_MESSAGE).build();
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(KMSResponse.builder().status(RESPONSE_FAILURE).errors(List.of(errorDto)).build());
+    }
+
+    @ExceptionHandler(value = {MethodArgumentNotValidException.class})
+    protected ResponseEntity<Object> handleValidationException(MethodArgumentNotValidException ex) {
+        logger.error("Error in handleValidationException with message: {}", ex.getMessage());
+        List<ErrorDto> errors = new ArrayList<>();
+        ex.getBindingResult().getFieldErrors().forEach(fieldError -> addErrorDto(errors, fieldError));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(KMSResponse.builder().status(RESPONSE_FAILURE).errors(errors).build());
+    }
+
+    private void addErrorDto(List<ErrorDto> errors, FieldError fieldError) {
+        String errCd = MANDATORY_ERROR_CODE;
+        String errMsg = fieldError.getDefaultMessage();
+        if(StringUtils.equalsIgnoreCase(MIN_VALUE_ERROR_MESSAGE, errMsg)) {
+            errCd = MIN_VALUE_ERROR_CODE;
         }
-
-        when(merchantBankDao.isExistByAccountUniqueIdentifier("asddadadsa454")).thenReturn(true);
-        merchantBankAccountApprovalRequest = MerchantBankAccountApprovalRequest.builder().mId("mid123").accountName("Merchant").isApproved(true).remarks("done").accountUniqueIdentifier("asddadadsa454").build();
-        merchantBankAccountValidator.validateMerchantAccountApprovalRequest(merchantBankAccountApprovalRequest);
+        errors.add(ErrorDto.builder().errorCode(errCd)
+                .errorMessage(MessageFormat.format(Objects.requireNonNull(errMsg), fieldError.getField())).build());
     }
 
-   public void validateMerchantAccountApprovalRequest(MerchantBankAccountApprovalRequest merchantBankAccountApprovalRequest) {
-        logger.debug("Merchant bank account approval validation start for {}", merchantBankAccountApprovalRequest);
-        errorDtoList = new ArrayList<>();
-        validateMandatoryFields(merchantBankAccountApprovalRequest);
-        validateMId(merchantBankAccountApprovalRequest.getMId());
-        validateAccountUniqueIdentifier(merchantBankAccountApprovalRequest.getAccountUniqueIdentifier());
-        validateFieldValue(merchantBankAccountApprovalRequest.getOperationType(), Arrays.stream(OperationType.values()).map(Enum::name).toList(), OPERATION_TYPE);
-        throwIfErrors();
+    @ExceptionHandler(value = {IllegalArgumentException.class})
+    protected ResponseEntity<Object> handleConflict(RuntimeException ex) {
+        logger.error("Error in handleConflict ", ex);
+        ErrorDto errorDto = ErrorDto.builder().errorCode(UNCATEGORIZED_ERROR_CODE).errorMessage(UNCATEGORIZED_ERROR_MESSAGE).build();
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(KMSResponse.builder().status(RESPONSE_FAILURE).errors(List.of(errorDto)).build());
     }
 
-com.epay.merchant.exception.ValidationException
-	at com.epay.merchant.validator.BaseValidator.throwIfErrors(BaseValidator.java:150)
-	at com.epay.merchant.validator.MerchantBankAccountValidator.validateMerchantAccountApprovalRequest(MerchantBankAccountValidator.java:84)
-	at com.epay.merchant.validator.MerchantBankAccountValidatorTest.testValidateMerchantAccountApprovalRequest(MerchantBankAccountValidatorTest.java:137)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+    private ResponseEntity<Object> generateResponseWithErrors(List<ErrorDto> errors) {
+        return ResponseEntity.ok().body(KMSResponse.builder().status(RESPONSE_FAILURE).errors(errors).build());
+    }
+
+    /**
+     * Handle EnumConversionException
+     *
+     * @param e MethodArgumentTypeMismatchException
+     * @return ResponseEntity
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Object> handleEnumConversionException(HttpMessageNotReadableException e) {
+        logger.error("Error in handleEnumConversionException with message: {}", e.getMessage());
+        ErrorDto errorDto = ErrorDto.builder().errorCode(INVALID_ERROR_CODE).errorMessage(e.getMessage()).build();
+        return generateResponseWithErrors(List.of(errorDto));
+    }
+
+    /**
+     * Handle handleMethodArgumentTypeMismatch
+     *
+     * @param ex MethodArgumentTypeMismatchException
+     * @return ResponseEntity
+     */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<Object> handleHttpRequestMethodNotSupportedException(HttpRequestMethodNotSupportedException ex) {
+        logger.error("Error in handleHttpRequestMethodNotSupportedException for resource: {}",ex.getMessage());
+        ErrorDto errorDto = ErrorDto.builder()
+                .errorCode(String.valueOf(HttpStatus.METHOD_NOT_ALLOWED.value()))
+                .errorMessage("Request method is not supported.")
+                .build();
+        return ResponseEntity.status(HttpStatus.OK).body(KMSResponse.builder().status(RESPONSE_FAILURE).errors(List.of(errorDto)).build());
+    }
+
+}
+
+create annotation based exception for leading trailling space
