@@ -151,3 +151,9 @@ public class KMSExceptionHandler {
 }
 
 create annotation based exception for leading trailling space
+  protected void checkForLeadingTrailingAndSingleSpace(String value, String fieldName) {
+        logger.debug("checking for Leading and Trailing space for field {} and value {}",fieldName,value);
+        if (StringUtils.isNotEmpty(value) && !value.equals(value.trim())) {
+            addError(fieldName, WHITESPACE_ERROR_CODE, WHITESPACE_ERROR_MESSAGE);
+        }
+    }
