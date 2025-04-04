@@ -34,3 +34,6 @@ public class NoLeadingTrailingSpacesValidator implements ConstraintValidator<NoL
         return true;
     }
 }
+
+public static final int MID_MAX_LEN = 7;
+public static final String MID_REGEX = String.format("^[0-9]{%d}$", MID_MAX_LEN);
