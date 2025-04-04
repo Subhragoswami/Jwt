@@ -1,43 +1,149 @@
-package com.epay.kms.exceptionhandlers;
+@Component
+@RequiredArgsConstructor
+public class KMSValidator extends BaseValidator{
+    
+
+    public void validateKeyGenerationRequest(KeyGenerationRequest keyGenerationRequest){
+        validateMid(keyGenerationRequest.getMId());
+    }
+
+    public void validateMid(String mId) {
+        validateFieldWithRegex(mId, 7, MID_REGEX, MID, INVALID_FORMAT_OR_MAX_LEN_ERROR_MESSAGE);
+        throwIfErrors();
+    }
+
+}
+package com.epay.kms.Validator;
 
 import com.epay.kms.dto.ErrorDto;
-import com.epay.kms.exception.KeyManagementException;
-import com.epay.kms.model.response.KMSResponse;
-import com.sbi.epay.encryptdecrypt.exception.EncryptionDecryptionException;
-import com.sbi.epay.logging.utility.LoggerFactoryUtility;
-import com.sbi.epay.logging.utility.LoggerUtility;
+import com.epay.kms.exception.ValidationException;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.EnumUtils;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.validation.FieldError;
-import org.springframework.web.HttpRequestMethodNotSupportedException;
-import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.ControllerAdvice;
-import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
-import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.text.MessageFormat;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
+import java.util.regex.Pattern;
 
 import static com.epay.kms.util.ErrorConstant.*;
-import static com.epay.kms.util.KmsConstant.RESPONSE_FAILURE;
 
-/**
- * Class Name: KMSExceptionHandler
- * *
- * Description: This class handles global exception.
- * *
- * Author: V1017903(bhushan wadekar)
- * <p>
- * Copyright (c) 2024 [State Bank of India]
- * All rights reserved
- * *
- * Version:1.0
- */
+public class BaseValidator {
+
+    List<ErrorDto> errorDtoList;
+
+    /**
+     * Check mandatory field
+     * @param value String
+     * @param fieldName String
+     */
+    protected void checkMandatoryField(String value, String fieldName) {
+        if (StringUtils.isEmpty(value) || StringUtils.equals(value,"null")) {
+            addError(fieldName, MANDATORY_ERROR_CODE, MANDATORY_ERROR_MESSAGE);
+        }
+    }
+
+    /**
+     * Check mandatory field
+     * @param value UUID
+     * @param fieldName String
+     */
+    protected void checkMandatoryField(UUID value, String fieldName) {
+        if (ObjectUtils.isEmpty(value)) {
+            addError(fieldName, MANDATORY_ERROR_CODE, MANDATORY_ERROR_MESSAGE);
+        }
+    }
+
+    /**
+     * Check mandatory collection
+     * @param collection Collection
+     * @param fieldName String
+     */
+    protected void checkMandatoryCollection(Collection<?> collection, String fieldName) {
+        if (CollectionUtils.isEmpty(collection)) {
+            addError(fieldName, MANDATORY_ERROR_CODE, MANDATORY_ERROR_MESSAGE);
+        }
+    }
+
+    /**
+     * Check mandatory fields
+     * @param fieldName String
+     * @param values String...
+     */
+    protected void checkMandatoryFields(String fieldName, String... values) {
+        boolean allEmpty = Arrays.stream(values).allMatch(StringUtils::isEmpty);
+        if (allEmpty) {
+            addError(fieldName, MANDATORY_ERROR_CODE, MANDATORY_ERROR_MESSAGE);
+        }
+    }
+
+    /**
+     * Check mandatary date field
+     * @param date Long
+     * @param fieldName String
+     */
+    protected void checkMandatoryDateField(Long date, String fieldName) {
+        if (ObjectUtils.isEmpty(date) || date < 0) {
+            addError(fieldName, MANDATORY_ERROR_CODE, MANDATORY_ERROR_MESSAGE);
+        }
+    }
+
+    protected void validateFieldLength(String value, int maxLength, String fieldName) {
+        if (StringUtils.isNotEmpty(value) && value.length() > maxLength) {
+            addError(MAX_ALLOWED_LENGTH_ERROR_CODE, MAX_ALLOWED_LENGTH_ERROR_MESSAGE, fieldName, maxLength);
+        }
+    }
+
+    protected void validateFieldWithRegex(String value, int maxLength, String regex, String fieldName, String message) {
+        if (StringUtils.isNotEmpty(value) && (value.length() > maxLength || validate(value, regex))) {
+            addError(fieldName, INVALID_FORMAT_OR_MAX_LEN_ERROR_CODE, message + " " + maxLength);
+        }
+    }
+//
+//    protected void validateFieldWithRegex(String value, String regex, String fieldName, String message) {
+//        if (StringUtils.isNotEmpty(value) && validate(value, regex)) {
+//            addError(fieldName, INVALID_FORMAT_ERROR_CODE, MessageFormat.format(message, fieldName, value));
+//        }
+//    }
+
+    protected void validateFieldValue(String value, String validValue, String fieldName) {
+        if (!validValue.equalsIgnoreCase(value)) {
+            addError(INVALID_ERROR_CODE, INVALID_ERROR_MESSAGE, fieldName, VALID_VALUES_ARE + validValue);
+        }
+    }
+
+    protected void validateFieldValue(String value, List<String> validValues, String fieldName) {
+        boolean isValid = validValues.stream().anyMatch(validValue -> validValue.equalsIgnoreCase(value));
+        if (!isValid) {
+            addError(INVALID_ERROR_CODE, INVALID_ERROR_MESSAGE, fieldName, VALID_VALUES_ARE + validValues);
+        }
+
+    }
+
+    protected <E extends Enum<E>> void  validateFieldValue(Enum<E> value, String fieldName, Class<E> enumName) {
+        if (Objects.isNull(value)) {
+            addError(INVALID_ERROR_CODE, INVALID_ERROR_MESSAGE, fieldName, "Valid values are " + EnumUtils.getEnumList(enumName));
+        }
+    }
+
+    protected void addError(String fieldName, String errorCode, String errorMessage) {
+        errorDtoList.add(ErrorDto.builder().errorCode(errorCode).errorMessage(MessageFormat.format(errorMessage, fieldName)).build());
+    }
+
+    protected void addError(String errorCode, String errorMessage, Object... fieldNames) {
+        errorDtoList.add(ErrorDto.builder().errorCode(errorCode).errorMessage(MessageFormat.format(errorMessage, fieldNames)).build());
+    }
+
+    protected void throwIfErrors() {
+        if (CollectionUtils.isNotEmpty(errorDtoList)) {
+            throw new ValidationException(errorDtoList);
+        }
+    }
+
+    protected boolean validate(String value, String regex) {
+        return !Pattern.matches(regex, value);
+    }
+}
 @ControllerAdvice
 public class KMSExceptionHandler {
     LoggerUtility logger = LoggerFactoryUtility.getLogger(this.getClass());
@@ -54,6 +160,21 @@ public class KMSExceptionHandler {
         return generateResponseWithErrors(List.of(errorDto));
     }
 
+    /**
+     * Handle ValidationException
+     *
+     * @param ex ValidationException
+     * @return ResponseEntity
+     */
+    @ExceptionHandler(ValidationException.class)
+    public ResponseEntity<Object> handleValidationException(ValidationException ex) {
+        logger.error("Handling ValidationException: {}", ex.getMessage(), ex);
+        if (CollectionUtils.isEmpty(ex.getErrorMessages())) {
+            ErrorDto errorDto = ErrorDto.builder().errorCode(ex.getErrorCode()).errorMessage(ex.getErrorMessage()).build();
+            return generateResponseWithErrors(List.of(errorDto));
+        }
+        return generateResponseWithErrors(ex.getErrorMessages());
+    }
     /**
      * Handle handleMethodArgumentTypeMismatch
      *
@@ -149,11 +270,33 @@ public class KMSExceptionHandler {
     }
 
 }
+@Getter
+public class ValidationException extends RuntimeException {
 
-create annotation based exception for leading trailling space
-  protected void checkForLeadingTrailingAndSingleSpace(String value, String fieldName) {
-        logger.debug("checking for Leading and Trailing space for field {} and value {}",fieldName,value);
-        if (StringUtils.isNotEmpty(value) && !value.equals(value.trim())) {
-            addError(fieldName, WHITESPACE_ERROR_CODE, WHITESPACE_ERROR_MESSAGE);
-        }
+    private String errorCode;
+    private String errorMessage;
+    private List<ErrorDto> errorMessages;
+
+    /**
+     * Parametrized constructor taking errorcode and errorMessage
+     *
+     * @param errorCode    String
+     * @param errorMessage String
+     */
+    public ValidationException(String errorCode, String errorMessage) {
+        this.errorCode = errorCode;
+        this.errorMessage = errorMessage;
     }
+
+    /**
+     * Parametrized constructor taking List of ErrorDTO
+     *
+     * @param errorMessages List
+     */
+    public ValidationException(List<ErrorDto> errorMessages) {
+        this.errorMessages = errorMessages;
+    }
+
+}
+
+here I'm not getting INVALID_FORMAT_OR_MAX_LEN_ERROR_MESSAGE insead of that getting UNCATEGORIZED_ERROR_MESSAGE
