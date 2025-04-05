@@ -1,205 +1,41 @@
-package com.epay.merchant.exceptionhandlers;
+Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'adminService' defined in file [C:\Users\v1014352\E-Pay\epay_merchant_service\build\classes\java\main\com\epay\merchant\service\AdminService.class]: Unsatisfied dependency expressed through constructor parameter 6: Error creating bean with name 'merchantBankService' defined in file [C:\Users\v1014352\E-Pay\epay_merchant_service\build\classes\java\main\com\epay\merchant\service\MerchantBankService.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'merchantBankDao' defined in file [C:\Users\v1014352\E-Pay\epay_merchant_service\build\classes\java\main\com\epay\merchant\dao\MerchantBankDao.class]: Unsatisfied dependency expressed through constructor parameter 1: Error creating bean with name 'alertDao' defined in file [C:\Users\v1014352\E-Pay\epay_merchant_service\build\classes\java\main\com\epay\merchant\dao\AlertDao.class]: Unsatisfied dependency expressed through constructor parameter 1: Error creating bean with name 'alertManagementRepository' defined in com.epay.merchant.repository.AlertManagementRepository defined in @EnableJpaRepositories declared on EpayMerchantServiceApplication: Could not create query for public abstract java.util.List com.epay.merchant.repository.AlertManagementRepository.findByMID(java.lang.String,org.springframework.data.domain.Pageable); Reason: Failed to create query for method public abstract java.util.List com.epay.merchant.repository.AlertManagementRepository.findByMID(java.lang.String,org.springframework.data.domain.Pageable); No property 'MID' found for type 'AlertManagement'; Did you mean 'mId','MId'
+package com.epay.merchant.entity;
 
-import com.epay.merchant.dto.ErrorDto;
-import com.epay.merchant.exception.MerchantException;
-import com.epay.merchant.exception.ValidationException;
-import com.epay.merchant.model.response.MerchantResponse;
-import com.epay.merchant.util.ErrorConstants;
-import com.sbi.epay.encryptdecrypt.exception.EncryptionDecryptionException;
-import com.sbi.epay.logging.utility.LoggerFactoryUtility;
-import com.sbi.epay.logging.utility.LoggerUtility;
-import jakarta.servlet.http.HttpServletResponse;
-import jakarta.validation.ConstraintViolationException;
-import org.hibernate.exception.SQLGrammarException;
-import org.springframework.dao.DataAccessException;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpStatusCode;
-import org.springframework.http.ResponseEntity;
-import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.lang.Nullable;
-import org.springframework.security.authorization.AuthorizationDeniedException;
-import org.springframework.util.CollectionUtils;
-import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.ControllerAdvice;
-import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.context.request.ServletWebRequest;
-import org.springframework.web.context.request.WebRequest;
-import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+import jakarta.persistence.*;
+import lombok.*;
 
-import java.text.MessageFormat;
-import java.util.ArrayList;
-import java.util.List;
-
-import static com.epay.merchant.util.ErrorConstants.*;
-import static com.epay.merchant.util.MerchantConstant.REQUEST_BODY;
-import static org.apache.commons.lang3.StringUtils.contains;
+import java.util.UUID;
 
 /**
- * Class Name: MerchantExceptionHandler
- * <p>
- * Description:This class is used to handle exceptions globally within the application,
- * specifically for handling exceptions related to merchant operations.
- * It leverages Spring's @ControllerAdvice annotation to provide centralized
- * exception handling across all controllers.
- * <p>
- * Author: Bhoopendra Rajput
- * <p>
- * Copyright (c) 2024 [State Bank of India]
- * All rights reserved
+ * Class Name: AlertManagement
  * *
- * Version:1.0
+ * Description:This class represents the management of alerts within the system.
+ * It contains fields related to alert details, including the alert's
+ * unique identifier, description, status (whether the alert is viewed or not),
+ * and other metadata such as the associated merchant ID and alert identifier.
+ * This class is mapped to the "ALERT_MANAGEMENT" table in the database.
+ * Author: V1018344
+ * Copyright (c) 2025 [State Bank of India]
+ * ALl rights reserved
+ * Version: 1.0
  */
-@ControllerAdvice
-public class MerchantExceptionHandler extends ResponseEntityExceptionHandler {
-    private final LoggerUtility logger = LoggerFactoryUtility.getLogger(this.getClass());
 
-    /**
-     * @param ex MerchantException
-     * @return ResponseEntity
-     */
-    @ExceptionHandler(value = {MerchantException.class, EncryptionDecryptionException.class})
-    public ResponseEntity<Object> handleEPayServiceException(RuntimeException ex) {
-        logger.error("Handling MerchantException or EncryptionDecryptionException: {}", ex.getMessage(), ex);
-        ErrorDto errorDto;
-        switch (ex) {
-            case MerchantException me ->
-                    errorDto = ErrorDto.builder().errorCode(me.getErrorCode()).errorMessage(me.getErrorMessage()).build();
-            case EncryptionDecryptionException me ->
-                    errorDto = ErrorDto.builder().errorCode(me.getErrorCode()).errorMessage(me.getErrorMessage()).build();
-            default ->
-                    errorDto = ErrorDto.builder().errorCode(ErrorConstants.GENERIC_ERROR_CODE).errorMessage(ex.getLocalizedMessage()).build();
-        }
-        return generateResponseWithErrors(List.of(errorDto));
-    }
-
-    /**
-     * Handle ValidationException
-     *
-     * @param ex ValidationException
-     * @return ResponseEntity
-     */
-    @ExceptionHandler(ValidationException.class)
-    public ResponseEntity<Object> handleValidationException(ValidationException ex) {
-        logger.error("Handling ValidationException: {}", ex.getMessage(), ex);
-        if (CollectionUtils.isEmpty(ex.getErrorMessages())) {
-            ErrorDto errorDto = ErrorDto.builder().errorCode(ex.getErrorCode()).errorMessage(ex.getErrorMessage()).build();
-            return generateResponseWithErrors(List.of(errorDto));
-        }
-        return generateResponseWithErrors(ex.getErrorMessages());
-    }
-
-    @Override
-    protected ResponseEntity<Object> handleMethodArgumentNotValid(
-            MethodArgumentNotValidException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
-        logger.error("Handling MethodArgumentNotValidException: {}", ex.getMessage(), ex);
-        List<ErrorDto> errors = new ArrayList<>();
-        ex.getBindingResult().getFieldErrors().forEach(fieldError ->
-                errors.add(ErrorDto.builder()
-                        .errorCode(contains(fieldError.getDefaultMessage(), HIBERNATOR_MAX_ALLOWED_LENGTH_ERROR_MESSAGE) ? MAX_ALLOWED_LENGTH_ERROR_CODE : MANDATORY_ERROR_CODE)
-                        .errorMessage(fieldError.getField() + fieldError.getDefaultMessage())
-                        .build())
-        );
-
-        return ResponseEntity.status(HttpStatus.OK)
-                .body(MerchantResponse.builder().status(RESPONSE_FAILURE).errors(errors).build());
-    }
-    /**
-     * Handle handleDBException exception
-     *
-     * @param ex DataAccessException
-     * @return ResponseEntity
-     */
-    @ExceptionHandler(value = {DataAccessException.class, DataIntegrityViolationException.class, ConstraintViolationException.class, SQLGrammarException.class})
-    public ResponseEntity<Object> handleDBException(Exception ex) {
-        logger.error("Handling Database Exception: {}", ex.getMessage(), ex);
-        String errorMessage;
-        switch (ex) {
-            case DataIntegrityViolationException de -> errorMessage = de.getMostSpecificCause().getMessage();
-            case DataAccessException de -> errorMessage = de.getMostSpecificCause().getMessage();
-            case ConstraintViolationException de -> errorMessage = de.getConstraintViolations().toString();
-            case SQLGrammarException de -> errorMessage = de.getLocalizedMessage();
-            default -> errorMessage = ex.getMessage();
-        }
-        logger.error("Database error message: {}", errorMessage);
-        ErrorDto errorDto = ErrorDto.builder().errorCode(ErrorConstants.GENERIC_ERROR_CODE).errorMessage(errorMessage).build();
-        return ResponseEntity.internalServerError().body(MerchantResponse.builder().status(RESPONSE_FAILURE).errors(List.of(errorDto)).build());
-    }
-
-    @ExceptionHandler(value = {AuthorizationDeniedException.class})
-    public ResponseEntity<Object> handleAuthorizationDeniedException(AuthorizationDeniedException ex) {
-        logger.error("Handling AuthorizationDeniedException: {}", ex.getMessage(), ex);
-        ErrorDto errorDto = ErrorDto.builder().errorCode(String.valueOf(HttpStatus.FORBIDDEN.value())).errorMessage(ex.getMessage() + ": Not having the necessary permissions to access this resources").build();
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(MerchantResponse.builder().status(RESPONSE_FAILURE).errors(List.of(errorDto)).build());
-    }
-
-    /**
-     * Handle general exception
-     *
-     * @param ex Exception
-     * @return ResponseEntity
-     */
-    @ExceptionHandler(value = {Exception.class})
-    public ResponseEntity<Object> handleGenericException(Exception ex) {
-        logger.error("Handling Generic Exception: {}", ex.getMessage(), ex);
-        ErrorDto errorDto = ErrorDto.builder().errorCode(String.valueOf(HttpStatus.INTERNAL_SERVER_ERROR.value())).errorMessage(ex.getMessage()).build();
-        return ResponseEntity.internalServerError().body(MerchantResponse.builder().status(RESPONSE_FAILURE).errors(List.of(errorDto)).build());
-    }
-
-    /**
-     * Handle Runtime exception
-     *
-     * @param ex RuntimeException
-     * @return ResponseEntity
-     */
-    @ExceptionHandler(value = {IllegalArgumentException.class, IllegalStateException.class})
-    protected ResponseEntity<Object> handleConflict(RuntimeException ex) {
-        logger.error("Handling conflict or IllegalArgumentException or IllegalStateException: {}", ex.getMessage(), ex);
-        ErrorDto errorDto = ErrorDto.builder().errorCode(String.valueOf(HttpStatus.CONFLICT.value())).errorMessage(ex.getLocalizedMessage()).build();
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(MerchantResponse.builder().status(RESPONSE_FAILURE).errors(List.of(errorDto)).build());
-    }
-
-    /**
-     * Handle EnumConversionException
-     *
-     * @param e MethodArgumentTypeMismatchException
-     * @return ResponseEntity
-     */
-    @ExceptionHandler(value = {HttpMessageNotReadableException.class})
-    public ResponseEntity<Object> handleEnumConversionException(HttpMessageNotReadableException e) {
-        logger.error("Error in handleEnumConversionException with message: {}", e.getMessage());
-        ErrorDto errorDto = ErrorDto.builder().errorCode(JSON_ERROR_CODE).errorMessage(MessageFormat.format(JSON_ERROR_MESSAGE, REQUEST_BODY)).build();
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(MerchantResponse.builder().status(RESPONSE_FAILURE).errors(List.of(errorDto)).build());
-    }
-
-    @Override
-    protected ResponseEntity<Object> handleExceptionInternal(Exception ex, @Nullable Object body, HttpHeaders headers, HttpStatusCode statusCode, WebRequest request) {
-        logger.error("Handling Spring internal exception: {}", ex.getMessage(), ex);
-        if (request instanceof ServletWebRequest servletWebRequest) {
-            HttpServletResponse response = servletWebRequest.getResponse();
-            if (response != null && response.isCommitted()) {
-                return null;
-            }
-        }
-        ErrorDto errorDto = ErrorDto.builder().errorCode(String.valueOf(statusCode.value())).errorMessage(ex.getLocalizedMessage()).build();
-        return ResponseEntity.status(statusCode).body(MerchantResponse.builder().status(RESPONSE_FAILURE).errors(List.of(errorDto)).build());
-    }
-
-    /**
-     * Preparing errors in API response object.
-     *
-     * @param errors List
-     * @return ResponseEntity
-     */
-    private ResponseEntity<Object> generateResponseWithErrors(List<ErrorDto> errors) {
-        logger.error("Generating response with errors: {}", errors);
-        return ResponseEntity.ok().body(MerchantResponse.builder().status(RESPONSE_FAILURE).errors(errors).build());
-    }
+@EqualsAndHashCode(callSuper = true)
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Entity
+@Table(name = "ALERT_MANAGEMENT")
+public class AlertManagement extends AuditEntity {
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+    private UUID alertId;
+    @Column(name = "MID")
+    private String mId;
+    private String alertDescription;
+    private boolean isViewed;
+    private long alertIdentifier;
 }
 
-
-
-
-
-Caused by: org.springframework.beans.BeanInstantiationException: Failed to instantiate [org.springframework.web.servlet.HandlerExceptionResolver]: Factory method 'handlerExceptionResolver' threw exception with message: Ambiguous @ExceptionHandler method mapped for [class org.springframework.http.converter.HttpMessageNotReadableException]: {public org.springframework.http.ResponseEntity com.epay.merchant.exceptionhandlers.MerchantExceptionHandler.handleEnumConversionException(org.springframework.http.converter.HttpMessageNotReadableException), public final org.springframework.http.ResponseEntity org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler.handleException(java.lang.Exception,org.springframework.web.context.request.WebRequest) throws java.lang.Exception}
