@@ -1,1 +1,33 @@
-{"status":0,"errors":[{"errorCode":"4006","errorMessage":"Could not resolve attribute 'MId' of 'com.epay.merchant.entity.AlertManagement'"}]}
+   @Test
+    void testReturnAlertsByMId() {
+        when(alertDao.getLatestAlertDescription("MID123", false, Pageable.ofSize(DEFAULT_ALERT_PAGE_SIZE))).thenReturn(List.of(new AlertManagementResponse()));
+
+        MerchantResponse<AlertManagementResponse> response = alertService.getUnreadAlertsByMId("MID123");
+
+        assertEquals(RESPONSE_SUCCESS, response.getStatus());
+        assertEquals(1, response.getTotal());
+        verify(alertDao, times(1)).getLatestAlertDescription("MID123", false, Pageable.ofSize(DEFAULT_ALERT_PAGE_SIZE));
+    }
+
+    public MerchantResponse<AlertManagementResponse> getUnreadAlertsByMId(String mId) {
+        log.info("Fetching unread alert descriptions for mId: {}", mId);
+        List<AlertManagementResponse> alertManagementResponses = alertDao.getLatestAlertDescription(mId, false, PageRequest.of(DEFAULT_PAGE_NUMBER, DEFAULT_ALERT_PAGE_SIZE, Sort.by(Sort.Direction.DESC, "createdAt")));
+        return MerchantResponse.<AlertManagementResponse>builder().data(alertManagementResponses).status(RESPONSE_SUCCESS).total((long) alertManagementResponses.size()).build();
+
+    }
+
+
+Strict stubbing argument mismatch. Please check:
+ - this invocation of 'getLatestAlertDescription' method:
+    alertDao.getLatestAlertDescription(
+    "MID123",
+    false,
+    Page request [number: 0, size 50, sort: createdAt: DESC]
+);
+    -> at com.epay.merchant.service.AlertService.getUnreadAlertsByMId(AlertService.java:56)
+ - has following stubbing(s) with different arguments:
+    1. alertDao.getLatestAlertDescription(
+    "MID123",
+    false,
+    Page request [number: 0, size 50, sort: UNSORTED]
+);
