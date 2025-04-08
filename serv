@@ -1,7 +1,13 @@
-  public MerchantResponse<AlertManagementResponse> getAllAlertsByMId(String mId, Pageable pageable) {
-        log.info("Fetching unread alert descriptions for mId: {}", mId);
-        List<AlertManagementResponse> alertManagementResponses = alertDao.getLatestAlertDescription(mId, true, pageable);
-        return MerchantResponse.<AlertManagementResponse>builder().status(RESPONSE_SUCCESS).data(alertManagementResponses).total((long) alertManagementResponses.size()).build();
+   public List<AlertManagementResponse> getLatestAlerts(String mId, Pageable pageable) {
+        // Fetch alerts based on MID with pagination (latest 50)
+        Page<AlertManagement> alertManagementList = alertManagementRepository.findByMId(mId, pageable);
+        // Get user roles
+        List<String> userRoles = EPayIdentityUtil.getUserPrincipal().getUserRole();
+        // If user role is "USER", filter alerts accordingly
+        if (checkIsUserRole(userRoles)) {
+            List<AlertMasterDto> accountExpiryAlerts = findAllAlertByName(ACCOUNT_EXPIRY);
+            return alertMapper.alertManagementEntityToResponse(filterAlertsForUserRole(alertManagementList.toList(), collectAlertMasterId(accountExpiryAlerts)));
+        }
+        // Default return if no filtering is needed
+        return alertMapper.alertManagementEntityToResponse(alertManagementList.toList());
     }
-
-how to get size here or can we convert list to page
