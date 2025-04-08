@@ -1,3 +1,25 @@
+    @Test
+    void testReturnLatest50UnreadAlertDescriptions() {
+        when(alertManagementRepository.findUnreadAlertsByMId(eq("MID123"), any(PageRequest.class))).thenReturn((Page<AlertManagement>) alertManagement);
+        when(alertMapper.alertManagementEntityToResponse(anyList())).thenReturn(List.of(new AlertManagementResponse()));
+
+        SecurityContextHolder.getContext().setAuthentication(mock(Authentication.class));
+        when(SecurityContextHolder.getContext().getAuthentication().getPrincipal()).thenReturn(mockPrincipal);
+        List<String> userRoles = List.of("USER", "USER");
+        List<AlertManagementResponse> response = alertDao.getUnreadAlerts("MID123").toList();
+        assertNotNull(response);
+        assertEquals(1, response.size());
+        verify(alertManagementRepository, times(1)).findUnreadAlertsByMId(eq("MID123"), any(PageRequest.class));
+        when(EPayIdentityUtil.getUserPrincipal().getUserRole()).thenReturn(userRoles);
+
+        List<AlertManagementResponse> response1 = alertDao.getUnreadAlerts("MID123").toList();
+        assertNotNull(response1);
+
+    }
+
+ public Page<AlertManagementResponse> getUnreadAlerts(String mId) {
+        return getLatestAlertDescription(mId, false, PageRequest.of(DEFAULT_PAGE_NUMBER, DEFAULT_UNREAD_ALERT_SIZE, Sort.by(Sort.Direction.DESC, "createdAt")));
+    }
     /**
      * Retrieves the latest unread alerts for a given merchant ID (mId).
      * This method fetches the alerts in descending order based on the creation date and returns them as a list of AlertManagementResponse objects.
@@ -5,13 +27,12 @@
      * @param mId The merchant ID for which the unread alerts are to be fetched.
      * @return A list of AlertManagementResponse objects representing the alerts for the given merchant ID.
      */
-    public Page<AlertManagementResponse> getLatestAlertDescription(String mId, boolean getAll, Pageable pageable) {
-        // Fetch alerts based on MID with pagination (latest 50)
+    private Page<AlertManagementResponse> getLatestAlertDescription(String mId, boolean getAll, Pageable pageable) {
+        // Fetch alerts based on MID with pagination
         Page<AlertManagement> alertManagementList = getAll ? alertManagementRepository.findByMId(mId, pageable) :
                 alertManagementRepository.findUnreadAlertsByMId(mId, pageable);
         // Get user roles
-//        List<String> userRoles = EPayIdentityUtil.getUserPrincipal().getUserRole();
-        List<String> userRoles = List.of("ADMIN");
+        List<String> userRoles = EPayIdentityUtil.getUserPrincipal().getUserRole();
         // If user role is "USER", filter alerts accordingly
         List<AlertManagement> filteredAlerts = alertManagementList.toList();
         if (checkIsUserRole(userRoles)) {
@@ -23,25 +44,17 @@
         return new PageImpl<>(responses, pageable, alertManagementList.getTotalElements());
     }
 
-    /**
-     * Retrieves the alerts for a given merchant ID (mId).
-     * This method fetches the alerts in descending order based on the creation date and returns them as a list of AlertManagementResponse objects.
-     *
-     * @param mId The merchant ID for which the unread alerts are to be fetched.
-     * @return A list of AlertManagementResponse objects representing the alerts for the given merchant ID.
-     */
-    public Page<AlertManagementResponse> getLatestAlerts(String mId, Pageable pageable) {
-        Page<AlertManagement> alertManagementPage = alertManagementRepository.findByMId(mId, pageable);
-        //List<String> userRoles = EPayIdentityUtil.getUserPrincipal().getUserRole();
-        List<String> userRoles = List.of("ADMIN");
-        List<AlertManagement> filteredAlerts = alertManagementPage.toList();
-        if (checkIsUserRole(userRoles)) {
-            List<AlertMasterDto> accountExpiryAlerts = findAllAlertByName(ACCOUNT_EXPIRY);
-            filteredAlerts = filterAlertsForUserRole(filteredAlerts, collectAlertMasterId(accountExpiryAlerts));
-        }
 
-        List<AlertManagementResponse> responses = alertMapper.alertManagementEntityToResponse(filteredAlerts);
-        return new PageImpl<>(responses, pageable, alertManagementPage.getTotalElements());
-    }
 
-here create two method which will call getLatestAlertDescription and pass getAll value 
+
+class com.epay.merchant.entity.AlertManagement cannot be cast to class org.springframework.data.domain.Page (com.epay.merchant.entity.AlertManagement and org.springframework.data.domain.Page are in unnamed module of loader 'app')
+java.lang.ClassCastException: class com.epay.merchant.entity.AlertManagement cannot be cast to class org.springframework.data.domain.Page (com.epay.merchant.entity.AlertManagement and org.springframework.data.domain.Page are in unnamed module of loader 'app')
+	at com.epay.merchant.dao.AlertDaoTest.testReturnLatest50UnreadAlertDescriptions(AlertDaoTest.java:96)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+
+
+
+> Task :test
+AlertDaoTest > testReturnLatest50UnreadAlertDescriptions() FAILED
