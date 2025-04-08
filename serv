@@ -17,6 +17,16 @@
         verify(alertDao, times(1)).getUnreadAlerts(eq(mId));
     }
 
+class com.epay.merchant.model.response.AlertManagementResponse cannot be cast to class org.springframework.data.domain.Page (com.epay.merchant.model.response.AlertManagementResponse and org.springframework.data.domain.Page are in unnamed module of loader 'app')
+java.lang.ClassCastException: class com.epay.merchant.model.response.AlertManagementResponse cannot be cast to class org.springframework.data.domain.Page (com.epay.merchant.model.response.AlertManagementResponse and org.springframework.data.domain.Page are in unnamed module of loader 'app')
+	at com.epay.merchant.service.AlertServiceTest.testReturnAlertsByMId(AlertServiceTest.java:60)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+
+
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+
     @Test
     void testReturnAlertsByMId() {
         // Arrange
