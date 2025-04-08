@@ -23,3 +23,25 @@ void testReturnLatest50UnreadAlertDescriptions() {
     assertEquals(1, response.size());
     verify(alertManagementRepository, times(1)).findUnreadAlertsByMId(eq("MID123"), any(PageRequest.class));
 }
+
+
+
+
+@Test
+void testReturnAlertsByMId() {
+    // Arrange
+    String mId = "MID123";
+    AlertManagementResponse alert = new AlertManagementResponse();
+    List<AlertManagementResponse> alertList = List.of(alert);
+    Page<AlertManagementResponse> alertPage = new PageImpl<>(alertList);
+
+    when(alertDao.getUnreadAlerts(eq(mId))).thenReturn(alertPage);
+
+    // Act
+    MerchantResponse<AlertManagementResponse> response = alertService.getUnreadAlertsByMId(mId);
+
+    // Assert
+    assertEquals(RESPONSE_SUCCESS, response.getStatus());
+    assertEquals(1, response.getTotal());
+    verify(alertDao, times(1)).getUnreadAlerts(eq(mId));
+}
