@@ -1,47 +1,190 @@
- @Test
-    void testReturnAlertsByMId() {
-        // Arrange
-        String mId = "MID123";
-        AlertManagementResponse alert = new AlertManagementResponse();
-        PageRequest pageRequest = PageRequest.of(DEFAULT_PAGE_NUMBER, DEFAULT_ALERT_PAGE_SIZE, Sort.by(Sort.Direction.DESC, "createdAt"));
+package com.epay.kms.exceptionhandlers;
 
-        when(alertDao.getUnreadAlerts(eq(mId)))
-                .thenReturn((Page<AlertManagementResponse>) alert);
+import com.epay.kms.dto.ErrorDto;
+import com.epay.kms.exception.KeyManagementException;
+import com.epay.kms.exception.ValidationException;
+import com.epay.kms.model.response.KMSResponse;
+import com.epay.kms.util.KMSUtil;
+import com.sbi.epay.encryptdecrypt.exception.EncryptionDecryptionException;
+import com.sbi.epay.logging.utility.LoggerFactoryUtility;
+import com.sbi.epay.logging.utility.LoggerUtility;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.util.CollectionUtils;
+import org.springframework.validation.FieldError;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
-        // Act
-        MerchantResponse<AlertManagementResponse> response = alertService.getUnreadAlertsByMId(mId);
+import java.text.MessageFormat;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 
-        // Assert
-        assertEquals(RESPONSE_SUCCESS, response.getStatus());
-        assertEquals(1, response.getTotal());
-        verify(alertDao, times(1)).getUnreadAlerts(eq(mId));
+import static com.epay.kms.util.ErrorConstant.*;
+import static com.epay.kms.util.KmsConstant.RESPONSE_FAILURE;
+
+/**
+ * Class Name: KMSExceptionHandler
+ * *
+ * Description: This class handles global exception.
+ * *
+ * Author: V1017903(bhushan wadekar)
+ * <p>
+ * Copyright (c) 2024 [State Bank of India]
+ * All rights reserved
+ * *
+ * Version:1.0
+ */
+@ControllerAdvice
+public class KMSExceptionHandler {
+    LoggerUtility logger = LoggerFactoryUtility.getLogger(this.getClass());
+
+    @ExceptionHandler(value = {KeyManagementException.class})
+    public ResponseEntity<Object> handleKMSException(KeyManagementException ex) {
+        ErrorDto errorDto = ErrorDto.builder().errorCode(ex.getErrorCode()).errorMessage(ex.getErrorMessage()).build();
+        return generateResponseWithErrors(List.of(errorDto));
     }
 
-class com.epay.merchant.model.response.AlertManagementResponse cannot be cast to class org.springframework.data.domain.Page (com.epay.merchant.model.response.AlertManagementResponse and org.springframework.data.domain.Page are in unnamed module of loader 'app')
-java.lang.ClassCastException: class com.epay.merchant.model.response.AlertManagementResponse cannot be cast to class org.springframework.data.domain.Page (com.epay.merchant.model.response.AlertManagementResponse and org.springframework.data.domain.Page are in unnamed module of loader 'app')
-	at com.epay.merchant.service.AlertServiceTest.testReturnAlertsByMId(AlertServiceTest.java:60)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-
-
-OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
-
-    @Test
-    void testReturnAlertsByMId() {
-        // Arrange
-        String mId = "MID123";
-        AlertManagementResponse alert = new AlertManagementResponse();
-        PageRequest pageRequest = PageRequest.of(DEFAULT_PAGE_NUMBER, DEFAULT_ALERT_PAGE_SIZE, Sort.by(Sort.Direction.DESC, "createdAt"));
-
-        when(alertDao.getUnreadAlerts(eq(mId)))
-                .thenReturn((Page<AlertManagementResponse>) alert);
-
-        // Act
-        MerchantResponse<AlertManagementResponse> response = alertService.getUnreadAlertsByMId(mId);
-
-        // Assert
-        assertEquals(RESPONSE_SUCCESS, response.getStatus());
-        assertEquals(1, response.getTotal());
-        verify(alertDao, times(1)).getUnreadAlerts(eq(mId));
+    @ExceptionHandler(value = {EncryptionDecryptionException.class})
+    public ResponseEntity<Object> handleEncryptionDecryptionException(EncryptionDecryptionException ex) {
+        ErrorDto errorDto = ErrorDto.builder().errorCode(ex.getErrorCode()).errorMessage(ex.getErrorMessage()).build();
+        return generateResponseWithErrors(List.of(errorDto));
     }
+
+    /**
+     * Handle ValidationException
+     *
+     * @param ex ValidationException
+     * @return ResponseEntity
+     */
+    @ExceptionHandler(ValidationException.class)
+    public ResponseEntity<Object> handleValidationException(ValidationException ex) {
+        logger.error("Handling ValidationException: {}", ex.getMessage(), ex);
+        if (CollectionUtils.isEmpty(ex.getErrorMessages())) {
+            ErrorDto errorDto = ErrorDto.builder().errorCode(ex.getErrorCode()).errorMessage(ex.getErrorMessage()).build();
+            return generateResponseWithErrors(List.of(errorDto));
+        }
+        return generateResponseWithErrors(ex.getErrorMessages());
+    }
+    /**
+     * Handle handleMethodArgumentTypeMismatch
+     *
+     * @param ex MethodArgumentTypeMismatchException
+     * @return ResponseEntity
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Object> handleMethodArgumentTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        logger.error("Error in handleMethodArgumentTypeMismatch with message: {}", ex.getMessage());
+        ErrorDto errorDto = ErrorDto.builder().errorCode(UNCATEGORIZED_ERROR_CODE)
+                .errorMessage(UNCATEGORIZED_ERROR_MESSAGE)
+                .build();
+        return generateResponseWithErrors(List.of(errorDto));
+    }
+
+    /**
+     * Handle ResourceException
+     *
+     * @param ex NoResourceFoundException
+     * @return ResponseEntity
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<Object> handleResourceException(NoResourceFoundException ex) {
+        logger.error("Error in handleResourceException for resource: {}, message: {}", ex.getResourcePath(), ex.getMessage());
+        ErrorDto errorDto = ErrorDto.builder().errorCode(UNCATEGORIZED_ERROR_CODE)
+                .errorMessage(UNCATEGORIZED_ERROR_MESSAGE).build();
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(KMSResponse.builder().status(RESPONSE_FAILURE).errors(List.of(errorDto)).build());
+    }
+
+    @ExceptionHandler(value = {Exception.class})
+    public ResponseEntity<Object> handleGenericException(Exception ex) {
+        logger.error("Error in handleGenericException exception message: {}", ex.getMessage(), ex);
+        ErrorDto errorDto = ErrorDto.builder().errorCode(UNCATEGORIZED_ERROR_CODE).errorMessage(UNCATEGORIZED_ERROR_MESSAGE).build();
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(KMSResponse.builder().status(RESPONSE_FAILURE).errors(List.of(errorDto)).build());
+    }
+
+    @ExceptionHandler(value = {MethodArgumentNotValidException.class})
+    protected ResponseEntity<Object> handleValidationException(MethodArgumentNotValidException ex) {
+        logger.error("Error in handleValidationException with message: {}", ex.getMessage());
+        List<ErrorDto> errors = new ArrayList<>();
+        ex.getBindingResult().getFieldErrors().forEach(fieldError -> addErrorDto(errors, fieldError));
+        return ResponseEntity.status(HttpStatus.OK).body(KMSResponse.builder().status(RESPONSE_FAILURE).errors(errors).build());
+    }
+
+    private void addErrorDto(List<ErrorDto> errors, FieldError fieldError) {
+        String errCd = MANDATORY_ERROR_CODE;
+        String errMsg = fieldError.getDefaultMessage();
+        if(StringUtils.equalsIgnoreCase(MIN_VALUE_ERROR_MESSAGE, errMsg)) {
+            errCd = MIN_VALUE_ERROR_CODE;
+        }
+        errors.add(ErrorDto.builder().errorCode(errCd)
+                .errorMessage(MessageFormat.format(Objects.requireNonNull(errMsg), fieldError.getField())).build());
+    }
+
+    @ExceptionHandler(value = {IllegalArgumentException.class})
+    protected ResponseEntity<Object> handleConflict(RuntimeException ex) {
+        logger.error("Error in handleConflict ", ex);
+        ErrorDto errorDto = ErrorDto.builder().errorCode(UNCATEGORIZED_ERROR_CODE).errorMessage(UNCATEGORIZED_ERROR_MESSAGE).build();
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(KMSResponse.builder().status(RESPONSE_FAILURE).errors(List.of(errorDto)).build());
+    }
+
+    /**
+     * Handle handleMethodArgumentTypeMismatch
+     *
+     * @param ex HttpRequestMethodNotSupportedException
+     * @return ResponseEntity
+     */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<Object> handleHttpRequestMethodNotSupportedException(HttpRequestMethodNotSupportedException ex) {
+        logger.error("Error in handleHttpRequestMethodNotSupportedException for resource: {}",ex.getMessage());
+        ErrorDto errorDto = ErrorDto.builder()
+                .errorCode(UNCATEGORIZED_ERROR_CODE)
+                .errorMessage(UNCATEGORIZED_ERROR_MESSAGE)
+                .build();
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(KMSResponse.builder().status(RESPONSE_FAILURE).errors(List.of(errorDto)).build());
+    }
+
+    /**
+     * Handle handleMethodArgumentTypeMismatch
+     *
+     * @param ex MethodArgumentTypeMismatchException
+     * @return ResponseEntity
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Object> handleMethodArgumentTypeMismatchException(MethodArgumentTypeMismatchException ex) {
+        logger.error("Error in handleHttpRequestMethodNotSupportedException for resource: {}",ex.getMessage());
+        ErrorDto errorDto = ErrorDto.builder()
+                .errorCode(UNCATEGORIZED_ERROR_CODE)
+                .errorMessage(UNCATEGORIZED_ERROR_MESSAGE)
+                .build();
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(KMSResponse.builder().status(RESPONSE_FAILURE).errors(List.of(errorDto)).build());
+    }
+    /**
+     * Handle Message Not Readable exception.
+     *
+     * @param e the exception to handle
+     * @return ResponseEntity
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Object> handleMessageNotReadableException(HttpMessageNotReadableException e) {
+        logger.error("Error in handleMessageNotReadableException with message: {}", e.getMessage());
+        String reason = KMSUtil.getParsingError(e.getCause());
+        ErrorDto errorDto = ErrorDto.builder().errorCode(INVALID_ERROR_CODE).errorMessage(MessageFormat.format(INVALID_ERROR_MESSAGE, "Request object", reason)).build();
+        return generateResponseWithErrors(List.of(errorDto));
+    }
+
+    private ResponseEntity<Object> generateResponseWithErrors(List<ErrorDto> errors) {
+        return ResponseEntity.ok().body(KMSResponse.builder().status(RESPONSE_FAILURE).errors(errors).build());
+    }
+}
+
+
+
+
+
+Caused by: org.springframework.beans.BeanInstantiationException: Failed to instantiate [org.springframework.web.servlet.HandlerExceptionResolver]: Factory method 'handlerExceptionResolver' threw exception with message: Ambiguous @ExceptionHandler method mapped for [class org.springframework.web.method.annotation.MethodArgumentTypeMismatchException]: {public org.springframework.http.ResponseEntity com.epay.kms.exceptionhandlers.KMSExceptionHandler.handleMethodArgumentTypeMismatchException(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException), public org.springframework.http.ResponseEntity com.epay.kms.exceptionhandlers.KMSExceptionHandler.handleMethodArgumentTypeMismatch(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException)}
