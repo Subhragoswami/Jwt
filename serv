@@ -1,85 +1,16 @@
-package com.epay.merchant.specification;
-
-import com.epay.merchant.entity.MerchantUser;
-import jakarta.persistence.criteria.CriteriaBuilder;
-import jakarta.persistence.criteria.Predicate;
-import jakarta.persistence.criteria.Root;
-import org.springframework.data.jpa.domain.Specification;
-import org.springframework.util.StringUtils;
-
-import java.util.UUID;
-
-
-public class MerchantUserSpecification {
-
-    public static Specification<MerchantUser> searchUsers(
-            UUID userId,
-            String userName,
-            String name,
-            String mobile,
-            Long fromDate,
-            Long toDate,
-            String status) {
-        return (root, query, criteriaBuilder) -> {
-            Predicate predicate = criteriaBuilder.conjunction();
-            predicate = criteriaBuilder.and(predicate, getParentUserPredicate(root, criteriaBuilder, userId));
-            if (StringUtils.hasText(userName)) {
-                predicate = criteriaBuilder.and(predicate, getUserNamePredicate(root, criteriaBuilder, userName));
-            }
-
-            if (StringUtils.hasText(name)) {
-                predicate = criteriaBuilder.and(predicate, getNamePredicate(root, criteriaBuilder, name));
-            }
-
-            if (StringUtils.hasText(mobile)) {
-                predicate = criteriaBuilder.and(predicate, getMobilePredicate(root, criteriaBuilder, mobile));
-            }
-
-            if (fromDate != null) {
-                predicate = criteriaBuilder.and(predicate, getFromDatePredicate(root, criteriaBuilder, fromDate));
-            }
-
-            if (toDate != null) {
-                predicate = criteriaBuilder.and(predicate, getToDatePredicate(root, criteriaBuilder, toDate));
-            }
-
-            if (StringUtils.hasText(status)) {
-                predicate = criteriaBuilder.and(predicate, getStatusPredicate(root, criteriaBuilder, status));
-            }
-
-            return predicate;
-        };
+    public void validatedMerchantUser(String userName, String requestType) {
+        logger.info("Validating merchant user with userName: {}", userName);
+        MerchantUserDto merchantUser = merchantUserDao.getByUserNameOrEmailOrMobilePhoneAndStatus(userName, userName, userName, List.of(UserStatus.values()));
+        if (requestType.equals(RESET_PASSWORD.name) && !UserStatus.ACTIVE.equals(merchantUser.getStatus()) || !UserStatus.EXPIRED.equals(merchantUser.getStatus())) {
+            logger.info("Merchant user fetched with status: {}", merchantUser.getStatus());
+            throw new MerchantException(ErrorConstants.INVALID_ERROR_CODE, MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Merchant user status", "User is " + merchantUser.getStatus()));
+        }else if(!UserStatus.ACTIVE.equals(merchantUser.getStatus())) {
+            logger.info("Merchant user fetched with status: {}", merchantUser.getStatus());
+            throw new MerchantException(ErrorConstants.INVALID_ERROR_CODE, MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Merchant user status", "User is " + merchantUser.getStatus()));
+        }
+        if(merchantUser.isFirstLogin()) {
+            logger.info("Merchant user fetched with firstLogin flag, id: {}", merchantUser.getId());
+            throw new MerchantException(ErrorConstants.FIRST_LOGIN_ERROR_CODE, ErrorConstants.FIRST_LOGIN_ERROR_MESSAGE);
+        }
+        logger.info("Merchant user validated successfully for userName: {}", userName);
     }
-
-    private static Predicate getUserNamePredicate(Root<MerchantUser> root, CriteriaBuilder criteriaBuilder, String userName) {
-        return criteriaBuilder.like(criteriaBuilder.lower(root.get("userName")), "%" + userName.toLowerCase() + "%");
-    }
-
-    private static Predicate getParentUserPredicate(Root<MerchantUser> root, CriteriaBuilder criteriaBuilder, UUID userId) {
-        return criteriaBuilder.equal(root.get("parentUserId"), userId);
-    }
-
-    private static Predicate getNamePredicate(Root<MerchantUser> root, CriteriaBuilder criteriaBuilder, String name) {
-        return criteriaBuilder.or(
-                criteriaBuilder.like(criteriaBuilder.lower(root.get("firstName")), "%" + name.toLowerCase() + "%")
-        );
-    }
-
-    private static Predicate getMobilePredicate(Root<MerchantUser> root, CriteriaBuilder criteriaBuilder, String mobile) {
-        return criteriaBuilder.like(criteriaBuilder.lower(root.get("mobilePhone")), "%" + mobile.toLowerCase() + "%");
-    }
-
-    private static Predicate getFromDatePredicate(Root<MerchantUser> root, CriteriaBuilder criteriaBuilder, Long fromDate) {
-        return criteriaBuilder.greaterThanOrEqualTo(root.get("createdAt"), fromDate);
-    }
-
-    private static Predicate getToDatePredicate(Root<MerchantUser> root, CriteriaBuilder criteriaBuilder, Long toDate) {
-        return criteriaBuilder.lessThanOrEqualTo(root.get("createdAt"), toDate);
-    }
-
-    private static Predicate getStatusPredicate(Root<MerchantUser> root, CriteriaBuilder criteriaBuilder, String status) {
-        return criteriaBuilder.equal(root.get("status"), status);
-    }
-}
-
-here can I exclude everytime whose status is EXPIRED
