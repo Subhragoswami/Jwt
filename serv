@@ -1,16 +1,21 @@
-    public void validatedMerchantUser(String userName, String requestType) {
-        logger.info("Validating merchant user with userName: {}", userName);
-        MerchantUserDto merchantUser = merchantUserDao.getByUserNameOrEmailOrMobilePhoneAndStatus(userName, userName, userName, List.of(UserStatus.values()));
-        if (requestType.equals(RESET_PASSWORD.name) && !UserStatus.ACTIVE.equals(merchantUser.getStatus()) || !UserStatus.EXPIRED.equals(merchantUser.getStatus())) {
-            logger.info("Merchant user fetched with status: {}", merchantUser.getStatus());
-            throw new MerchantException(ErrorConstants.INVALID_ERROR_CODE, MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Merchant user status", "User is " + merchantUser.getStatus()));
-        }else if(!UserStatus.ACTIVE.equals(merchantUser.getStatus())) {
-            logger.info("Merchant user fetched with status: {}", merchantUser.getStatus());
-            throw new MerchantException(ErrorConstants.INVALID_ERROR_CODE, MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Merchant user status", "User is " + merchantUser.getStatus()));
-        }
-        if(merchantUser.isFirstLogin()) {
-            logger.info("Merchant user fetched with firstLogin flag, id: {}", merchantUser.getId());
-            throw new MerchantException(ErrorConstants.FIRST_LOGIN_ERROR_CODE, ErrorConstants.FIRST_LOGIN_ERROR_MESSAGE);
-        }
-        logger.info("Merchant user validated successfully for userName: {}", userName);
-    }
+CREATE TABLE THEME (
+    ID RAW(16) DEFAULT SYS_GUID() PRIMARY KEY NOT NULL,
+    MID VARCHAR2(50) NOT NULL,
+    LOGO	CLOB NOT NULL,
+    PRIMARY_COLOR	VARCHAR2(10 CHAR),
+    SECONDARY_COLOR	VARCHAR2(10 CHAR),
+    MODULE VARCHAR2(50) NOT NULL,
+    CREATED_BY	VARCHAR2(50 CHAR) NOT NULL,
+    CREATED_AT	NUMBER NOT NULL,
+    UPDATED_BY	VARCHAR2(50 CHAR) NOT NULL,
+    UPDATED_AT	NUMBER NOT NULL,
+    VERSION NUMBER DEFAULT 0 NOT NULL,
+    DEFAULT_THEME NUMBER(1) DEFAULT 0,
+    CONSTRAINT THEME_MID_MODULE_UK UNIQUE(MID,MODULE)
+);
+
+CREATE INDEX IDX_THEME_MID ON THEME(MID);
+CREATE INDEX IDX_MODULE ON THEME(MODULE);
+
+
+here I want to set LOGO	as null
