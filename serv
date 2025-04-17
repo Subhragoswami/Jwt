@@ -1,55 +1,12 @@
-   @Test
-    void testValidateLogoCreateEmptyFile() {
-        MultipartFile logoFile = new MockMultipartFile("logo", "ABC.png", LOGO_FILE_TYPES[0], new byte[]{});
-        ValidationException exception = assertThrows(ValidationException.class, () -> themeValidator.validateLogo(logoFile, false));
-        assertEquals("Logo File is mandatory.", exception.getErrorMessages().getFirst().getErrorMessage());//Byte is empty
+   void validateMerchantUser(OtpGenerationRequest otpGenerationRequest) {
+        UserStatus userStatus = RequestType.CHANGE_PASSWORD.getName().equals(otpGenerationRequest.getRequestType())
+                ? UserStatus.EXPIRED
+                : UserStatus.ACTIVE;
+        boolean merchantUserExists = otpManagementDao.isValidMerchantUserExists(otpGenerationRequest.getUserName(), userStatus);
+        if (!merchantUserExists) {
+            addError("Active Merchant User", ErrorConstants.NOT_FOUND_ERROR_CODE, ErrorConstants.NOT_FOUND_ERROR_MESSAGE);
+        }
+        throwIfErrors();
     }
 
-public void validateLogo(MultipartFile logoFile, boolean isUpdateCall) {
-        errorDtoList = new ArrayList<>();
-        String errorCd = "Logo file";
-        String errorMsg = StringUtils.EMPTY;
-        boolean isFileNotPresent = Objects.isNull(logoFile) || logoFile.isEmpty();
-        if (isUpdateCall && isFileNotPresent) {
-            return;
-        }
-        if(!isFileNotPresent) {
-            if (!StringUtils.containsAnyIgnoreCase(logoFile.getContentType(), LOGO_FILE_TYPES)) {
-                errorCd = LOGO_FILE_TYPE;
-                errorMsg = "Valid logo file types are " + Arrays.toString(LOGO_FILE_TYPES);
-            } else if (isLogoFileSizeInvalid(logoFile.getSize())) {
-                errorCd = LOGO_FILE_SIZE;
-                errorMsg = "Valid file size: " + merchantConfig.getLogoMaxSize();
-            } else {
-                BufferedImage image;
-                try {
-                    image = ImageIO.read(new ByteArrayInputStream(logoFile.getBytes()));
-                    if (null != image && (image.getHeight() > merchantConfig.getLogoHeight() || image.getWidth() > merchantConfig.getLogoWidth())) {
-                        errorCd = "Logo dimension";
-                        errorMsg = "Valid dimension is " + merchantConfig.getLogoWidth() + "x" + merchantConfig.getLogoHeight();
-                    }
-                } catch (IOException e) {
-                    String errMsg = MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, LOGO_FILE, "Unable to process logo file.");
-                    log.error(errMsg, e);
-                    addError(ErrorConstants.INVALID_ERROR_CODE, errMsg);
-                    throwIfErrors();
-                }
-            }
-            if (StringUtils.isNotEmpty(errorMsg)) {
-                addError(INVALID_ERROR_CODE, INVALID_ERROR_MESSAGE, errorCd, errorMsg);
-            }
-            throwIfErrors();
-        }
-    }
-
-
-Expected com.epay.merchant.exception.ValidationException to be thrown, but nothing was thrown.
-org.opentest4j.AssertionFailedError: Expected com.epay.merchant.exception.ValidationException to be thrown, but nothing was thrown.
-	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
-	at org.junit.jupiter.api.AssertThrows.assertThrows(AssertThrows.java:73)
-	at org.junit.jupiter.api.AssertThrows.assertThrows(AssertThrows.java:35)
-	at org.junit.jupiter.api.Assertions.assertThrows(Assertions.java:3115)
-	at com.epay.merchant.validator.ThemeValidatorTest.testValidateLogoCreateEmptyFile(ThemeValidatorTest.java:136)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+here I need to add logic like if otpGenerationRequest.getRequestType() is RESET_PASSWORD then we need to accept user status either it should be ACTIVE or EXPIRED 
