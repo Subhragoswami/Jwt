@@ -1,12 +1,46 @@
-   void validateMerchantUser(OtpGenerationRequest otpGenerationRequest) {
-        UserStatus userStatus = RequestType.CHANGE_PASSWORD.getName().equals(otpGenerationRequest.getRequestType())
-                ? UserStatus.EXPIRED
-                : UserStatus.ACTIVE;
-        boolean merchantUserExists = otpManagementDao.isValidMerchantUserExists(otpGenerationRequest.getUserName(), userStatus);
-        if (!merchantUserExists) {
-            addError("Active Merchant User", ErrorConstants.NOT_FOUND_ERROR_CODE, ErrorConstants.NOT_FOUND_ERROR_MESSAGE);
-        }
-        throwIfErrors();
+  @Test
+    void testIsValidMerchantUserExists_ValidUser() {
+        String userName = "testuser";
+        when(merchantUserDao.existsByUserNameOrEmailOrMobilePhoneAndStatus(userName, userName, userName, UserStatus.ACTIVE)).thenReturn(true);
+
+        boolean result = otpManagementDao.isValidMerchantUserExists(userName, List.of(UserStatus.ACTIVE));
+
+        assertTrue(result);
+        verify(merchantUserDao).existsByUserNameOrEmailOrMobilePhoneAndStatus(userName, userName, userName, UserStatus.ACTIVE);
     }
 
-here I need to add logic like if otpGenerationRequest.getRequestType() is RESET_PASSWORD then we need to accept user status either it should be ACTIVE or EXPIRED 
+  public boolean isValidMerchantUserExists(String userName, List<UserStatus> userStatus) {
+        return merchantUserDao.existsByUserNameOrEmailOrMobilePhoneAndStatus(userName, userName, userName, userStatus);
+    }
+
+ public boolean existsByUserNameOrEmailOrMobilePhoneAndStatus(String userName, String email, String phone, List<UserStatus> userStatus) {
+        return merchantUserRepository.existsByUserNameOrEmailOrMobilePhoneAndStatus(userName, email, phone, userStatus);
+    }
+
+Strict stubbing argument mismatch. Please check:
+ - this invocation of 'existsByUserNameOrEmailOrMobilePhoneAndStatus' method:
+    merchantUserDao.existsByUserNameOrEmailOrMobilePhoneAndStatus(
+    "testuser",
+    "testuser",
+    "testuser",
+    [ACTIVE]
+);
+    -> at com.epay.merchant.dao.OtpManagementDao.isValidMerchantUserExists(OtpManagementDao.java:68)
+ - has following stubbing(s) with different arguments:
+    1. merchantUserDao.existsByUserNameOrEmailOrMobilePhoneAndStatus(
+    "testuser",
+    "testuser",
+    "testuser",
+    ACTIVE
+);
+      -> at com.epay.merchant.dao.OtpManagementDaoTest.testIsValidMerchantUserExists_ValidUser(OtpManagementDaoTest.java:62)
+Typically, stubbing argument mismatch indicates user mistake when writing tests.
+Mockito fails early so that you can debug potential problem easily.
+However, there are legit scenarios when this exception generates false negative signal:
+  - stubbing the same method multiple times using 'given().will()' or 'when().then()' API
+    Please use 'will().given()' or 'doReturn().when()' API for stubbing.
+  - stubbed method is intentionally invoked with different arguments by code under test
+    Please use default or 'silent' JUnit Rule (equivalent of Strictness.LENIENT).
+For more information see javadoc for PotentialStubbingProblem class.
+org.mockito.exceptions.misusing.PotentialStubbingProblem: 
+Strict stubbing argument mismatch. Please check:
