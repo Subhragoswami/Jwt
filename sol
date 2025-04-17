@@ -10,3 +10,11 @@ void testValidateLogoCreateEmptyFile_ShouldThrowValidationException() {
     // Then: a validation exception should be thrown with expected message
     assertEquals("Logo File is mandatory.", exception.getErrorMessages().getFirst().getErrorMessage());
 }
+
+
+@Test
+void testValidateLogoCreateEmptyFile_ShouldNotThrowException() {
+    MultipartFile logoFile = new MockMultipartFile("logo", "ABC.png", LOGO_FILE_TYPES[0], new byte[]{});
+
+    assertDoesNotThrow(() -> themeValidator.validateLogo(logoFile, false));
+}
