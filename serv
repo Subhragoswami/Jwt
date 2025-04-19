@@ -1,46 +1,40 @@
-  @Test
-    void testIsValidMerchantUserExists_ValidUser() {
-        String userName = "testuser";
-        when(merchantUserDao.existsByUserNameOrEmailOrMobilePhoneAndStatus(userName, userName, userName, UserStatus.ACTIVE)).thenReturn(true);
-
-        boolean result = otpManagementDao.isValidMerchantUserExists(userName, List.of(UserStatus.ACTIVE));
-
-        assertTrue(result);
-        verify(merchantUserDao).existsByUserNameOrEmailOrMobilePhoneAndStatus(userName, userName, userName, UserStatus.ACTIVE);
+ public void validateLogo(MultipartFile logoFile, boolean isUpdateCall) {
+        errorDtoList = new ArrayList<>();
+        String errorCd = "Logo file";
+        String errorMsg = StringUtils.EMPTY;
+        boolean isFileNotPresent = Objects.isNull(logoFile) || logoFile.isEmpty();
+        boolean isFilePresent = !Objects.isNull(logoFile) || !logoFile.isEmpty();
+        if (isUpdateCall && isFileNotPresent) {
+            return;
+        }
+        if (isFilePresent) {
+            if (!StringUtils.containsAnyIgnoreCase(logoFile.getContentType(), LOGO_FILE_TYPES)) {
+                errorCd = LOGO_FILE_TYPE;
+                errorMsg = "Valid logo file types are " + Arrays.toString(LOGO_FILE_TYPES);
+            } else if (logoFile.getOriginalFilename().toLowerCase().contains("null")) {
+                errorCd = "LOGO_FILE_NAME";
+                errorMsg = "logofile can't contain null in the name";
+            } else if (isLogoFileSizeInvalid(logoFile.getSize())) {
+                errorCd = LOGO_FILE_SIZE;
+                errorMsg = "Valid file size: " + merchantConfig.getLogoMaxSize();
+            } else {
+                BufferedImage image;
+                try {
+                    image = ImageIO.read(new ByteArrayInputStream(logoFile.getBytes()));
+                    if (null != image && (image.getHeight() > merchantConfig.getLogoHeight() || image.getWidth() > merchantConfig.getLogoWidth())) {
+                        errorCd = "Logo dimension";
+                        errorMsg = "Valid dimension is " + merchantConfig.getLogoWidth() + "x" + merchantConfig.getLogoHeight();
+                    }
+                } catch (IOException e) {
+                    String errMsg = MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, LOGO_FILE, "Unable to process logo file.");
+                    log.error(errMsg, e);
+                    addError(ErrorConstants.INVALID_ERROR_CODE, errMsg);
+                    throwIfErrors();
+                }
+            }
+            if (StringUtils.isNotEmpty(errorMsg)) {
+                addError(INVALID_ERROR_CODE, INVALID_ERROR_MESSAGE, errorCd, errorMsg);
+            }
+            throwIfErrors();
+        }
     }
-
-  public boolean isValidMerchantUserExists(String userName, List<UserStatus> userStatus) {
-        return merchantUserDao.existsByUserNameOrEmailOrMobilePhoneAndStatus(userName, userName, userName, userStatus);
-    }
-
- public boolean existsByUserNameOrEmailOrMobilePhoneAndStatus(String userName, String email, String phone, List<UserStatus> userStatus) {
-        return merchantUserRepository.existsByUserNameOrEmailOrMobilePhoneAndStatus(userName, email, phone, userStatus);
-    }
-
-Strict stubbing argument mismatch. Please check:
- - this invocation of 'existsByUserNameOrEmailOrMobilePhoneAndStatus' method:
-    merchantUserDao.existsByUserNameOrEmailOrMobilePhoneAndStatus(
-    "testuser",
-    "testuser",
-    "testuser",
-    [ACTIVE]
-);
-    -> at com.epay.merchant.dao.OtpManagementDao.isValidMerchantUserExists(OtpManagementDao.java:68)
- - has following stubbing(s) with different arguments:
-    1. merchantUserDao.existsByUserNameOrEmailOrMobilePhoneAndStatus(
-    "testuser",
-    "testuser",
-    "testuser",
-    ACTIVE
-);
-      -> at com.epay.merchant.dao.OtpManagementDaoTest.testIsValidMerchantUserExists_ValidUser(OtpManagementDaoTest.java:62)
-Typically, stubbing argument mismatch indicates user mistake when writing tests.
-Mockito fails early so that you can debug potential problem easily.
-However, there are legit scenarios when this exception generates false negative signal:
-  - stubbing the same method multiple times using 'given().will()' or 'when().then()' API
-    Please use 'will().given()' or 'doReturn().when()' API for stubbing.
-  - stubbed method is intentionally invoked with different arguments by code under test
-    Please use default or 'silent' JUnit Rule (equivalent of Strictness.LENIENT).
-For more information see javadoc for PotentialStubbingProblem class.
-org.mockito.exceptions.misusing.PotentialStubbingProblem: 
-Strict stubbing argument mismatch. Please check:
