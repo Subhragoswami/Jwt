@@ -1,40 +1,39 @@
-Cannot invoke "org.springframework.data.domain.Page.getContent()" because "alertManagementList" is null
-java.lang.NullPointerException: Cannot invoke "org.springframework.data.domain.Page.getContent()" because "alertManagementList" is null
-	at com.epay.merchant.dao.AlertDao.getLatestAlertDescription(AlertDao.java:97)
+@Test
+    void testReturnLatest50UnreadAlertDescriptions_whenNonUserRole_thenNoNullPointerException() {
+        String mId = "someMerchantId";
+        Pageable pageable = PageRequest.of(0, 50, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        // Mock static method
+        try (MockedStatic<EPayIdentityUtil> identityUtilMock = mockStatic(EPayIdentityUtil.class)) {
+
+            SecurityContextHolder.getContext().setAuthentication(mock(Authentication.class));
+            when(SecurityContextHolder.getContext().getAuthentication().getPrincipal())
+                    .thenReturn(mockPrincipal);
+            when(EPayIdentityUtil.getUserPrincipal().getUserRole())
+                    .thenReturn(List.of("USER"));
+
+            // Mock repository method (non-user path)
+            Page<AlertManagement> page = new PageImpl<>(Collections.emptyList());
+            when(alertManagementRepository.findUnreadAlertsByMId(eq(mId), any(Pageable.class))).thenReturn(page);
+
+            // Mock mapper conversion
+            when(alertMapper.alertManagementEntityToResponse(anyList()))
+                    .thenReturn(Collections.emptyList());
+
+            // Call the method under test
+            Page<AlertManagementResponse> result = alertDao.getUnreadAlerts(mId);
+
+            // Assertions
+            assertNotNull(result);
+            assertEquals(0, result.getTotalElements());
+        }
+    }
+
+Cannot invoke "com.sbi.epay.authentication.model.EPayPrincipal.getUserRole()" because the return value of "com.epay.merchant.util.EPayIdentityUtil.getUserPrincipal()" is null
+java.lang.NullPointerException: Cannot invoke "com.sbi.epay.authentication.model.EPayPrincipal.getUserRole()" because the return value of "com.epay.merchant.util.EPayIdentityUtil.getUserPrincipal()" is null
+	at com.epay.merchant.dao.AlertDao.getLatestAlertDescription(AlertDao.java:83)
 	at com.epay.merchant.dao.AlertDao.getUnreadAlerts(AlertDao.java:72)
-	at com.epay.merchant.dao.AlertDaoTest.testReturnLatest50UnreadAlertDescriptions(AlertDaoTest.java:113)
+	at com.epay.merchant.dao.AlertDaoTest.testReturnLatest50UnreadAlertDescriptions_whenNonUserRole_thenNoNullPointerException(AlertDaoTest.java:113)
 	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-
-
-
-> Task :test
-AlertDaoTest > testReturnLatest50UnreadAlertDescriptions() FAILED
-    java.lang.NullPointerException at AlertDaoTest.java:113
-1 test completed, 1 failed
-> Task :test FAILED
-
-  public Page<AlertManagementResponse> getUnreadAlerts(String mId) {
-        return getLatestAlertDescription(mId, false, PageRequest.of(DEFAULT_PAGE_NUMBER, DEFAULT_UNREAD_ALERT_SIZE, Sort.by(Sort.Direction.DESC, "createdAt")));
-    }
-
-private Page<AlertManagementResponse> getLatestAlertDescription(String mId, boolean getAll, Pageable pageable) {
-        // Get user roles
-        List<String> userRoles = EPayIdentityUtil.getUserPrincipal().getUserRole();
-        boolean isUser = checkIsUserRole(userRoles);
-        Page<AlertManagement> alertManagementList;
-        if (isUser) {
-            List<AlertMasterDto> accountExpiryAlerts = findAllAlertByName(ACCOUNT_EXPIRY);
-            List<UUID> excludedAlertIds = collectAlertMasterId(accountExpiryAlerts);
-            alertManagementList = getAll
-                    ? alertManagementRepository.findAlertsForUser(mId, excludedAlertIds, pageable)
-                    : alertManagementRepository.findUnreadAlertsForUser(mId, excludedAlertIds, pageable);
-        } else {
-            alertManagementList = getAll
-                    ? alertManagementRepository.findByMId(mId, pageable)
-                    : alertManagementRepository.findUnreadAlertsByMId(mId, pageable);
-        }
-        List<AlertManagementResponse> responses = alertMapper.alertManagementEntityToResponse(alertManagementList.getContent());
-        return new PageImpl<>(responses, pageable, alertManagementList.getTotalElements());
-    }
