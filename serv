@@ -1,139 +1,40 @@
-package com.epay.merchant.validator;
+Cannot invoke "org.springframework.data.domain.Page.getContent()" because "alertManagementList" is null
+java.lang.NullPointerException: Cannot invoke "org.springframework.data.domain.Page.getContent()" because "alertManagementList" is null
+	at com.epay.merchant.dao.AlertDao.getLatestAlertDescription(AlertDao.java:97)
+	at com.epay.merchant.dao.AlertDao.getUnreadAlerts(AlertDao.java:72)
+	at com.epay.merchant.dao.AlertDaoTest.testReturnLatest50UnreadAlertDescriptions(AlertDaoTest.java:113)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
 
-import com.epay.merchant.dao.PasswordManagementDao;
-import com.epay.merchant.dto.ErrorDto;
-import com.epay.merchant.dto.MerchantUserDto;
-import com.epay.merchant.entity.PasswordManagement;
-import com.epay.merchant.exception.MerchantException;
-import com.epay.merchant.model.request.PasswordChangeRequest;
-import com.epay.merchant.model.request.PasswordResetRequest;
-import com.epay.merchant.util.ErrorConstants;
-import com.sbi.epay.encryptdecrypt.util.enums.HashAlgorithm;
-import com.sbi.epay.logging.utility.LoggerFactoryUtility;
-import com.sbi.epay.logging.utility.LoggerUtility;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.text.MessageFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.regex.Pattern;
 
-import static com.epay.merchant.util.ErrorConstants.PASSWORD_REGEX;
+> Task :test
+AlertDaoTest > testReturnLatest50UnreadAlertDescriptions() FAILED
+    java.lang.NullPointerException at AlertDaoTest.java:113
+1 test completed, 1 failed
+> Task :test FAILED
 
-@Component
-@RequiredArgsConstructor
-public class PasswordValidator extends BaseValidator {
+  public Page<AlertManagementResponse> getUnreadAlerts(String mId) {
+        return getLatestAlertDescription(mId, false, PageRequest.of(DEFAULT_PAGE_NUMBER, DEFAULT_UNREAD_ALERT_SIZE, Sort.by(Sort.Direction.DESC, "createdAt")));
+    }
 
-    // Define regex patterns for various pwd restrictions
-    private static final Pattern COMMON_WORDS = Pattern.compile(".*\\b(password|secret|admin|welcome|letmein|trustno1|qwerty|abc123)\b.*", Pattern.CASE_INSENSITIVE);
-    private static final Pattern PERSONAL_INFO = Pattern.compile(".*(\\d{2,4}-\\d{2}-\\d{2,4}|\\d{10,}|[a-zA-Z]{2,})+.*");
-    private static final Pattern PATTERNS = Pattern.compile(".*(aaabbb|QWERTY|zyxwvuts|123321|password1|1password).*", Pattern.CASE_INSENSITIVE);
-    private static final Pattern REPETITIVE_OR_SEQUENTIAL = Pattern.compile(".*(\\{3,}|(.)\\2{2,}|1234|abcd).*", Pattern.CASE_INSENSITIVE);
-
-    private final PasswordManagementDao passwordManagementDao;
-    private final LoggerUtility log = LoggerFactoryUtility.getLogger(this.getClass());
-
-    public void validatePasswordUpdateWithDB(MerchantUserDto merchantUser, String newPassword, String oldPassword) {
-        errorDtoList = new ArrayList<>();
-        if (!isPasswordMatching(merchantUser.getPassword(), oldPassword)) {
-            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, ErrorConstants.OLD_PWD, ErrorConstants.ERROR_OLD_PSW_MISMATCH)).build());
-
-        }else if(isPasswordMatching(newPassword, oldPassword)) {
-            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, ErrorConstants.NEW_PWD, ErrorConstants.ERROR_NEW_PSW_SAME_AS_OLD)).build());
-
+private Page<AlertManagementResponse> getLatestAlertDescription(String mId, boolean getAll, Pageable pageable) {
+        // Get user roles
+        List<String> userRoles = EPayIdentityUtil.getUserPrincipal().getUserRole();
+        boolean isUser = checkIsUserRole(userRoles);
+        Page<AlertManagement> alertManagementList;
+        if (isUser) {
+            List<AlertMasterDto> accountExpiryAlerts = findAllAlertByName(ACCOUNT_EXPIRY);
+            List<UUID> excludedAlertIds = collectAlertMasterId(accountExpiryAlerts);
+            alertManagementList = getAll
+                    ? alertManagementRepository.findAlertsForUser(mId, excludedAlertIds, pageable)
+                    : alertManagementRepository.findUnreadAlertsForUser(mId, excludedAlertIds, pageable);
+        } else {
+            alertManagementList = getAll
+                    ? alertManagementRepository.findByMId(mId, pageable)
+                    : alertManagementRepository.findUnreadAlertsByMId(mId, pageable);
         }
-        throwIfErrors();
-        passwordWithOldPasswords(merchantUser, newPassword);
+        List<AlertManagementResponse> responses = alertMapper.alertManagementEntityToResponse(alertManagementList.getContent());
+        return new PageImpl<>(responses, pageable, alertManagementList.getTotalElements());
     }
-
-    /**
-     * Validate pwd with Db
-     *
-     * @param merchantUser MerchantUserDto
-     * @param newPwd  String
-     */
-    public void validatePasswordUpdateWithDB(MerchantUserDto merchantUser, String newPwd) {
-        errorDtoList = new ArrayList<>();
-        passwordWithOldPasswords(merchantUser, newPwd);
-    }
-
-    /**
-     * Validates all mandatory fields in PasswordChangeRequest
-     *
-     * @param passwordChangeRequest PasswordChangeRequest
-     */
-    public void validateMandatoryFields(PasswordChangeRequest passwordChangeRequest) {
-        errorDtoList = new ArrayList<>();
-        log.info("Validating mandatory fields");
-        checkMandatoryField(passwordChangeRequest.getUserName(), ErrorConstants.USER_NAME);
-        checkMandatoryField(passwordChangeRequest.getOldPassword(), ErrorConstants.OLD_PWD);
-        checkMandatoryField(passwordChangeRequest.getNewPassword(), ErrorConstants.NEW_PWD);
-        checkMandatoryField(passwordChangeRequest.getConfirmPassword(), ErrorConstants.CONFIRM_PWD);
-        throwIfErrors();
-    }
-
-    /**
-     * Validates all mandatory fields in PasswordResetRequest
-     *
-     * @param passwordResetRequest PasswordResetRequest
-     */
-    public void validateMandatoryFields(PasswordResetRequest passwordResetRequest) {
-        errorDtoList = new ArrayList<>();
-        log.info("Validating mandatory fields");
-        checkMandatoryField(passwordResetRequest.getUserName(), ErrorConstants.USER_NAME);
-        checkMandatoryField(passwordResetRequest.getNewPassword(), ErrorConstants.NEW_PWD);
-        checkMandatoryField(passwordResetRequest.getConfirmPassword(), ErrorConstants.CONFIRM_PWD);
-        throwIfErrors();
-    }
-
-    /**
-     * Validates pwd format and match
-     *
-     * @param newPwd     String
-     * @param confirmPwd String
-     */
-    public void validatePasswordValue(String newPwd, String confirmPwd) {
-        errorDtoList = new ArrayList<>();
-        if (!newPwd.matches(PASSWORD_REGEX) || PERSONAL_INFO.pattern().matches(newPwd) || COMMON_WORDS.pattern().matches(newPwd) || PATTERNS.pattern().matches(newPwd) || REPETITIVE_OR_SEQUENTIAL.pattern().matches(newPwd)) {
-            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, ErrorConstants.NEW_PWD, "Reason : new-password does not meet the acceptance criteria")).build());
-        }
-        if (!isNewPasswordMatching(newPwd, confirmPwd)) {
-            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE)
-                    .errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, ErrorConstants.PSW, ErrorConstants.ERROR_NEW_AND_CONFIRM_PSW_MISMATCH)).build());
-        }
-        throwIfErrors();
-    }
-
-    private boolean isPasswordMatching(String storedHash, String inputPassword) {
-        return Arrays.equals(storedHash.getBytes(), inputPassword.getBytes());
-    }
-
-    private boolean isNewPasswordMatching(String newPassword, String confirmPassword) {
-        try {
-            MessageDigest md = MessageDigest.getInstance(HashAlgorithm.SHA_512.getAlgorithmName());
-            byte[] hashedNew = md.digest(newPassword.getBytes());
-            byte[] hashedConfirmed = md.digest(confirmPassword.getBytes());
-            return Arrays.equals(hashedNew, hashedConfirmed);
-        } catch (NoSuchAlgorithmException e) {
-            throw new MerchantException(ErrorConstants.INVALID_ERROR_CODE, "Error hashing password");
-        }
-    }
-
-    /**
-     * Validates pwd with old pwd in the database
-     *
-     * @param merchantUser MerchantUserDto
-     * @param newPwd  String
-     */
-    private void passwordWithOldPasswords(MerchantUserDto merchantUser, String newPwd) {
-        List<PasswordManagement> lastFiveRecords = passwordManagementDao.findLastPasswordsByUserId(merchantUser.getId());
-        lastFiveRecords.stream().filter(previousPassword -> isPasswordMatching(previousPassword.getPreviousPassword(), newPwd)).forEachOrdered(previousPassword -> errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, ErrorConstants.NEW_PWD, ErrorConstants.ERROR_NEW_PSW_REUSED)).build()));
-        throwIfErrors();
-    }
-
-
-}
