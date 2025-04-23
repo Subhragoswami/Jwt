@@ -58,3 +58,35 @@ public class ReportDateRangeCalculator {
         };
     }
 }
+
+
+
+
+public static Long calculateNextExecutionTime(Frequency frequency, String time, String generationDate) {
+    DateTime currentDateTime = DateTime.now();
+
+    // Parse time (e.g., "10:00 AM")
+    DateTimeFormatter timeFormatter = DateTimeFormat.forPattern("h:mm a");
+    DateTime parsedTime = timeFormatter.parseDateTime(time);
+
+    DateTime nextDate;
+    if (frequency == Frequency.DAILY) {
+        nextDate = currentDateTime.plusDays(1);
+    } else if (frequency == Frequency.MONTHLY) {
+        int day = Integer.parseInt(generationDate);
+        DateTime nextMonth = currentDateTime.plusMonths(1);
+        int maxDay = nextMonth.dayOfMonth().getMaximumValue();
+        int validDay = Math.min(day, maxDay);
+        nextDate = nextMonth.withDayOfMonth(validDay);
+    } else {
+        throw new IllegalArgumentException("Invalid frequency: " + frequency);
+    }
+
+    // Set the parsed time on the nextDate
+    nextDate = nextDate.withHourOfDay(parsedTime.getHourOfDay())
+                       .withMinuteOfHour(parsedTime.getMinuteOfHour())
+                       .withSecondOfMinute(0)
+                       .withMillisOfSecond(0);
+
+    return nextDate.getMillis();
+}
