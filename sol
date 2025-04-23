@@ -90,3 +90,17 @@ public static Long calculateNextExecutionTime(Frequency frequency, String time, 
 
     return nextDate.getMillis();
 }
+
+
+
+
+
+
+
+reportScheduleManagementDto.setNextScheduleExecutionTime(
+    DateTimeUtils.calculateNextExecutionTime(
+        dto.getFrequency(),
+        dto.getScheduleExecutionTime(),
+        dto.getGenerationDate()
+    )
+);
