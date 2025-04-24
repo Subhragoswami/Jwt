@@ -1,136 +1,54 @@
-    @PostMapping
-    @Operation(summary = "Generate/Create Report scheduler request")
-    public ReportingResponse<String> saveSchedulerManagement(@Valid @RequestBody ReportScheduleManagementRequest reportScheduleManagementRequest) {
-        log.info("save schedulerManagement request {}", reportScheduleManagementRequest);
-        return reportSchedulerManagementService.save(reportScheduleManagementRequest);
-    }
+public void executeReportBySchedule() {
+    log.info("Executing reports by schedule.");
 
+    Long scheduleEndTime = DateTimeUtils.addMinutes(reportingConfig.getReportScheduleExecutionWindow());
 
-   public ReportingResponse<String> save(ReportScheduleManagementRequest reportScheduleManagementRequest) {
-        log.info("Saving Report Schedule Management for mId: {}, Request: {}", reportScheduleManagementRequest.getMId(), reportScheduleManagementRequest);
-        validator.validateRequest(reportScheduleManagementRequest);
-        reportScheduleManagementDao.save(mapper.mapRequestToDto(reportScheduleManagementRequest));
-        return ReportingResponse.<String>builder().data(List.of("ScheduleManagement Request received Successfully")).status(ReportingConstant.RESPONSE_SUCCESS).build();
-    }
+    // Fetch schedules ready to be executed
+    List<ReportScheduleManagement> schedules = findByStatusAndNextScheduleExecutionTime(scheduleEndTime);
 
-   public void save(ReportScheduleManagementDto reportScheduleManagementDto) {
-        log.info("Saving new report schedule for report: {}", reportScheduleManagementDto.getReport());
-        UUID reportId = reportMasterDao.getReportIdByName(reportScheduleManagementDto.getReport());
-        reportScheduleManagementDto.setReportId(reportId);
-        reportScheduleManagementDto.setStatus(ReportScheduledStatus.TO_BE_START);
-        reportScheduleManagementDto.setNextScheduleExecutionTime(DateTimeUtils.calculateDateByFrequency(reportScheduleManagementDto.getFrequency(), reportScheduleManagementDto.getScheduleExecutionTime()));
-        ReportScheduleManagement reportScheduleManagement = mapper.mapDtoToEntity(reportScheduleManagementDto);
-        reportScheduleManagementRepository.save(reportScheduleManagement);
-        log.info("Report schedule saved successfully with ID: {}", reportScheduleManagement.getId());
-    }
+    List<ReportManagement> reportManagementList = schedules.stream().map(schedule -> {
+        // Update last execution time
+        schedule.setLastScheduleExecutionTime(DateTimeUtils.getCurrentTimeInMills());
 
-public UUID getReportIdByName(Report name){
-        log.info("Fetching report ID for report name: {}", name);
-        ReportMaster reportMaster = reportMasterRepository.findByName(name).orElseThrow(() ->
-                new ReportingException(ErrorConstants.NOT_FOUND_ERROR_CODE, MessageFormat.format(ErrorConstants.NOT_FOUND_ERROR_MESSAGE, "Report")));
-        log.info("Found report ID: {}", reportMaster.getId());
-        return reportMaster.getId();
-    }
+        // Calculate and update next execution time (supports daily/monthly with generationDate)
+        schedule.setNextScheduleExecutionTime(
+            ReportScheduleTimeUtils.calculateNextExecutionTime(
+                schedule.getFrequency(),
+                schedule.getScheduleExecutionTime(),
+                schedule.getGenerationDate() // <-- new input
+            )
+        );
 
-    public static Long calculateDateByFrequency(Frequency frequency, String time) {
-        log.debug("Calculating next occurrence based on frequency: {} and time: {}", frequency, time);
-        DateTime currentDateTime = DateTime.now();
-        DateTimeFormatter timeFormatter = DateTimeFormat.forPattern("h:mm a");
-        DateTime parsedTime = timeFormatter.parseDateTime(time);
-        // Combine the date from the current time with the parsed time
-        DateTime nextOccurrence = currentDateTime.withHourOfDay(parsedTime.getHourOfDay()).withMinuteOfHour(parsedTime.getMinuteOfHour()).withSecondOfMinute(0).withMillisOfSecond(0);
+        // Execution Date: T-1 of the actual next execution time
+        LocalDate executionDate = new DateTime(schedule.getNextScheduleExecutionTime()).toLocalDate().minusDays(1);
 
-        // Calculate the next occurrence based on frequency
-        switch (frequency) {
-            case Frequency.DAILY -> nextOccurrence = nextOccurrence.plusDays(1);
-            case Frequency.MONTHLY -> nextOccurrence = nextOccurrence.plusMonths(1);
-            case Frequency.YEARLY -> nextOccurrence = nextOccurrence.plusYears(1);
-            default -> throw new IllegalArgumentException("Invalid Frequency :" + frequency);
-        }
-        log.debug("Next occurrence calculated: {}", nextOccurrence);
-        return nextOccurrence.getMillis();
-    }
+        // Calculate duration range from schedule's reportDuration and execution date
+        Pair<LocalDate, LocalDate> dateRange = ReportScheduleTimeUtils.calculateReportDateRange(
+            schedule.getReportDuration(), // <-- new field
+            executionDate
+        );
 
-public class ReportScheduleManagement extends AuditEntity {
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "ID", nullable = false, updatable = false, unique = true)
-    private UUID id;
+        // Convert to millis (start of fromDate to end of toDate)
+        Long durationFromDate = dateRange.getLeft().atStartOfDay().toDateTime().getMillis();
+        Long durationToDate = dateRange.getRight().plusDays(1).atStartOfDay().toDateTime().minusMillis(1).getMillis();
 
-    private UUID reportId;
-    
-    @Column(name="MID")
-    private String mId;
+        // Prepare ReportManagement object
+        return ReportManagement.builder()
+            .reportId(schedule.getReportId())
+            .mId(schedule.getMId())
+            .format(schedule.getFormat())
+            .scheduledId(schedule.getId())
+            .durationFromDate(durationFromDate)
+            .durationToDate(durationToDate)
+            .status(ReportStatus.TO_BE_GENERATE)
+            .build();
+    }).toList();
 
-    @Enumerated(EnumType.STRING)
-    private Frequency frequency;
-    @Enumerated(EnumType.STRING)
-    private ReportFormat format;
+    // Persist updated schedules
+    reportScheduleManagementRepository.saveAll(schedules);
 
-    private String scheduleExecutionTime;
-    private Long nextScheduleExecutionTime;
-    private Long lastScheduleExecutionTime;
-    private String remarks;
+    // Save all report executions
+    reportManagementDao.saveAll(reportManagementList);
 
-    @Enumerated(EnumType.STRING)
-    private ReportScheduledStatus status;
-
- }
-
-
-public class ReportScheduleManagementDto {
-
-    @JsonIgnore
-    private UUID id;
-    @JsonIgnore
-    private UUID reportId;
-    private Report report;
-    private String mId;
-    private Frequency frequency;
-    private ReportFormat format;
-    private String scheduleExecutionTime;
-    private Long nextScheduleExecutionTime;
-    private Long lastScheduleExecutionTime;
-    private ReportScheduledStatus status;
-    private Long createdAt;
-    private Long updatedAt;
+    log.info("Reports executed and saved successfully.");
 }
-
-public class ReportScheduleManagementRequest {
-
-    @NotBlank(message = MANDATORY_FIELD)
-    private String report;
-    @NotBlank(message = MANDATORY_FIELD)
-    private String mId;
-    @NotBlank(message = MANDATORY_FIELD)
-    private String frequency;
-    @NotBlank(message = MANDATORY_FIELD)
-    private String format;
-    @NotBlank(message = MANDATORY_FIELD)
-    private String scheduleExecutionTime;
-    private String scheduleExecutionDate;
-    private String reportDuration;
-}
-
-When user selects monthly as frequency, a new field to be enabled called "generation date" which will have values 1 to 28 and "last day of the month". Basis this input, the generation date will be selected for the created monthly schedule.
-
-        
-      Label of field "Duration covered" to be changed to generation time".
-
-        
-      A new dropdown to be added called 'Report Duration'.
-
-
-Values will be-
-Yesterday (applicable for Daily, Monthly)
-Last 7 Days (T-7 to T-1; applicable for Daily, Monthly)
-Last 30 Days (T-30 to T-1; applicable for Daily, Monthly)
-Last 90 Days (T-90 to T-1; applicable for Daiily, Monthly)
-Current Month- (1st of current month to T-1); applicable for Daily; Monthly)
-Previous Month- (previous complete month)- (Applicable for monthly)
-
-frequency will have two values daily and monthly 
-here scheduleExecutionDate user can choose between 1-28 dates
-
-and in report duration people can choose Yesterday , Last 7 Days, Last 90 Days, Current Month, Previous Month based on that we need to shcedule like if he selecrt moyhly and last 7 days then it should give suppose today's date is 23 then
-from 16 to 22 data
