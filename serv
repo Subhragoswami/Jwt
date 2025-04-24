@@ -1,54 +1,18 @@
-public void executeReportBySchedule() {
-    log.info("Executing reports by schedule.");
+    public static Pair<LocalDate, LocalDate> calculateReportDateRange(String reportDuration, LocalDate executionDate) {
+        return switch (reportDuration.toUpperCase()) {
+            case "YESTERDAY" -> Pair.of(executionDate.minusDays(1), executionDate.minusDays(1));
+            case "LAST_7_DAYS" -> Pair.of(executionDate.minusDays(7), executionDate.minusDays(1));
+            case "LAST_30_DAYS" -> Pair.of(executionDate.minusDays(30), executionDate.minusDays(1));
+            case "LAST_90_DAYS" -> Pair.of(executionDate.minusDays(90), executionDate.minusDays(1));
+            case "CURRENT_MONTH" -> Pair.of(executionDate.withDayOfMonth(1), executionDate.minusDays(1));
+            case "PREVIOUS_MONTH" -> {
+                LocalDate firstDay = executionDate.minusMonths(1).withDayOfMonth(1);
+                LocalDate lastDay = executionDate.withDayOfMonth(1).minusDays(1);
+                yield Pair.of(firstDay, lastDay);
+            }
+            default -> throw new IllegalArgumentException("Invalid report duration: " + reportDuration);
+        };
+    }
 
-    Long scheduleEndTime = DateTimeUtils.addMinutes(reportingConfig.getReportScheduleExecutionWindow());
 
-    // Fetch schedules ready to be executed
-    List<ReportScheduleManagement> schedules = findByStatusAndNextScheduleExecutionTime(scheduleEndTime);
-
-    List<ReportManagement> reportManagementList = schedules.stream().map(schedule -> {
-        // Update last execution time
-        schedule.setLastScheduleExecutionTime(DateTimeUtils.getCurrentTimeInMills());
-
-        // Calculate and update next execution time (supports daily/monthly with generationDate)
-        schedule.setNextScheduleExecutionTime(
-            ReportScheduleTimeUtils.calculateNextExecutionTime(
-                schedule.getFrequency(),
-                schedule.getScheduleExecutionTime(),
-                schedule.getGenerationDate() // <-- new input
-            )
-        );
-
-        // Execution Date: T-1 of the actual next execution time
-        LocalDate executionDate = new DateTime(schedule.getNextScheduleExecutionTime()).toLocalDate().minusDays(1);
-
-        // Calculate duration range from schedule's reportDuration and execution date
-        Pair<LocalDate, LocalDate> dateRange = ReportScheduleTimeUtils.calculateReportDateRange(
-            schedule.getReportDuration(), // <-- new field
-            executionDate
-        );
-
-        // Convert to millis (start of fromDate to end of toDate)
-        Long durationFromDate = dateRange.getLeft().atStartOfDay().toDateTime().getMillis();
-        Long durationToDate = dateRange.getRight().plusDays(1).atStartOfDay().toDateTime().minusMillis(1).getMillis();
-
-        // Prepare ReportManagement object
-        return ReportManagement.builder()
-            .reportId(schedule.getReportId())
-            .mId(schedule.getMId())
-            .format(schedule.getFormat())
-            .scheduledId(schedule.getId())
-            .durationFromDate(durationFromDate)
-            .durationToDate(durationToDate)
-            .status(ReportStatus.TO_BE_GENERATE)
-            .build();
-    }).toList();
-
-    // Persist updated schedules
-    reportScheduleManagementRepository.saveAll(schedules);
-
-    // Save all report executions
-    reportManagementDao.saveAll(reportManagementList);
-
-    log.info("Reports executed and saved successfully.");
-}
+here suppose reportDuration is last_7_days and executionDate is 24 basically it's giving till Thu Apr 17 2025 00:00:00.000 but I need till 11:59 pm means the wholw data of 23rd
