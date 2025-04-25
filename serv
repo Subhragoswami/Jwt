@@ -1,18 +1,34 @@
+    /**
+     * Method Name: mergeNonNullFields
+     *
+     * Description: Merges non-null fields from the update request into the existing report schedule entity.
+     *
+     * @param reportScheduleManagement - The entity to update.
+     * @param request - The update request containing new values.
+     */
+    private void mergeNonNullFields(ReportScheduleManagement reportScheduleManagement, ReportScheduleManagementUpdateRequest request) {
+        Optional.ofNullable(request.getFormat()).ifPresent(reportScheduleManagement::setFormat);
+        Optional.ofNullable(request.getFrequency()).ifPresent(reportScheduleManagement::setFrequency);
+        Optional.ofNullable(request.getScheduleExecutionTime()).ifPresent(reportScheduleManagement::setScheduleExecutionTime);
+        Optional.ofNullable(request.getScheduleExecutionDate()).ifPresent(reportScheduleManagement::setScheduleExecutionDate);
+    }
+
+please add java comments to explain the logic ( Optional.ofNullable)
+
     public static Pair<LocalDate, LocalDate> calculateReportDateRange(String reportDuration, LocalDate executionDate) {
         return switch (reportDuration.toUpperCase()) {
-            case "YESTERDAY" -> Pair.of(executionDate.minusDays(1), executionDate.minusDays(1));
-            case "LAST_7_DAYS" -> Pair.of(executionDate.minusDays(7), executionDate.minusDays(1));
-            case "LAST_30_DAYS" -> Pair.of(executionDate.minusDays(30), executionDate.minusDays(1));
-            case "LAST_90_DAYS" -> Pair.of(executionDate.minusDays(90), executionDate.minusDays(1));
-            case "CURRENT_MONTH" -> Pair.of(executionDate.withDayOfMonth(1), executionDate.minusDays(1));
+            case "YESTERDAY" -> Pair.of(executionDate.minusDays(YESTERDAY.getValue()), executionDate);
+            case "LAST_7_DAYS" -> Pair.of(executionDate.minusDays(LAST_7_DAYS.getValue()), executionDate);
+            case "LAST_30_DAYS" -> Pair.of(executionDate.minusDays(LAST_30_DAYS.getValue()), executionDate);
+            case "LAST_90_DAYS" -> Pair.of(executionDate.minusDays(LAST_90_DAYS.getValue()), executionDate);
+            case "CURRENT_MONTH" -> Pair.of(executionDate.withDayOfMonth(ONE), executionDate);
             case "PREVIOUS_MONTH" -> {
-                LocalDate firstDay = executionDate.minusMonths(1).withDayOfMonth(1);
-                LocalDate lastDay = executionDate.withDayOfMonth(1).minusDays(1);
+                LocalDate firstDay = executionDate.minusMonths(ONE).withDayOfMonth(ONE);
+                LocalDate lastDay = executionDate.withDayOfMonth(ONE);
                 yield Pair.of(firstDay, lastDay);
             }
             default -> throw new IllegalArgumentException("Invalid report duration: " + reportDuration);
         };
     }
 
-
-here suppose reportDuration is last_7_days and executionDate is 24 basically it's giving till Thu Apr 17 2025 00:00:00.000 but I need till 11:59 pm means the wholw data of 23rd
+can we add enum here instead of case "YESTERDAY"
