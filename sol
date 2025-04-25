@@ -64,3 +64,19 @@ public enum ReportDuration {
                 .orElseThrow(() -> new IllegalArgumentException("Invalid report duration: " + duration));
     }
 }
+
+
+
+/**
+ * Calculates the date range for report generation based on the report duration type and execution date.
+ * This version delegates the logic to the appropriate method in the ReportDuration enum.
+ *
+ * @param reportDuration The report duration as a string (e.g., "YESTERDAY", "LAST_7_DAYS").
+ * @param executionDate  The base date to calculate the date range from.
+ * @return A Pair containing the start and end dates (inclusive).
+ * @throws IllegalArgumentException if the report duration is invalid.
+ */
+public static Pair<LocalDate, LocalDate> calculateReportDateRange(String reportDuration, LocalDate executionDate) {
+    ReportDuration durationEnum = ReportDuration.fromString(reportDuration);
+    return durationEnum.calculateRange(executionDate);
+}
