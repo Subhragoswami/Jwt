@@ -1,3 +1,41 @@
-  if(UserStatus.ACTIVE == merchantUser.getStatus() && !merchantUser.isFirstLogin()) {
-            throw new MerchantException(ErrorConstants.NOT_FOUND_ERROR_CODE, MessageFormat.format(ErrorConstants.NOT_FOUND_ERROR_MESSAGE, List.of(UserStatus.EXPIRED) + " " + ErrorConstants.MERCHANT_USER));
+package com.epay.reporting.validator;
+
+import com.epay.reporting.dto.ErrorDto;
+import com.epay.reporting.util.ErrorConstants;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+
+import java.text.MessageFormat;
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+
+@Component
+@RequiredArgsConstructor
+public class InvoiceValidator extends BaseValidator {
+    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("MMM-yyyy", Locale.ENGLISH);
+
+    public void validateRequestMonths(List<String> date) {
+        errorDtoList = new ArrayList<>();
+        for (String d : date) {
+            try {
+                YearMonth.parse(d, FORMATTER);
+            } catch (DateTimeParseException e) {
+                errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.DATE_FORMAT_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.DATE_FORMAT_ERROR_MESSAGE, "MMM-yyyy")).build());
+                throwIfErrors();
+            }
         }
+    }
+}
+
+
+here if i pass future month or year it should throw error invalid requested date
+
+and another validation is if I pass Jan-0000/Dec-0024 like this here it should come invalid year
+
+similarly 
+
+Abc-2024 for this here should come as invalid month
