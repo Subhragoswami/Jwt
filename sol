@@ -78,3 +78,7 @@ public void validateRequestMonths(List<String> dates) {
 
 
 ^(0[1-9]|[12][0-9]|3[01])-(0[1-9]|1[0-2])-(19|20)\d\d$
+
+
+
+^[a-zA-Z0-9_-]+\.(jpg|jpeg|png|gif|bmp|webp)$
