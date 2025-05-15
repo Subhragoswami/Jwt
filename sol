@@ -82,3 +82,9 @@ public void validateRequestMonths(List<String> dates) {
 
 
 ^[a-zA-Z0-9_-]+\.(jpg|jpeg|png|gif|bmp|webp)$
+
+
+
+
+
+^[a-zA-Z0-9]+$
