@@ -1,46 +1,6 @@
 package com.epay.merchant.validator;
 
 
-import com.epay.merchant.config.MerchantConfig;
-import com.epay.merchant.dao.MerchantBankDao;
-import com.epay.merchant.dao.MerchantInfoDao;
-import com.epay.merchant.dto.ErrorDto;
-import com.epay.merchant.dto.MerchantBankAccountDto;
-import com.epay.merchant.dto.MerchantInfoDto;
-import com.epay.merchant.exception.ValidationException;
-import com.epay.merchant.externalservice.AdminServicesClient;
-import com.epay.merchant.model.request.MerchantBankAccountApprovalRequest;
-import com.epay.merchant.model.request.MerchantBankAccountRequest;
-import com.epay.merchant.util.EPayIdentityUtil;
-import com.epay.merchant.util.EncryptionDecryptionUtil;
-import com.epay.merchant.util.enums.AccountType;
-import com.epay.merchant.util.enums.MerchantStatus;
-import com.epay.merchant.util.enums.OperationType;
-import com.sbi.epay.logging.utility.LoggerFactoryUtility;
-import com.sbi.epay.logging.utility.LoggerUtility;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
-
-import java.text.MessageFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
-import static com.epay.merchant.util.ErrorConstants.*;
-import static com.epay.merchant.util.MerchantConstant.OPERATION_TYPE;
-
-/**
- * Class Name: MerchantBankAccountValidator
- * *
- * Description: MerchantBankAccountValidator is responsible for validating the bank account details of a merchant.
- * It checks whether the account number, bank name, and other related information are valid.
- * *
- * Author: Ranu Jain
- * Copyright (c) 2024 [State Bank of India]
- * ALl rights reserved
- * *
- * Version: 1.0
- */
 @RequiredArgsConstructor
 @Component
 public class MerchantBankAccountValidator extends BaseValidator {
