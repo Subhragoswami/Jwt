@@ -1,27 +1,602 @@
-@Table(name = "REPORT_SCHEDULE_MANAGEMENT")
-public class ReportScheduleManagement extends AuditEntity {
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "ID", nullable = false, updatable = false, unique = true)
-    private UUID id;
-
-    private UUID reportId;
-    
-    @Column(name="MID")
-    private String mId;
-
-    @Enumerated(EnumType.STRING)
-    private Frequency frequency;
-    @Enumerated(EnumType.STRING)
-    private ReportFormat format;
-
-    private String scheduleExecutionTime;
-    private Long nextScheduleExecutionTime;
-    private Long lastScheduleExecutionTime;
-    private String remarks;
-
-    @Enumerated(EnumType.STRING)
-    private ReportScheduledStatus status;
+package com.epay.merchant.validator;
 
 
-write a insert query with dummy data for oracle db
+import com.epay.merchant.config.MerchantConfig;
+import com.epay.merchant.dao.MerchantBankDao;
+import com.epay.merchant.dao.MerchantInfoDao;
+import com.epay.merchant.dto.ErrorDto;
+import com.epay.merchant.dto.MerchantBankAccountDto;
+import com.epay.merchant.dto.MerchantInfoDto;
+import com.epay.merchant.exception.ValidationException;
+import com.epay.merchant.externalservice.AdminServicesClient;
+import com.epay.merchant.model.request.MerchantBankAccountApprovalRequest;
+import com.epay.merchant.model.request.MerchantBankAccountRequest;
+import com.epay.merchant.util.EPayIdentityUtil;
+import com.epay.merchant.util.EncryptionDecryptionUtil;
+import com.epay.merchant.util.enums.AccountType;
+import com.epay.merchant.util.enums.MerchantStatus;
+import com.epay.merchant.util.enums.OperationType;
+import com.sbi.epay.logging.utility.LoggerFactoryUtility;
+import com.sbi.epay.logging.utility.LoggerUtility;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+
+import java.text.MessageFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import static com.epay.merchant.util.ErrorConstants.*;
+import static com.epay.merchant.util.MerchantConstant.OPERATION_TYPE;
+
+/**
+ * Class Name: MerchantBankAccountValidator
+ * *
+ * Description: MerchantBankAccountValidator is responsible for validating the bank account details of a merchant.
+ * It checks whether the account number, bank name, and other related information are valid.
+ * *
+ * Author: Ranu Jain
+ * Copyright (c) 2024 [State Bank of India]
+ * ALl rights reserved
+ * *
+ * Version: 1.0
+ */
+@RequiredArgsConstructor
+@Component
+public class MerchantBankAccountValidator extends BaseValidator {
+    private final LoggerUtility logger = LoggerFactoryUtility.getLogger(this.getClass());
+    private final MerchantBankDao merchantBankDao;
+    private final MerchantInfoDao merchantInfoDao;
+    private final AdminServicesClient adminServicesClient;
+    private final MerchantConfig merchantConfig;
+    private final MerchantUserValidator merchantUserValidator;
+
+    /**
+     * Validate merchant account request
+     * @param merchantBankAccountRequest MerchantBankAccountRequest
+     * @param isCreate boolean
+     */
+    public void validateMerchantAccountRequest(MerchantBankAccountRequest merchantBankAccountRequest, boolean isCreate) {
+        logger.debug("Merchant bank account details validation start for {}", merchantBankAccountRequest);
+        errorDtoList = new ArrayList<>();
+        validatedMandatoryFields(merchantBankAccountRequest);
+        checkLeadingTrailingAndSingleSpace(merchantBankAccountRequest);
+        validateFieldsValue(merchantBankAccountRequest);
+        validateRequestValues(merchantBankAccountRequest);
+        validateMId(merchantBankAccountRequest.getMId());
+        if (isCreate) {
+            validateAccountUniqueIdentifier(merchantBankAccountRequest);
+        } else {
+            validateAccountUniqueIdentifierForUpdate(merchantBankAccountRequest);
+        }
+        validateBankDetails(merchantBankAccountRequest);
+        logger.debug("Merchant bank account details validation completed for {}", merchantBankAccountRequest);
+    }
+
+    /**
+     * Validate merchant account approval request
+     * @param merchantBankAccountApprovalRequest MerchantBankAccountApprovalRequest
+     */
+    public void validateMerchantAccountApprovalRequest(MerchantBankAccountApprovalRequest merchantBankAccountApprovalRequest) {
+        logger.debug("Merchant bank account approval validation start for {}", merchantBankAccountApprovalRequest);
+        errorDtoList = new ArrayList<>();
+        validateMandatoryFields(merchantBankAccountApprovalRequest);
+        checkLeadingTrailingAndSingleSpace(merchantBankAccountApprovalRequest);
+        validateFieldsValue(merchantBankAccountApprovalRequest);
+        validateMId(merchantBankAccountApprovalRequest.getMId());
+        validateAccountUniqueIdentifier(merchantBankAccountApprovalRequest.getAccountUniqueIdentifier());
+        validateRequestValues(merchantBankAccountApprovalRequest);
+    }
+
+    public void validateMId(String mId) {
+        merchantUserValidator.validateMid(mId);
+        String userName = EPayIdentityUtil.getUserPrincipal().getUsername();
+        List<MerchantInfoDto> merchantInfoForMerchantUser = merchantInfoDao.getAllAccessMerchantInfoForMerchantUser(userName);
+        List<String> validMIds = merchantInfoForMerchantUser.stream().filter(m -> MerchantStatus.ACTIVE.name().equalsIgnoreCase(m.getStatus())).map(MerchantInfoDto::getMId).toList();
+        if (validMIds.contains(mId)) {
+            return;
+        }
+        throw new ValidationException(INVALID_ERROR_CODE, MessageFormat.format(INVALID_ERROR_MESSAGE, MID, INVALID_MID_ERROR_MESSAGE));
+    }
+
+    /**
+     * Validates that all fields in the checkLeadingTrailingAndSingleSpace do not have leading, trailing, or multiple spaces.
+     *
+     * @param merchantBankAccountRequest MerchantBankAccountRequest
+     */
+    private void checkLeadingTrailingAndSingleSpace(MerchantBankAccountRequest merchantBankAccountRequest) {
+        checkForLeadingTrailingAndSingleSpace(merchantBankAccountRequest.getAccountNumber(), ACCOUNT_NUMBER);
+        checkForLeadingTrailingAndSingleSpace(merchantBankAccountRequest.getBankName(), BANK_NAME);
+        checkForLeadingTrailingAndSingleSpace(merchantBankAccountRequest.getAccountType(), ACCOUNT_TYPE);
+        checkForLeadingTrailingAndSingleSpace(merchantBankAccountRequest.getAccountUniqueIdentifier(), ACCOUNT_UNIQUE_IDENTIFIER);
+        checkForLeadingTrailingAndSingleSpace(merchantBankAccountRequest.getAccountHolderName(), ACCOUNT_HOLDER_NAME);
+        checkForLeadingTrailingAndSingleSpace(merchantBankAccountRequest.getBranchName(), BRANCH_NAME);
+        checkForLeadingTrailingAndSingleSpace(merchantBankAccountRequest.getIfscCode(), IFSC_CODE);
+        checkForLeadingTrailingAndSingleSpace(merchantBankAccountRequest.getMId(), MID);
+        throwIfErrors();
+    }
+
+    /**
+     * Validates that all fields in the checkLeadingTrailingAndSingleSpace do not have leading, trailing, or multiple spaces.
+     *
+     * @param merchantBankAccountApprovalRequest MerchantBankAccountApprovalRequest
+     */
+    private void checkLeadingTrailingAndSingleSpace(MerchantBankAccountApprovalRequest merchantBankAccountApprovalRequest) {
+        checkForLeadingTrailingAndSingleSpace(merchantBankAccountApprovalRequest.getMId(), MID);
+        checkForLeadingTrailingAndSingleSpace(merchantBankAccountApprovalRequest.getAccountName(), ACCOUNT_NAME);
+        checkForLeadingTrailingAndSingleSpace(merchantBankAccountApprovalRequest.getAccountUniqueIdentifier(), ACCOUNT_UNIQUE_IDENTIFIER);
+        checkForLeadingTrailingAndSingleSpace(merchantBankAccountApprovalRequest.getOperationType(), OPERATION_TYPE);
+        checkForLeadingTrailingAndSingleSpace(merchantBankAccountApprovalRequest.getRemarks(), REMARK);
+        throwIfErrors();
+    }
+
+    /**
+     * Method name : validateFieldsValue
+     * Description : Validates fields values of merchant customer creation request
+     * @param merchantBankAccountRequest MerchantBankAccountRequest
+     */
+    private void validateFieldsValue(MerchantBankAccountRequest merchantBankAccountRequest) {
+        validateFieldWithRegex(merchantBankAccountRequest.getAccountHolderName(), ALLOWED_ALPHA_REGEX, ACCOUNT_HOLDER_NAME, INCORRECT_FORMAT);
+        validateFieldWithRegex(merchantBankAccountRequest.getAccountUniqueIdentifier(), ALLOWED_ALPHA_NUMERIC_REGEX, ACCOUNT_UNIQUE_IDENTIFIER, INCORRECT_FORMAT);
+        validateFieldWithRegex(merchantBankAccountRequest.getAccountType(), ALLOWED_ALPHA_REGEX, ACCOUNT_TYPE, INCORRECT_FORMAT);
+        validateFieldWithRegex(merchantBankAccountRequest.getBankName(), ALLOWED_ALPHA_REGEX, BANK_NAME, INCORRECT_FORMAT);
+        validateFieldWithRegex(merchantBankAccountRequest.getBranchName(), ALLOWED_ALPHA_REGEX, BRANCH_NAME, INCORRECT_FORMAT);
+        validateFieldWithRegex(merchantBankAccountRequest.getIfscCode(), ALLOWED_ALPHA_NUMERIC_REGEX, IFSC_CODE, INCORRECT_FORMAT);
+        validateFieldLength(merchantBankAccountRequest.getMId(), MID_LENGTH, MID);
+        validateFieldWithRegex(merchantBankAccountRequest.getMId(), ALLOWED_DIGIT_REGEX, MID, INCORRECT_FORMAT);
+        throwIfErrors();
+    }
+
+    /**
+     * Method name : validateFieldsValue
+     * Description : Validates fields values of merchant customer creation request
+     * @param merchantBankAccountApprovalRequest MerchantBankAccountRequest
+     */
+    private void validateFieldsValue(MerchantBankAccountApprovalRequest  merchantBankAccountApprovalRequest) {
+        validateFieldWithRegex(merchantBankAccountApprovalRequest.getAccountName(), ALLOWED_ALPHA_REGEX, ACCOUNT_NAME, INCORRECT_FORMAT);
+        validateFieldWithRegex(merchantBankAccountApprovalRequest.getAccountUniqueIdentifier(), ALLOWED_ALPHA_NUMERIC_REGEX, ACCOUNT_UNIQUE_IDENTIFIER, INCORRECT_FORMAT);
+        validateFieldWithRegex(merchantBankAccountApprovalRequest.getOperationType(), ALLOWED_ALPHA_REGEX, OPERATION_TYPE, INCORRECT_FORMAT);
+        validateFieldWithRegex(merchantBankAccountApprovalRequest.getRemarks(), ALLOWED_ALPHA_NUMERIC_REGEX, REMARK, INCORRECT_FORMAT);
+        validateFieldLength(merchantBankAccountApprovalRequest.getMId(), MID_LENGTH, MID);
+        validateFieldWithRegex(merchantBankAccountApprovalRequest.getMId(), ALLOWED_DIGIT_REGEX, MID, INCORRECT_FORMAT);
+        throwIfErrors();
+    }
+
+
+    private void validateRequestValues(MerchantBankAccountApprovalRequest merchantBankAccountApprovalRequest) {
+        validateFieldValue(merchantBankAccountApprovalRequest.getOperationType(), Arrays.stream(OperationType.values()).map(Enum::name).toList(), OPERATION_TYPE);
+        throwIfErrors();
+    }
+
+    private void validateRequestValues(MerchantBankAccountRequest merchantBankAccountRequest) {
+        validateFieldValue(merchantBankAccountRequest.getAccountType(), Arrays.stream(AccountType.values()).map(Enum::name).toList(), ACCOUNT_TYPE);
+        throwIfErrors();
+        try {
+            EncryptionDecryptionUtil.decryptValue(merchantConfig.getDecryptionKey(), merchantBankAccountRequest.getAccountNumber());
+        } catch (Exception e) {
+            throw new ValidationException(INVALID_ERROR_CODE, MessageFormat.format(INVALID_ERROR_MESSAGE, ACCOUNT_NUMBER, DECRYPTION_FAILED));
+        }
+    }
+
+    private void validatedMandatoryFields(MerchantBankAccountRequest merchantBankAccountRequest) {
+        checkMandatoryField(merchantBankAccountRequest.getBankName(), BANK_NAME);
+        checkMandatoryField(merchantBankAccountRequest.getBranchName(), BRANCH_NAME);
+        checkMandatoryField(merchantBankAccountRequest.getIfscCode(), IFSC_CODE);
+        checkMandatoryField(merchantBankAccountRequest.getAccountType(), ACCOUNT_TYPE);
+        checkMandatoryField(merchantBankAccountRequest.getAccountNumber(), ACCOUNT_NUMBER);
+        checkMandatoryField(merchantBankAccountRequest.getAccountHolderName(), ACCOUNT_HOLDER_NAME);
+        checkMandatoryField(merchantBankAccountRequest.getAccountUniqueIdentifier(), ACCOUNT_UNIQUE_IDENTIFIER);
+        checkMandatoryField(merchantBankAccountRequest.getMId(), MID);
+        throwIfErrors();
+    }
+
+    private void validateMandatoryFields(MerchantBankAccountApprovalRequest merchantBankAccountApprovalRequest) {
+        checkMandatoryField(merchantBankAccountApprovalRequest.getAccountName(), ACCOUNT_HOLDER_NAME);
+        checkMandatoryField(merchantBankAccountApprovalRequest.getMId(), MID);
+        checkMandatoryField(merchantBankAccountApprovalRequest.getAccountUniqueIdentifier(), ACCOUNT_UNIQUE_IDENTIFIER);
+        if(!merchantBankAccountApprovalRequest.isApproved()) {
+            checkMandatoryField(merchantBankAccountApprovalRequest.getRemarks(), REMARK);
+        }
+    }
+
+    private void validateBankDetails(MerchantBankAccountRequest merchantBankAccountRequest) {
+       adminServicesClient.validateBankDetails(merchantBankAccountRequest.getBankName(), merchantBankAccountRequest.getBranchName(), merchantBankAccountRequest.getIfscCode());
+    }
+
+    private void validateAccountUniqueIdentifier(MerchantBankAccountRequest merchantBankAccountRequest) {
+        boolean existByAccountUniqueIdentifier = merchantBankDao.isExistByAccountUniqueIdentifier(merchantBankAccountRequest.getAccountUniqueIdentifier());
+        if (existByAccountUniqueIdentifier) {
+            errorDtoList.add(ErrorDto.builder().errorCode(ALREADY_EXIST_ERROR_CODE).errorMessage(MessageFormat.format(ALREADY_EXIST_ERROR_MESSAGE, "AccountUniqueIdentifier")).build());
+        }
+        boolean existByAccountNumber = merchantBankDao.isExistByAccountNumber(merchantBankAccountRequest.getAccountNumber());
+        if (existByAccountNumber) {
+            errorDtoList.add(ErrorDto.builder().errorCode(ALREADY_EXIST_ERROR_CODE).errorMessage(MessageFormat.format(ALREADY_EXIST_ERROR_MESSAGE, ACCOUNT_NUMBER)).build());
+        }
+        throwIfErrors();
+    }
+
+    private void validateAccountUniqueIdentifier(String uniqueIdentifier) {
+        boolean existByAccountUniqueIdentifier = merchantBankDao.isExistByAccountUniqueIdentifier(uniqueIdentifier);
+        if(!existByAccountUniqueIdentifier) {
+            errorDtoList.add(ErrorDto.builder().errorCode(NOT_FOUND_ERROR_CODE).errorMessage(MessageFormat.format(NOT_FOUND_ERROR_MESSAGE, ACCOUNT_UNIQUE_IDENTIFIER)).build());
+        }
+        throwIfErrors();
+    }
+
+    private void validateAccountUniqueIdentifierForUpdate(MerchantBankAccountRequest merchantBankAccountRequest) {
+        MerchantBankAccountDto dbMerchantBankAccount = merchantBankDao.getAccountByAccountUniqueIdentifier(merchantBankAccountRequest.getAccountUniqueIdentifier());
+        if (!merchantBankAccountRequest.getAccountNumber().equalsIgnoreCase(dbMerchantBankAccount.getAccountNumber())) {
+            boolean existByAccountNumber = merchantBankDao.isExistByAccountNumber(merchantBankAccountRequest.getAccountNumber());
+            if (existByAccountNumber) {
+                errorDtoList.add(ErrorDto.builder().errorCode(ALREADY_EXIST_ERROR_CODE).errorMessage(MessageFormat.format(ALREADY_EXIST_ERROR_MESSAGE, ACCOUNT_NUMBER)).build());
+            }
+            throwIfErrors();
+        }
+    }
+
+}
+@Component
+@RequiredArgsConstructor
+public class MerchantUserValidator extends BaseValidator {
+
+    private final LoggerUtility logger = LoggerFactoryUtility.getLogger(this.getClass());
+
+    private final MerchantUserDao merchantUserDao;
+    private final MerchantInfoDao merchantInfoDao;
+    private final OtpManagementDao otpManagementDao;
+    private final MerchantBankAccountValidator merchantBankAccountValidator;
+
+    /**
+     * Validates the merchant user request for creation or update.
+     * Ensures mandatory fields and unique user details.
+     * @param merchantUserRequest Request body containing user details.
+     * @param isCreate Boolean flag to indicate creation or update.
+     */
+    public void validateMerchantUserRequest(MerchantUserRequest merchantUserRequest, boolean isCreate) {
+        errorDtoList = new ArrayList<>();
+        logger.debug("Merchant validation start for MerchantUserRequest {}", merchantUserRequest);
+        validateMandatoryFields(merchantUserRequest);
+        checkForLeadingTrailingAndSingleSpace(merchantUserRequest);
+        validateIsRolePresent(merchantUserRequest);
+        validateFieldValue(merchantUserRequest);
+        if (isCreate) {
+            validateDuplicateMerchantUser(merchantUserRequest.getUserName(), merchantUserRequest.getEmail(), merchantUserRequest.getMobilePhone());
+        } else {
+            validateDuplicateMerchantUserOnUpdate(merchantUserRequest.getUserName(), merchantUserRequest.getEmail(), merchantUserRequest.getMobilePhone());
+        }
+        validatedAssignedRole(merchantUserRequest.getRole());
+        logger.debug("Merchant User role validation completed for MerchantUserRequest {}", merchantUserRequest);
+    }
+
+    /**
+     * Validates the profile details of the logged-in merchant user.
+     * @param merchantUserRequest Request body containing profile details.
+     */
+    public void validateMerchantUserProfile(MerchantUserRequest merchantUserRequest) {
+        errorDtoList = new ArrayList<>();
+        logger.debug("Merchant User Profile validation start for MerchantUserRequest {}", merchantUserRequest);
+        String userName = EPayIdentityUtil.getUserPrincipal().getAuthenticationId();
+        if (userName.equalsIgnoreCase(merchantUserRequest.getUserName())) {
+            validateMandatoryFields(merchantUserRequest);
+            checkForLeadingTrailingAndSingleSpace(merchantUserRequest);
+            validateFieldValue(merchantUserRequest);
+            validatedRequestId(merchantUserRequest, userName);
+            validateDuplicateMerchantUserOnUpdate(merchantUserRequest.getUserName(), merchantUserRequest.getEmail(), merchantUserRequest.getMobilePhone());
+        } else {
+            errorDtoList.add(ErrorDto.builder().errorCode(INVALID_ERROR_CODE).errorMessage(MessageFormat.format(INVALID_ERROR_MESSAGE, "Merchant User", "Profile Request not belongs to logged in User")).build());
+            throwIfErrors();
+        }
+        logger.debug("Merchant User assigned MIDs validation completed for MerchantUserRequest {}", merchantUserRequest);
+    }
+
+    /**
+     * Validates the post-mapping request for assigning MIDs to a user.
+     * Ensures that the MIDs list is not empty and validates the mapping request
+     * along with parent MID access.
+     *
+     * @param userName      Username of the merchant user.
+     * @param merchantUser  Merchant user details.
+     * @param mIds          List of MIDs to be assigned.
+     */
+    public void validatePostMapping(String userName, MerchantUserDto merchantUser, List<String> mIds) {
+        checkMandatoryCollection(mIds, "List of mIds");
+        validatedMappingRequest(userName, merchantUser);
+        validatedWithParentMIdsAccess(mIds, merchantUser);
+    }
+
+    /**
+     * Method name : validateAssignedMenuRequest
+     * Description : Validates fields values of Assigned Menu request
+     * @param userName String
+     * @param menus List<String>
+     */
+    public void validateAssignedMenuRequest(String userName, List<String> menus) {
+        errorDtoList = new ArrayList<>();
+        validateMandatory(menus);
+        checkLeadingTrailingAndSingleSpace(userName, menus);
+        validateFieldsValue(userName);
+    }
+
+    public void validateMenuPostMapping(String userName, MerchantUserDto merchantUser, List<String> menus) {
+        validatedMappingRequest(userName, merchantUser);
+        validatedWithParentMenuAccess(menus, merchantUser);
+    }
+
+    /**
+     * Validates the mapping request by checking if the logged-in user is the parent of the
+     * requested merchant user. Throws an exception if the validation fails.
+     *
+     * @param userName      Username of the merchant user.
+     * @param merchantUser  Merchant user details.
+     */
+    public void validatedMappingRequest(String userName, MerchantUserDto merchantUser) {
+        String loggedInUserName = EPayIdentityUtil.getUserPrincipal().getUsername();
+        if (!loggedInUserName.equalsIgnoreCase(userName) || ObjectUtils.isNotEmpty(merchantUser.getParentUserId())) {
+            MerchantUserDto loggedInUser = merchantUserDao.getByUserName(loggedInUserName, UserStatus.ACTIVE);
+            // Validated if LoggedIn user is the parent of requested User Or Not
+            if (!loggedInUser.getId().equals(merchantUser.getParentUserId())) {
+                throw new ValidationException(ErrorConstants.INVALID_ERROR_CODE, MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Mapping Request", "Logged In User is not a direct parent of request user"));
+            }
+        }
+    }
+
+    /**
+     * Validates the provided MIDs with the parent user's access. Ensures that the requested
+     * MIDs are a subset of the parent user's accessible MIDs. Throws an exception if validation fails.
+     *
+     * @param mIds          List of MIDs to be validated.
+     * @param merchantUser  Merchant user details.
+     */
+    public void validatedWithParentMIdsAccess(List<String> mIds, MerchantUserDto merchantUser) {
+        String username = EPayIdentityUtil.getUserPrincipal().getUsername();
+        MerchantUserDto loggedInUser = merchantUserDao.getByUserName(username, UserStatus.ACTIVE);
+        List<String> parentMIdsList = new ArrayList<>();
+        if (ObjectUtils.isNotEmpty(merchantUser.getParentUserId()) && loggedInUser.getId().equals(merchantUser.getParentUserId())) {
+            // Get Parent Assigned MIDs List
+            List<MerchantInfoDto> parentAssignedMIds = merchantInfoDao.getAllAccessMerchantInfoForMerchantUser(merchantUser.getParentUserId());
+            parentMIdsList = parentAssignedMIds.stream().map(MerchantInfoDto::getMId).toList();
+        }
+        if (!new HashSet<>(parentMIdsList).containsAll(mIds)) {
+            throw new ValidationException(ErrorConstants.INVALID_ERROR_CODE, MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Requested AssignedMIds", "Requested User is not having the access of given MId list"));
+        }
+    }
+
+    public void validatedWithParentMenuAccess(List<String> menus, MerchantUserDto merchantUser) {
+        String username = EPayIdentityUtil.getUserPrincipal().getUsername();
+        MerchantUserDto loggedInUser = merchantUserDao.getByUserName(username, UserStatus.ACTIVE);
+        List<String> parentMenuList = new ArrayList<>();
+        if (ObjectUtils.isNotEmpty(merchantUser.getParentUserId()) && loggedInUser.getId().equals(merchantUser.getParentUserId())) {
+            // Get Parent Assigned MIDs List
+            List<UserMenuPermissionResponse> parentAssignedMenus = merchantUserDao.getUserMenuPermission(merchantUser.getParentUserId());
+            parentMenuList = parentAssignedMenus.stream().map(UserMenuPermissionResponse::getMenuCode).toList();
+        }
+        if (!new HashSet<>(parentMenuList).containsAll(menus)) {
+            throw new ValidationException(ErrorConstants.INVALID_ERROR_CODE, MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, "Requested Assgined-Menus", "Requested User is not having the access of given Menus list"));
+        }
+    }
+
+    public void validateUpdateUserStatus(MerchantUserStatusRequest merchantUserStatusRequest) {
+        errorDtoList = new ArrayList<>();
+        validateMandatoryField(merchantUserStatusRequest);
+        checkForLeadingTrailingAndSingleSpace(merchantUserStatusRequest);
+        validateUser(merchantUserStatusRequest.getUserName());
+    }
+
+    public void validateUserSearchRequest(MerchantUserSearchRequest merchantUserSearchRequest) {
+        errorDtoList = new ArrayList<>();
+        checkMandatoryField(merchantUserSearchRequest.getMId(), MID);
+        throwIfErrors();
+        merchantBankAccountValidator.validateMId(merchantUserSearchRequest.getMId());
+    }
+
+    void validateMandatoryField(MerchantUserStatusRequest merchantUserStatusRequest) {
+        checkMandatoryField(merchantUserStatusRequest.getUserName(), USER_NAME);
+        validateFieldLength(merchantUserStatusRequest.getRemark(), REMARK_LENGTH, REMARK);
+        throwIfErrors();
+    }
+
+    void validateUser(String userName) {
+        String username = EPayIdentityUtil.getUserPrincipal().getUsername();
+        MerchantUserDto loggedInUser = merchantUserDao.getByUserName(username, UserStatus.ACTIVE);
+        if (!merchantUserDao.isMerchantUserExistForGivenParent(userName, loggedInUser.getId())) {
+            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE)
+                    .errorMessage(MessageFormat.format(INVALID_ERROR_MESSAGE, USER_NAME, "Invalid User or LoggedIn User is not parent of Requested User")).build());
+            throwIfErrors();
+        }
+    }
+    /**
+     * Checks mandatory fields in the MerchantUserRequest.
+     * @param user MerchantUserRequest object.
+     */
+    void validateMandatoryFields(MerchantUserRequest user) {
+        checkMandatoryField(user.getUserName(), USER_NAME);
+        checkMandatoryField(user.getFirstName(), FIRST_NAME);
+        checkMandatoryField(user.getEmail(), EMAIL);
+        checkMandatoryField(user.getMobilePhone(), MOBILE_PHONE);
+        throwIfErrors();
+    }
+
+    /**
+     * Validates mandatory fields in a MerchantEntityGroupRequest object.
+     * @param menuList List<String>
+     */
+    private void validateMandatory(List<String> menuList) {
+        checkMandatoryCollection(menuList, LIST_OF_MENUS);
+        throwIfErrors();
+    }
+
+    /**
+     * Validates that all fields in the checkLeadingTrailingAndSingleSpace do not have leading, trailing, or multiple spaces.
+     *
+     * @param userName String
+     * @param menus List<String>
+     */
+    private void checkLeadingTrailingAndSingleSpace(String userName, List<String> menus) {
+        checkForLeadingTrailingAndSingleSpace(userName, USER_NAME);
+        menus.forEach(menu -> {
+                    checkForLeadingTrailingAndSingleSpace(menu, MENU);
+                });
+        throwIfErrors();
+    }
+
+    /**
+     * Method name : validateFieldsValue
+     * Description : Validates fields values of merchant customer creation request
+     * @param userName String
+     */
+    private void validateFieldsValue(String userName) {
+        validateFieldWithRegex(userName, ALLOWED_ALPHA_NUMERIC_REGEX, USER_NAME, INCORRECT_FORMAT);
+        throwIfErrors();
+    }
+
+    /**
+     * Validates if a role is present in the provided MerchantUserRequest.
+     * Ensures that the role field is mandatory. Throws an exception if not present.
+     *
+     * @param merchantUserRequest Request object containing user details.
+     */
+    void validateIsRolePresent(MerchantUserRequest merchantUserRequest) {
+        errorDtoList = new ArrayList<>();
+        checkMandatoryField(merchantUserRequest.getRole(), "User Role");
+        throwIfErrors();
+    }
+    /**
+     * Validates field values in the MerchantUserRequest.
+     * @param merchantUserRequest MerchantUserRequest object.
+     */
+    void validateFieldValue(MerchantUserRequest merchantUserRequest) {
+        validateFieldWithRegex(merchantUserRequest.getEmail(), EMAIL_REGEX, EMAIL, INVALID_FORMAT_ERROR_MESSAGE);
+        validateFieldWithRegex(merchantUserRequest.getMobilePhone(), PHONE_REGEX, MOBILE_PHONE, INVALID_FORMAT_ERROR_MESSAGE);
+
+        throwIfErrors();
+    }
+    /**
+     * Validates for duplicate merchant user during creation.
+     * @param userName Username of the merchant user.
+     * @param email Email of the merchant user.
+     * @param mobilePhone Mobile phone of the merchant user.
+     */
+    void validateDuplicateMerchantUser(String userName, String email, String mobilePhone) {
+        boolean isUserExist = merchantUserDao.existsByUserNameOrEmailOrMobilePhoneAndStatus(userName, email, mobilePhone, List.of(UserStatus.values()));
+        if (isUserExist) {
+            errorDtoList.add(ErrorDto.builder().errorCode(USER_ALREADY_EXIST_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.USER_ALREADY_EXIST_ERROR_MESSAGE_SAVE, userName, mobilePhone, email)).build());
+            throwIfErrors();
+        }
+    }
+
+    /**
+     * Validates if a duplicate merchant user exists during an update operation.
+     * Ensures that the email and mobile phone do not conflict with other users
+     * in the database except for the current user being updated. Throws an exception if validation fails.
+     *
+     * @param userName    Username of the merchant user.
+     * @param email       Email address of the merchant user.
+     * @param mobilePhone Mobile phone number of the merchant user.
+     */
+    void validateDuplicateMerchantUserOnUpdate(String userName, String email, String mobilePhone) {
+        List<String> dbUserName = merchantUserDao.getUserNameByEmailOrMobilePhone(email, mobilePhone);
+        boolean found = dbUserName.stream().allMatch(u -> u.equalsIgnoreCase(userName));
+        if (!found) {
+            errorDtoList.add(ErrorDto.builder().errorCode(USER_ALREADY_EXIST_ERROR_CODE_UPDATE).errorMessage(MessageFormat.format(USER_ALREADY_EXIST_ERROR_MESSAGE_UPDATE, mobilePhone, email)).build());
+            throwIfErrors();
+        }
+    }
+    /**
+     * Validates assigned role for the merchant user.
+     * @param role UUID of the user role.
+     */
+    void validatedAssignedRole(UUID role) {
+        MerchantUserRoles loggedInUserRole = MerchantUserRoles.getRole(EPayIdentityUtil.getUserPrincipal().getUserRole().getFirst());
+        MerchantUserRoles userRoleName = MerchantUserRoles.getRole(merchantUserDao.getUserRoleName(role));
+        if (MerchantUserRoles.ADMIN == loggedInUserRole && MerchantUserRoles.SUPER_ADMIN.equals(userRoleName)) {
+            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, ROLE, ADMIN_AND_USER)).build());
+        } else if (MerchantUserRoles.USER == loggedInUserRole && !MerchantUserRoles.USER.equals(userRoleName)) {
+            errorDtoList.add(ErrorDto.builder().errorCode(ErrorConstants.INVALID_ERROR_CODE).errorMessage(MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, ROLE, TO_BE_ASSIGNED_ROLE_ARE_USER)).build());
+        }
+        throwIfErrors();
+    }
+
+    /**
+     * Validates RequestId for the merchant user.
+     * @param merchantUserRequest MerchantUserRequest object.
+     * @param userName String Username of the merchant user.
+     */
+    void validatedRequestId(MerchantUserRequest merchantUserRequest, String userName) {
+        errorDtoList = new ArrayList<>();
+        checkMandatoryField(merchantUserRequest.getRequestId(), "RequestId");
+        throwIfErrors();
+        otpManagementDao.validateRequestIdByUserNameAndRequestType(merchantUserRequest.getRequestId(), userName, RequestType.PROFILE_EDIT);
+    }
+
+    /**
+     * Validates that all fields in the MerchantUserRequest do not have leading, trailing, or multiple spaces.
+     *
+     * @param merchantUserRequest The MerchantUserRequest object containing the fields to validate.
+     */
+    private void checkForLeadingTrailingAndSingleSpace(MerchantUserRequest merchantUserRequest) {
+        checkForLeadingTrailingAndSingleSpace(merchantUserRequest.getRequestId(), ErrorConstants.REQUEST_ID);
+        checkForLeadingTrailingAndSingleSpace(merchantUserRequest.getUserName(), ErrorConstants.USER_NAME);
+        checkForLeadingTrailingAndSingleSpace(merchantUserRequest.getFirstName(), ErrorConstants.FIRST_NAME);
+        checkForLeadingTrailingAndSingleSpace(merchantUserRequest.getMobilePhone(), ErrorConstants.MOBILE_PHONE);
+        checkForLeadingTrailingAndSingleSpace(merchantUserRequest.getEmail(), ErrorConstants.EMAIL);
+        throwIfErrors();
+    }
+
+    /**
+     * Validates that all fields in the merchantUserStatusRequest do not have leading, trailing, or multiple spaces.
+     *
+     * @param merchantUserStatusRequest The MerchantUserRequest object containing the fields to validate.
+     */
+    private void checkForLeadingTrailingAndSingleSpace(MerchantUserStatusRequest merchantUserStatusRequest) {
+        checkForLeadingTrailingAndSingleSpace(merchantUserStatusRequest.getRemark(), ErrorConstants.REQUEST_ID);
+        checkForLeadingTrailingAndSingleSpace(merchantUserStatusRequest.getUserName(), ErrorConstants.USER_NAME);
+        throwIfErrors();
+    }
+
+    /**
+     * Validates a report management request by checking mandatory fields and their values.
+     * Also validates the MId.
+     *
+     * @param mId The request containing mId.
+     * @throws ValidationException if any validation fails.
+     */
+    public void validateMidAndAccess(String mId) {
+        errorDtoList = new ArrayList<>();
+        validateMid(mId);
+        merchantBankAccountValidator.validateMId(mId);
+    }
+
+    /**
+     * Validates a report management request by checking mandatory fields and their values.
+     * Also validates the MId.
+     *
+     * @param mId The request containing mId.
+     * @throws ValidationException if any validation fails.
+     */
+    public void validateMid(String mId) {
+        logger.debug("Request Validation start for {}", mId);
+        errorDtoList = new ArrayList<>();
+        checkMandatoryField(mId, MID);
+        throwIfErrors();
+        checkForLeadingTrailingAndSingleSpace(mId, MID);
+        throwIfErrors();
+        validateFixedFieldLength(mId,MID_LENGTH,MID);
+        throwIfErrors();
+        validateFieldWithRegex(mId, MID_REGEX, MID, INVALID_FORMAT);
+        throwIfErrors();
+        logger.debug("Request Validation end for {}", mId);
+    }
+}
+
+The dependencies of some of the beans in the application context form a cycle:
+
+   adminController defined in file [C:\Users\v1014352\E-Pay\epay_merchant_service\build\classes\java\main\com\epay\merchant\controller\AdminController.class]
+      ↓
+   adminService defined in file [C:\Users\v1014352\E-Pay\epay_merchant_service\build\classes\java\main\com\epay\merchant\service\AdminService.class]
+      ↓
+   adminValidator defined in file [C:\Users\v1014352\E-Pay\epay_merchant_service\build\classes\java\main\com\epay\merchant\validator\AdminValidator.class]
+┌─────┐
+|  merchantUserValidator defined in file [C:\Users\v1014352\E-Pay\epay_merchant_service\build\classes\java\main\com\epay\merchant\validator\MerchantUserValidator.class]
+↑     ↓
+|  merchantBankAccountValidator defined in file [C:\Users\v1014352\E-Pay\epay_merchant_service\build\classes\java\main\com\epay\merchant\validator\MerchantBankAccountValidator.class]
+└─────┘
