@@ -1,6 +1,11 @@
-  public ThemeDto findTheme(String mId, String module, boolean defaultTheme) {
+   public ThemeDto findTheme(String mId, String module, boolean defaultTheme) {
         Theme entity = themeRepository.findBymIdAndModule(mId, module).orElseThrow(() -> new MerchantException(NOT_FOUND_ERROR_CODE, MessageFormat.format(NOT_FOUND_ERROR_MESSAGE, THEME)));
-        return mapper.mapThemeEntityToDto(entity);
+        if(defaultTheme && entity.isDefaultTheme()){
+            throw new MerchantException(INVALID_ERROR_CODE, MessageFormat.format(INVALID_ERROR_MESSAGE, "Theme configuration", "Theme is not configured."));
+        } else if (!defaultTheme && !entity.isDefaultTheme()) {
+            throw new MerchantException(INVALID_ERROR_CODE, MessageFormat.format(INVALID_ERROR_MESSAGE, "Theme configuration", "Theme is not configured."));
+        }
+        return  mapper.mapThemeEntityToDto(entity);
     }
 
-here if defaulttheme is true then need to check if entity.isDefaultTheme() is already true then throw error similarly if defaulttheme is false then need to check if entity.isDefaultTheme() is already false then throw error
+please add junit for 
