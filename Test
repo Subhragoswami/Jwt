@@ -1,1 +1,79 @@
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
+import java.util.Optional;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+public class ThemeServiceTest {
+
+    @Mock
+    private ThemeRepository themeRepository;
+
+    @Mock
+    private Mapper mapper;
+
+    @InjectMocks
+    private ThemeService themeService; // Replace with your actual service class
+
+    private static final String mId = "merchant123";
+    private static final String module = "moduleA";
+    private static final String INVALID_ERROR_CODE = "INVALID_CODE";
+    private static final String INVALID_ERROR_MESSAGE = "{0} - {1}";
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+    }
+
+    @Test
+    void shouldThrowException_WhenDefaultThemeIsTrue_AndEntityIsDefault() {
+        Theme theme = mock(Theme.class);
+        when(themeRepository.findBymIdAndModule(mId, module)).thenReturn(Optional.of(theme));
+        when(theme.isDefaultTheme()).thenReturn(true);
+
+        MerchantException ex = assertThrows(MerchantException.class, () ->
+            themeService.findTheme(mId, module, true)
+        );
+        assertEquals(INVALID_ERROR_CODE, ex.getErrorCode());
+    }
+
+    @Test
+    void shouldThrowException_WhenDefaultThemeIsFalse_AndEntityIsNotDefault() {
+        Theme theme = mock(Theme.class);
+        when(themeRepository.findBymIdAndModule(mId, module)).thenReturn(Optional.of(theme));
+        when(theme.isDefaultTheme()).thenReturn(false);
+
+        MerchantException ex = assertThrows(MerchantException.class, () ->
+            themeService.findTheme(mId, module, false)
+        );
+        assertEquals(INVALID_ERROR_CODE, ex.getErrorCode());
+    }
+
+    @Test
+    void shouldReturnThemeDto_WhenDefaultThemeMismatch() {
+        Theme theme = mock(Theme.class);
+        ThemeDto dto = new ThemeDto(); // Replace with actual populated DTO if needed
+
+        when(themeRepository.findBymIdAndModule(mId, module)).thenReturn(Optional.of(theme));
+        when(theme.isDefaultTheme()).thenReturn(true); // entity is default
+        when(mapper.mapThemeEntityToDto(theme)).thenReturn(dto);
+
+        ThemeDto result = themeService.findTheme(mId, module, false); // request for non-default
+
+        assertEquals(dto, result);
+    }
+
+    @Test
+    void shouldThrowException_WhenThemeNotFound() {
+        when(themeRepository.findBymIdAndModule(mId, module)).thenReturn(Optional.empty());
+
+        assertThrows(MerchantException.class, () ->
+            themeService.findTheme(mId, module, true)
+        );
+    }
+}
