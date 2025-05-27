@@ -1,11 +1,41 @@
-   public ThemeDto findTheme(String mId, String module, boolean defaultTheme) {
-        Theme entity = themeRepository.findBymIdAndModule(mId, module).orElseThrow(() -> new MerchantException(NOT_FOUND_ERROR_CODE, MessageFormat.format(NOT_FOUND_ERROR_MESSAGE, THEME)));
-        if(defaultTheme && entity.isDefaultTheme()){
-            throw new MerchantException(INVALID_ERROR_CODE, MessageFormat.format(INVALID_ERROR_MESSAGE, "Theme configuration", "Theme is not configured."));
-        } else if (!defaultTheme && !entity.isDefaultTheme()) {
-            throw new MerchantException(INVALID_ERROR_CODE, MessageFormat.format(INVALID_ERROR_MESSAGE, "Theme configuration", "Theme is not configured."));
-        }
-        return  mapper.mapThemeEntityToDto(entity);
+   private void mergeNonNullFields(ReportScheduleManagement reportScheduleManagement, ReportScheduleManagementUpdateRequest request) {
+        Optional.ofNullable(request.getFormat()).ifPresent(reportScheduleManagement::setFormat);
+        Optional.ofNullable(request.getFrequency()).ifPresent(reportScheduleManagement::setFrequency);
+        Optional.ofNullable(request.getScheduleExecutionTime()).ifPresent(reportScheduleManagement::setScheduleExecutionTime);
+        reportScheduleManagement.setScheduleExecutionDate(request.getScheduleExecutionDate());
     }
 
-please add junit for 
+public class ReportScheduleManagementUpdateRequest {
+    private String frequency;
+    private String format;
+    private String scheduleExecutionTime;
+    private String scheduleExecutionDate;
+}
+public class ReportScheduleManagement extends AuditEntity {
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "ID", nullable = false, updatable = false, unique = true)
+    private UUID id;
+
+    private UUID reportId;
+    
+    @Column(name="MID")
+    private String mId;
+
+    @Enumerated(EnumType.STRING)
+    private Frequency frequency;
+    @Enumerated(EnumType.STRING)
+    private ReportFormat format;
+
+    private String scheduleExecutionTime;
+    private Long nextScheduleExecutionTime;
+    private Long lastScheduleExecutionTime;
+    private String remarks;
+
+    @Enumerated(EnumType.STRING)
+    private ReportScheduledStatus status;
+
+    private String reportDuration;
+    private String scheduleExecutionDate;
+
+ }
