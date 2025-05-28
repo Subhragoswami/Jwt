@@ -1,6 +1,15 @@
- void validateFieldValue(String value, List<String> validValues, String fieldName) {
-        boolean isValid = validValues.stream().anyMatch(validValue -> validValue.equalsIgnoreCase(value));
-        if (!isValid) {
-            log.error("Field '{}' contains an invalid value '{}'.", fieldName, value);
-            addError(INVALID_ERROR_CODE, INVALID_ENUM_ERROR_MESSAGE, fieldName, fieldName);
+    private void validateLeadingTrailing(ReportScheduleManagementUpdateRequest request) {
+        if(ObjectUtils.isNotEmpty(request.getFormat())) {
+            checkForLeadingTrailingAndSingleSpace(request.getFormat(), FORMAT);
         }
+        if(ObjectUtils.isNotEmpty(request.getFrequency())) {
+            checkForLeadingTrailingAndSingleSpace(request.getFrequency(), FREQUENCY);
+        }
+        if(ObjectUtils.isNotEmpty(request.getScheduleExecutionTime())) {
+            checkForLeadingTrailingAndSingleSpace(request.getScheduleExecutionTime(), "scheduleExecutionTime");
+        }
+        if(ObjectUtils.isNotEmpty(request.getScheduleExecutionDate())) {
+            checkForLeadingTrailingAndSingleSpace(request.getScheduleExecutionDate(), "scheduleExecutionDate");
+        }
+        throwIfErrors();
+    }
