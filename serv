@@ -1,41 +1,6 @@
-   private void mergeNonNullFields(ReportScheduleManagement reportScheduleManagement, ReportScheduleManagementUpdateRequest request) {
-        Optional.ofNullable(request.getFormat()).ifPresent(reportScheduleManagement::setFormat);
-        Optional.ofNullable(request.getFrequency()).ifPresent(reportScheduleManagement::setFrequency);
-        Optional.ofNullable(request.getScheduleExecutionTime()).ifPresent(reportScheduleManagement::setScheduleExecutionTime);
-        reportScheduleManagement.setScheduleExecutionDate(request.getScheduleExecutionDate());
-    }
-
-public class ReportScheduleManagementUpdateRequest {
-    private String frequency;
-    private String format;
-    private String scheduleExecutionTime;
-    private String scheduleExecutionDate;
-}
-public class ReportScheduleManagement extends AuditEntity {
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "ID", nullable = false, updatable = false, unique = true)
-    private UUID id;
-
-    private UUID reportId;
-    
-    @Column(name="MID")
-    private String mId;
-
-    @Enumerated(EnumType.STRING)
-    private Frequency frequency;
-    @Enumerated(EnumType.STRING)
-    private ReportFormat format;
-
-    private String scheduleExecutionTime;
-    private Long nextScheduleExecutionTime;
-    private Long lastScheduleExecutionTime;
-    private String remarks;
-
-    @Enumerated(EnumType.STRING)
-    private ReportScheduledStatus status;
-
-    private String reportDuration;
-    private String scheduleExecutionDate;
-
- }
+ void validateFieldValue(String value, List<String> validValues, String fieldName) {
+        boolean isValid = validValues.stream().anyMatch(validValue -> validValue.equalsIgnoreCase(value));
+        if (!isValid) {
+            log.error("Field '{}' contains an invalid value '{}'.", fieldName, value);
+            addError(INVALID_ERROR_CODE, INVALID_ENUM_ERROR_MESSAGE, fieldName, fieldName);
+        }
