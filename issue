@@ -1,24 +1,46 @@
-public interface OtpManagementRepository extends JpaRepository<OtpManagement, UUID> {
+@Repository
+public interface CaptchaManagementRepository extends JpaRepository<Captcha, UUID> {
 
-    Optional<OtpManagement> getByUserIdAndRequestIdAndOtpCodeAndRequestType(UUID userId, UUID requestId, String otpCode, String requestType);
+    Optional<Captcha> existsByRequestId(UUID requestId);
 
-    @Query("SELECT x FROM /Merchant_Otp_Management x WHERE x.requestId = $1 ORDER BY expiryTime DESC LIMIT 1")
-    Optional<OtpManagement> findTopByRequestIdOrderByExpiryTimeDesc(UUID requestId);
+    Optional<Captcha> existsByRequestIdAndVerifiedTrue(UUID requestId);
 
-    @Query("SELECT x FROM /Merchant_Otp_Management x WHERE x.requestType = $1 AND x.userId = $2 ORDER BY expiryTime DESC LIMIT 1")
-    Optional<OtpManagement> findTopByRequestTypeAndUserIdOrderByExpiryTimeDesc(String requestType, UUID userId);
+    @Query("SELECT cm FROM CAPTCHA_MANAGEMENT cm WHERE cm.requestId = :requestId and cm.expiryTime > :currentTime")
+    Optional<Captcha> findActiveCaptcha(UUID requestId, long currentTime);
+
+}
+package com.epay.merchant.entity;
+
+import com.epay.merchant.util.enums.RequestType;
+import jakarta.persistence.*;
+import lombok.*;
+
+import java.util.UUID;
+
+@Entity
+@Getter
+@Setter
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@EqualsAndHashCode(callSuper = true)
+@Table(name = "CAPTCHA_MANAGEMENT")
+public class Captcha extends AuditEntityByDate {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+    @Version
+    private int version;
+
+    private String captchaImage;
+    private String captchaText;
+    private Long expiryTime;
+    private UUID requestId;
+    @Enumerated(EnumType.STRING)
+    private RequestType requestType;
+    private boolean isVerified;
 
 }
 
-
-please create jpa query for this
-
-
-public interface OtpManagementRepository extends JpaRepository<OtpManagement, UUID> {
-
-    Optional<OtpManagement> getByUserIdAndRequestIdAndOtpCodeAndRequestType(UUID userId, UUID requestId, String otpCode, String requestType);
-
-    Optional<OtpManagement> findTopByRequestIdOrderByExpiryTimeDesc(UUID requestId);
-
-    Optional<OtpManagement> findTopByRequestTypeAndUserIdOrderByExpiryTimeDesc(String requestType, UUID userId);
-}
+Caused by: org.hibernate.query.sqm.PathElementException: Could not resolve attribute 'verified' of 'com.epay.merchant.entity.Captcha'
