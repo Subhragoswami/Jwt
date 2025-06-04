@@ -1,1 +1,29 @@
 Caused by: org.springframework.data.repository.query.QueryCreationException: Could not create query for public abstract java.util.Optional com.epay.merchant.repository.cache.CaptchaManagementRepository.findActiveCaptcha(java.util.UUID,long); Reason: Failed to create query for method public abstract java.util.Optional com.epay.merchant.repository.cache.CaptchaManagementRepository.findActiveCaptcha(java.util.UUID,long); No property 'findActiveCaptcha' found for type 'Captcha'
+@Query("SELECT cm FROM Captcha cm WHERE cm.requestId = :requestId and cm.expiryTime > :currentTime")
+    Optional<Captcha> findActiveCaptcha(UUID requestId, long currentTime);
+
+@Entity
+@Getter
+@Setter
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@EqualsAndHashCode(callSuper = true)
+@Table(name = "CAPTCHA_MANAGEMENT")
+public class Captcha extends AuditEntityByDate {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+    @Version
+    private int version;
+
+    private String captchaImage;
+    private String captchaText;
+    private Long expiryTime;
+    private UUID requestId;
+    @Enumerated(EnumType.STRING)
+    private RequestType requestType;
+    private boolean verified;
+
+}
