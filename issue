@@ -12,3 +12,13 @@ public interface OtpManagementRepository extends JpaRepository<OtpManagement, UU
 
 
 please create jpa query for this
+
+
+public interface OtpManagementRepository extends JpaRepository<OtpManagement, UUID> {
+
+    Optional<OtpManagement> getByUserIdAndRequestIdAndOtpCodeAndRequestType(UUID userId, UUID requestId, String otpCode, String requestType);
+
+    Optional<OtpManagement> findTopByRequestIdOrderByExpiryTimeDesc(UUID requestId);
+
+    Optional<OtpManagement> findTopByRequestTypeAndUserIdOrderByExpiryTimeDesc(String requestType, UUID userId);
+}
