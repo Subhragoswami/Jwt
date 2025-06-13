@@ -1,3 +1,12 @@
- if (reportManagementRequest.getDurationFromDate() < subtractMonth(DURATION_FROM_DATE_LIMIT)) {
-            errorDtoList.add(ErrorDto.builder().errorCode(INVALID_ERROR_CODE).errorMessage(MessageFormat.format(INVALID_ERROR_MESSAGE, DURATION_FROM_DATE, MessageFormat.format("durationFromDate can't be less than past {} months", DURATION_FROM_DATE_LIMIT))).build());
+    /**
+     * Check mandatory fields
+     *
+     * @param fieldName String
+     * @param values    String...
+     */
+    protected void checkMandatoryFields(String fieldName, String... values) {
+        boolean allEmpty = Arrays.stream(values).allMatch(StringUtils::isEmpty);
+        if (allEmpty) {
+            addError(fieldName, MANDATORY_ERROR_CODE, MANDATORY_ERROR_MESSAGE);
         }
+    }
