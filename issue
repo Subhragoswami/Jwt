@@ -1,12 +1,50 @@
-    /**
-     * Check mandatory fields
-     *
-     * @param fieldName String
-     * @param values    String...
-     */
-    protected void checkMandatoryFields(String fieldName, String... values) {
-        boolean allEmpty = Arrays.stream(values).allMatch(StringUtils::isEmpty);
-        if (allEmpty) {
-            addError(fieldName, MANDATORY_ERROR_CODE, MANDATORY_ERROR_MESSAGE);
-        }
+ @Test
+    public void testUpdatePaymentPageTheme() {
+        String mId = "10001";
+        MultipartFile logoFile = new MockMultipartFile("logo", "ABC".getBytes());
+        String primaryColor = "#123456";
+        String secondaryColor = "#123457";
+        ThemeDto themeDto = ThemeDto.builder()
+                .mId(mId)
+                .logo(getBase64(logoFile))
+                .primaryColor(primaryColor)
+                .secondaryColor(secondaryColor)
+                .defaultTheme(true)
+                .build();
+        when(themeDao.updatePaymentPageTheme(Mockito.any())).thenReturn(themeDto);
+        when(themeDao.findTheme(themeDto.getMId(), MerchantConstant.THEME_PAYMENT).isDefaultTheme()).thenReturn(true);
+        List<ThemeDto> response = themeService.updatePaymentPageTheme(logoFile, mId, primaryColor, secondaryColor).getData();
+        assertNotNull(response);
+        assertNotNull(response);
+        assertNotNull(response.getFirst().getPrimaryColor());
     }
+
+   public ThemeDto findTheme(String mId, String module) {
+        return mapper.mapThemeEntityToDto(findThemeEntity(mId, module));
+    }
+     */
+    public MerchantResponse<ThemeDto> updatePaymentPageTheme(MultipartFile logoFile, String mId, String primaryColor, String secondaryColor) {
+        log.info("Starting updatePaymentPageTheme with mId: {}", mId);
+        ThemeDto paymentPageTheme = saveTheme(logoFile, mId, primaryColor, secondaryColor, true);
+        log.info("Successfully updated payment page theme for mId: {}", mId);
+        return MerchantResponse.<ThemeDto>builder().status(RESPONSE_SUCCESS).data(List.of(paymentPageTheme)).build();
+    }
+    protected ThemeDto saveTheme(MultipartFile logoFile, String mId, String primaryColor, String secondaryColor, boolean isUpdate) {
+        log.info("Saving theme for mId: {}, isUpdate: {}", mId, isUpdate);
+        ThemeDto themeDto = buildPaymentPageThemeDto(mId, logoFile, primaryColor, secondaryColor);
+        themeValidator.validateLogo(logoFile, isUpdate);
+        if (isUpdate) {
+            if(!themeDao.findTheme(mId, MerchantConstant.THEME_PAYMENT).isDefaultTheme()) {
+                themeValidator.validateUpdateRequest(themeDto);
+            }
+            log.info("Updating existing theme for mId: {}", mId);
+            return themeDao.updatePaymentPageTheme(themeDto);
+        }
+        themeValidator.validateSaveRequest(themeDto);
+        if(StringUtils.isAllEmpty(themeDto.getPrimaryColor(), themeDto.getSecondaryColor()))
+            themeDto.setDefaultTheme(true);
+        log.info("Creating new theme for mId: {}", mId);
+        return themeDao.createPaymentPageTheme(themeDto);
+    }
+
+Cannot invoke "com.epay.merchant.dto.ThemeDto.isDefaultTheme()" because the return value of "com.epay.merchant.dao.ThemeDao.findTheme(String, String)" is null
