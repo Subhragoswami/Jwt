@@ -4,8 +4,14 @@
         log.info("File model created, generating file for report.");
         //ReportFile reportFile = fileGeneratorService.generateFile(reportManagementDto.getFormat(), reportManagementDto.getReport(), reportManagementDto.getMId(), fileModel);
         ReportFile reportFile = fileGeneratorService.generateZipFile(reportManagementDto.getFormat(), reportManagementDto.getReport(), reportManagementDto.getMId(), List.of(fileModel));
-        String s3FileName = s3Service.uploadFile(reportFile.getName(), reportFile.getContent());
-        reportManagementDao.updateStatusAndFilePath(reportManagementId, ReportStatus.GENERATED, s3FileName);
-        publishReportGenerationAlert(reportManagementDto);
-        log.info("Report generated and file path [{}] updated for ReportManagementId: {}", s3FileName, reportManagementId);
+//        String s3FileName = s3Service.uploadFile(reportFile.getName(), reportFile.getContent());
+//        reportManagementDao.updateStatusAndFilePath(reportManagementId, ReportStatus.GENERATED, s3FileName);
+//        publishReportGenerationAlert(reportManagementDto);
+        String localPath = "C:/Users/v1014352/Downloads";
+        try(FileOutputStream f = new FileOutputStream(localPath)) {
+            f.write(reportFile.getContent());
+        }
+        log.info("Report generated and file path [{}] updated for ReportManagementId: {}", reportManagementId);
     }
+
+it's not saving in my local system.
