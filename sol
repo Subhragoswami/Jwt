@@ -54,3 +54,56 @@ private void buildReport(UUID reportManagementId, ReportManagementDto reportMana
     }
 }
 
+
+
+
+public ReportFile generateZipFile(ReportFormat reportFormat, Report report, String mId, List<FileModel> fileModels) {
+    logger.info("Generating ZIP file for report: {} with format: {}", report.getName(), reportFormat.name());
+    try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+         ZipOutputStream zos = new ZipOutputStream(byteArrayOutputStream)) {
+
+        for (FileModel fileModel : fileModels) {
+            ReportFile reportFile = generateFile(reportFormat, report, mId, fileModel);
+            String zipEntryName = getZipFileName(reportFormat, report, fileModel);
+
+            logger.debug("Adding file to ZIP: {}", zipEntryName);
+            ZipEntry zipEntry = new ZipEntry(zipEntryName);
+            zos.putNextEntry(zipEntry);
+
+            byte[] content = reportFile.getContent();
+            if (content != null && content.length > 0) {
+                zos.write(content);
+            } else {
+                logger.warn("Skipping empty file: {}", zipEntryName);
+            }
+            zos.closeEntry();
+        }
+        zos.finish();
+
+        String zipFileName = String.format("%s_%s_%s.zip", mId, report.getName(), System.currentTimeMillis());
+        return new ReportFile(zipFileName, byteArrayOutputStream.toByteArray());
+    } catch (IOException e) {
+        logger.error("Error generating ZIP file: {}", e.getMessage(), e);
+        throw new ReportingException(ErrorConstants.FILE_GENERATION_ERROR_CODE, 
+            MessageFormat.format(ErrorConstants.FILE_GENERATION_ERROR_MESSAGE, "zip", e.getMessage()));
+    }
+}
+
+
+
+
+public void generateZipFile(HttpServletResponse response, ReportFormat reportFormat, Report report, String mId, List<FileModel> fileModels) {
+    logger.info("Starting ZIP file generation for HTTP response for report: {} and merchant ID: {}", report.getName(), mId);
+    ReportFile zipReportFile = generateZipFile(reportFormat, report, mId, fileModels);
+    try {
+        setHeader(response, "application/zip", zipReportFile.getName());
+        response.setContentLength(zipReportFile.getContent().length);
+        response.getOutputStream().write(zipReportFile.getContent());
+        response.getOutputStream().flush();
+        logger.info("ZIP file successfully streamed to response.");
+    } catch (IOException e) {
+        logger.error("Error streaming ZIP file to response: {}", e.getMessage(), e);
+        throw new ReportingException(ErrorConstants.FILE_GENERATION_ERROR_CODE, 
+            MessageFormat.format(ErrorConstants.FILE_GENERATION_ERROR_MESSAGE, "zip", e.getMessage()));
+    }
+}
