@@ -22,3 +22,27 @@ here like that create for other fields
     private BigDecimal payoutDate;
     private BigDecimal transactionCount;
     private BigDecimal chargebackAdjusted;
+
+
+protected List<Object> convertToListOfObject(MerchantPayout merchantPayout) {
+    return List.of(
+        ObjectUtils.isEmpty(merchantPayout.getMerchantId()) ? "" : merchantPayout.getMerchantId(),
+        ObjectUtils.isEmpty(merchantPayout.getMerchantName()) ? "" : merchantPayout.getMerchantName(),
+        ObjectUtils.isEmpty(merchantPayout.getOrderAmount()) ? BigDecimal.ZERO : merchantPayout.getOrderAmount(),
+        ObjectUtils.isEmpty(merchantPayout.getCurrencyCode()) ? "" : merchantPayout.getCurrencyCode(),
+        ObjectUtils.isEmpty(merchantPayout.getSettlementAmount()) ? BigDecimal.ZERO : merchantPayout.getSettlementAmount(),
+        ObjectUtils.isEmpty(merchantPayout.getSettlementCurrency()) ? "" : merchantPayout.getSettlementCurrency(),
+        ObjectUtils.isEmpty(merchantPayout.getCommissionPayable()) ? BigDecimal.ZERO : merchantPayout.getCommissionPayable(),
+        ObjectUtils.isEmpty(merchantPayout.getMerchantGstBearableAbs()) ? BigDecimal.ZERO : merchantPayout.getMerchantGstBearableAbs(),
+        ObjectUtils.isEmpty(merchantPayout.getPayoutAmount()) ? BigDecimal.ZERO : merchantPayout.getPayoutAmount(),
+        ObjectUtils.isEmpty(merchantPayout.getRefundAdjusted()) ? BigDecimal.ZERO : merchantPayout.getRefundAdjusted(),
+        ObjectUtils.isEmpty(merchantPayout.getTdrOnRefundAmount()) ? BigDecimal.ZERO : merchantPayout.getTdrOnRefundAmount(),
+        ObjectUtils.isEmpty(merchantPayout.getGstOnRefundAmount()) ? BigDecimal.ZERO : merchantPayout.getGstOnRefundAmount(),
+        ObjectUtils.isEmpty(merchantPayout.getNetRefundAmount()) ? BigDecimal.ZERO : merchantPayout.getNetRefundAmount(),
+        ObjectUtils.isEmpty(merchantPayout.getNetPayoutAmount()) ? BigDecimal.ZERO : merchantPayout.getNetPayoutAmount(),
+        ObjectUtils.isEmpty(merchantPayout.getPayoutDate()) ? "" : merchantPayout.getPayoutDate(), // Assuming payoutDate is String. If it's Date, format it here
+        ObjectUtils.isEmpty(merchantPayout.getTransactionCount()) ? BigDecimal.ZERO : merchantPayout.getTransactionCount(),
+        ObjectUtils.isEmpty(merchantPayout.getChargebackAdjusted()) ? BigDecimal.ZERO : merchantPayout.getChargebackAdjusted()
+    );
+}
+
