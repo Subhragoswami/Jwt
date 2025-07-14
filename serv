@@ -1,17 +1,24 @@
-    private void buildReport(UUID reportManagementId, ReportManagementDto reportManagementDto, List<String> header, List<List<Object>> fileData) throws IOException {
-        log.info("Building report for ReportManagementId: {} and format: {}", reportManagementId, reportManagementDto.getFormat());
-        FileModel fileModel = fileGeneratorService.buildFileModel(reportManagementDto.getFormat(), header, fileData, Map.of("headers", header, "rows", fileData));
-        log.info("File model created, generating file for report.");
-        //ReportFile reportFile = fileGeneratorService.generateFile(reportManagementDto.getFormat(), reportManagementDto.getReport(), reportManagementDto.getMId(), fileModel);
-        ReportFile reportFile = fileGeneratorService.generateZipFile(reportManagementDto.getFormat(), reportManagementDto.getReport(), reportManagementDto.getMId(), List.of(fileModel));
-//        String s3FileName = s3Service.uploadFile(reportFile.getName(), reportFile.getContent());
-//        reportManagementDao.updateStatusAndFilePath(reportManagementId, ReportStatus.GENERATED, s3FileName);
-//        publishReportGenerationAlert(reportManagementDto);
-        String localPath = "C:/Users/v1014352/Downloads";
-        try(FileOutputStream f = new FileOutputStream(localPath)) {
-            f.write(reportFile.getContent());
-        }
-        log.info("Report generated and file path [{}] updated for ReportManagementId: {}", reportManagementId);
+
+    protected List<Object> convertToListOfObject(MerchantPayout merchantPayout) {
+        return List.of(ObjectUtils.isEmpty(merchantPayout.getMerchantId()) ? "" : merchantPayout.getMerchantId(),
+                );
     }
 
-it's not saving in my local system.
+here like that create for other fields
+    private String merchantId;
+    private String merchantName;
+    private BigDecimal  orderAmount;
+    private String currencyCode;
+    private BigDecimal settlementAmount;
+    private String settlementCurrency;
+    private BigDecimal commissionPayable;
+    private BigDecimal merchantGstBearableAbs;
+    private BigDecimal payoutAmount;
+    private BigDecimal refundAdjusted;
+    private BigDecimal tdrOnRefundAmount;
+    private BigDecimal gstOnRefundAmount;
+    private BigDecimal netRefundAmount;
+    private BigDecimal netPayoutAmount;
+    private BigDecimal payoutDate;
+    private BigDecimal transactionCount;
+    private BigDecimal chargebackAdjusted;
