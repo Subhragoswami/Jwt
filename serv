@@ -45,3 +45,29 @@ public class TransactionRefund {
     private String arrnNum;
 
 }
+
+
+protected List<Object> convertToListOfObject(TransactionRefund transactionRefund) {
+    return List.of(
+        ObjectUtils.isEmpty(transactionRefund.getSettlementFileNumber()) ? "" : transactionRefund.getSettlementFileNumber(),
+        ObjectUtils.isEmpty(transactionRefund.getSettlementTime()) ? "" : transactionRefund.getSettlementTime(),
+        ObjectUtils.isEmpty(transactionRefund.getMerchantId()) ? "" : transactionRefund.getMerchantId(),
+        ObjectUtils.isEmpty(transactionRefund.getMerchantName()) ? "" : transactionRefund.getMerchantName(),
+        ObjectUtils.isEmpty(transactionRefund.getOrderRefNumber()) ? "" : transactionRefund.getOrderRefNumber(),
+        ObjectUtils.isEmpty(transactionRefund.getAtrnNum()) ? "" : transactionRefund.getAtrnNum(),
+        ObjectUtils.isEmpty(transactionRefund.getCreatedDate()) ? "" : transactionRefund.getCreatedDate(),
+        ObjectUtils.isEmpty(transactionRefund.getCurrencyCode()) ? "" : transactionRefund.getCurrencyCode(),
+        ObjectUtils.isEmpty(transactionRefund.getOrderAmount()) ? BigDecimal.ZERO : transactionRefund.getOrderAmount(),
+        ObjectUtils.isEmpty(transactionRefund.getRefundCurrency()) ? "" : transactionRefund.getRefundCurrency(),
+        ObjectUtils.isEmpty(transactionRefund.getSettlementAmount()) ? BigDecimal.ZERO : transactionRefund.getSettlementAmount(),
+        ObjectUtils.isEmpty(transactionRefund.getCommissionPayable()) ? 0 : transactionRefund.getCommissionPayable(),
+        ObjectUtils.isEmpty(transactionRefund.getMerchantGstBearableAbs()) ? BigDecimal.ZERO : transactionRefund.getMerchantGstBearableAbs(),
+        ObjectUtils.isEmpty(transactionRefund.getNetRefundAmount()) ? 0 : transactionRefund.getNetRefundAmount(),
+        ObjectUtils.isEmpty(transactionRefund.getChannelBank()) ? "" : transactionRefund.getChannelBank(),
+        ObjectUtils.isEmpty(transactionRefund.getGatewayTraceNumber()) ? "" : transactionRefund.getGatewayTraceNumber(),
+        ObjectUtils.isEmpty(transactionRefund.getPayMode()) ? "" : transactionRefund.getPayMode(),
+        ObjectUtils.isEmpty(transactionRefund.getRefundType()) ? "" : transactionRefund.getRefundType(),
+        ObjectUtils.isEmpty(transactionRefund.getRefundBookingDate()) ? "" : transactionRefund.getRefundBookingDate(),
+        ObjectUtils.isEmpty(transactionRefund.getArrnNum()) ? "" : transactionRefund.getArrnNum()
+    );
+}
