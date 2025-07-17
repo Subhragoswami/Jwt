@@ -1,46 +1,43 @@
-    protected List<Object> convertToListOfObject(MerchantPayout merchantPayout) {
-        return List.of(
-                ObjectUtils.isEmpty(merchantPayout.getMerchantId()) ? "" : merchantPayout.getMerchantId(),
-                ObjectUtils.isEmpty(merchantPayout.getMerchantName()) ? "" : merchantPayout.getMerchantName(),
-                ObjectUtils.isEmpty(merchantPayout.getOrderAmount()) ? BigDecimal.ZERO : merchantPayout.getOrderAmount(),
-                ObjectUtils.isEmpty(merchantPayout.getCurrencyCode()) ? "" : merchantPayout.getCurrencyCode(),
-                ObjectUtils.isEmpty(merchantPayout.getSettlementAmount()) ? BigDecimal.ZERO : merchantPayout.getSettlementAmount(),
-                ObjectUtils.isEmpty(merchantPayout.getSettlementCurrency()) ? "" : merchantPayout.getSettlementCurrency(),
-                ObjectUtils.isEmpty(merchantPayout.getCommissionPayable()) ? BigDecimal.ZERO : merchantPayout.getCommissionPayable(),
-                ObjectUtils.isEmpty(merchantPayout.getMerchantGstBearableAbs()) ? BigDecimal.ZERO : merchantPayout.getMerchantGstBearableAbs(),
-                ObjectUtils.isEmpty(merchantPayout.getPayoutAmount()) ? BigDecimal.ZERO : merchantPayout.getPayoutAmount(),
-                ObjectUtils.isEmpty(merchantPayout.getRefundAdjusted()) ? BigDecimal.ZERO : merchantPayout.getRefundAdjusted(),
-                ObjectUtils.isEmpty(merchantPayout.getTdrOnRefundAmount()) ? BigDecimal.ZERO : merchantPayout.getTdrOnRefundAmount(),
-                ObjectUtils.isEmpty(merchantPayout.getGstOnRefundAmount()) ? BigDecimal.ZERO : merchantPayout.getGstOnRefundAmount(),
-                ObjectUtils.isEmpty(merchantPayout.getNetRefundAmount()) ? BigDecimal.ZERO : merchantPayout.getNetRefundAmount(),
-                ObjectUtils.isEmpty(merchantPayout.getNetPayoutAmount()) ? BigDecimal.ZERO : merchantPayout.getNetPayoutAmount(),
-                ObjectUtils.isEmpty(merchantPayout.getPayoutDate()) ? "" : merchantPayout.getPayoutDate(),
-                ObjectUtils.isEmpty(merchantPayout.getTransactionCount()) ? BigDecimal.ZERO : merchantPayout.getTransactionCount(),
-                ObjectUtils.isEmpty(merchantPayout.getChargebackAdjusted()) ? BigDecimal.ZERO : merchantPayout.getChargebackAdjusted()
-        );
+@UtilityClass
+public class ReconQueries {
+
+
+    public static final String MERCHANT_PAYOUT = """
+                SELECT * from VIEW_MERCHANT_WISE_PAYOUT_MIS_FORMAT
+            """;
+
+    public static final String TRANSACTION_REFUND = """
+                       select * from VIEW_TRANSACTION_WISE_REFUND_FORMAT
+            """;
+
+}
+
+here can we write for one field which is merchant_id in db but in my entity class it's mId;
+
+    private final NamedParameterJdbcTemplate namedParameterJdbcTemplate;
+
+    public List<MerchantPayout> getMerchantPayout(List<UUID> rfsId) {
+        return namedParameterJdbcTemplate.query(ReconQueries.MERCHANT_PAYOUT, new BeanPropertyRowMapper<>(MerchantPayout.class));
     }
 
-    protected List<Object> convertToListOfObject(TransactionRefund transactionRefund) {
-        return List.of(
-                ObjectUtils.isEmpty(transactionRefund.getSettlementFileNumber()) ? "" : transactionRefund.getSettlementFileNumber(),
-                ObjectUtils.isEmpty(transactionRefund.getSettlementTime()) ? "" : transactionRefund.getSettlementTime(),
-                ObjectUtils.isEmpty(transactionRefund.getMerchantId()) ? "" : transactionRefund.getMerchantId(),
-                ObjectUtils.isEmpty(transactionRefund.getMerchantName()) ? "" : transactionRefund.getMerchantName(),
-                ObjectUtils.isEmpty(transactionRefund.getOrderRefNumber()) ? "" : transactionRefund.getOrderRefNumber(),
-                ObjectUtils.isEmpty(transactionRefund.getAtrnNum()) ? "" : transactionRefund.getAtrnNum(),
-                ObjectUtils.isEmpty(transactionRefund.getCreatedDate()) ? "" : transactionRefund.getCreatedDate(),
-                ObjectUtils.isEmpty(transactionRefund.getCurrencyCode()) ? "" : transactionRefund.getCurrencyCode(),
-                ObjectUtils.isEmpty(transactionRefund.getOrderAmount()) ? BigDecimal.ZERO : transactionRefund.getOrderAmount(),
-                ObjectUtils.isEmpty(transactionRefund.getRefundCurrency()) ? "" : transactionRefund.getRefundCurrency(),
-                ObjectUtils.isEmpty(transactionRefund.getSettlementAmount()) ? BigDecimal.ZERO : transactionRefund.getSettlementAmount(),
-                ObjectUtils.isEmpty(transactionRefund.getCommissionPayable()) ? 0 : transactionRefund.getCommissionPayable(),
-                ObjectUtils.isEmpty(transactionRefund.getMerchantGstBearableAbs()) ? BigDecimal.ZERO : transactionRefund.getMerchantGstBearableAbs(),
-                ObjectUtils.isEmpty(transactionRefund.getNetRefundAmount()) ? 0 : transactionRefund.getNetRefundAmount(),
-                ObjectUtils.isEmpty(transactionRefund.getChannelBank()) ? "" : transactionRefund.getChannelBank(),
-                ObjectUtils.isEmpty(transactionRefund.getGatewayTraceNumber()) ? "" : transactionRefund.getGatewayTraceNumber(),
-                ObjectUtils.isEmpty(transactionRefund.getPayMode()) ? "" : transactionRefund.getPayMode(),
-                ObjectUtils.isEmpty(transactionRefund.getRefundType()) ? "" : transactionRefund.getRefundType(),
-                ObjectUtils.isEmpty(transactionRefund.getRefundBookingDate()) ? "" : transactionRefund.getRefundBookingDate(),
-                ObjectUtils.isEmpty(transactionRefund.getArrnNum()) ? "" : transactionRefund.getArrnNum()
-        );
-    }
+public class MerchantPayout {
+
+    private String mId;
+    private String merchantName;
+    private BigDecimal  orderAmount;
+    private String currencyCode;
+    private BigDecimal settlementAmount;
+    private String settlementCurrency;
+    private BigDecimal commissionPayable;
+    private BigDecimal merchantGstBearableAbs;
+    private BigDecimal payoutAmount;
+    private BigDecimal refundAdjusted;
+    private BigDecimal tdrOnRefundAmount;
+    private BigDecimal gstOnRefundAmount;
+    private BigDecimal netRefundAmount;
+    private BigDecimal netPayoutAmount;
+    private BigDecimal payoutDate;
+    private BigDecimal transactionCount;
+    private BigDecimal chargebackAdjusted;
+
+}
