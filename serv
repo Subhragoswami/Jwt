@@ -1,43 +1,116 @@
-@UtilityClass
-public class ReconQueries {
+@EqualsAndHashCode(callSuper = true)
+@Getter
+@Setter
+@SuperBuilder
+@NoArgsConstructor
+@AllArgsConstructor
+@Entity
+@Audited
+@AuditTable(value = "TOKEN_AUDIT")
+@Table(name = "TOKEN")
+public class Token extends AuditEntity {
+    @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "custom_id_seq")
+    @SequenceGenerator(name = "custom_id_seq", sequenceName = "custom_id_seq", allocationSize = 1)
+    private Long id;
+    @Column(name = "MERCHANT_ID")
+    private String mId;
+    @Enumerated(EnumType.STRING)
+    private TokenType tokenType;
+    private String orderHash;
+    private String generatedToken;
+    private Long tokenExpiryTime;
+    private boolean isTokenValid;
+    private String failedReason;
+    private String remarks;
+    private Long expiredAt;
+    @Enumerated(EnumType.STRING)
+    private TokenStatus status;
+    private String aesKey;
 
-
-    public static final String MERCHANT_PAYOUT = """
-                SELECT * from VIEW_MERCHANT_WISE_PAYOUT_MIS_FORMAT
-            """;
-
-    public static final String TRANSACTION_REFUND = """
-                       select * from VIEW_TRANSACTION_WISE_REFUND_FORMAT
-            """;
-
-}
-
-here can we write for one field which is merchant_id in db but in my entity class it's mId;
-
-    private final NamedParameterJdbcTemplate namedParameterJdbcTemplate;
-
-    public List<MerchantPayout> getMerchantPayout(List<UUID> rfsId) {
-        return namedParameterJdbcTemplate.query(ReconQueries.MERCHANT_PAYOUT, new BeanPropertyRowMapper<>(MerchantPayout.class));
+    @PrePersist
+    @PreUpdate
+    public void setEntityNameForRevision() {
+        AuditRevisionListener.setEntityName(this.getClass().getSimpleName());
     }
 
-public class MerchantPayout {
-
-    private String mId;
-    private String merchantName;
-    private BigDecimal  orderAmount;
-    private String currencyCode;
-    private BigDecimal settlementAmount;
-    private String settlementCurrency;
-    private BigDecimal commissionPayable;
-    private BigDecimal merchantGstBearableAbs;
-    private BigDecimal payoutAmount;
-    private BigDecimal refundAdjusted;
-    private BigDecimal tdrOnRefundAmount;
-    private BigDecimal gstOnRefundAmount;
-    private BigDecimal netRefundAmount;
-    private BigDecimal netPayoutAmount;
-    private BigDecimal payoutDate;
-    private BigDecimal transactionCount;
-    private BigDecimal chargebackAdjusted;
-
 }
+
+--liquibase formatted sql
+--changeset TRANSACTION:101
+
+--CREATE table TOKEN
+
+  CREATE TABLE TOKEN
+      (
+        ID RAW(16) DEFAULT SYS_GUID() PRIMARY KEY,
+        MERCHANT_ID       VARCHAR2(20 BYTE) NOT NULL ENABLE,
+        TOKEN_TYPE        VARCHAR2(50 BYTE) NOT NULL ENABLE,
+        GENERATED_TOKEN   VARCHAR2(2000 BYTE),
+        ORDER_HASH        VARCHAR2(2000 BYTE),
+        TOKEN_EXPIRY_TIME NUMBER,
+        IS_TOKEN_VALID    NUMBER(1,0) NOT NULL ENABLE,
+        FAILED_REASON     VARCHAR2(100 BYTE),
+        REMARKS           VARCHAR2(100 BYTE),
+        EXPIRED_AT        NUMBER,
+        AES_KEY           VARCHAR2(2000 BYTE),
+        STATUS            VARCHAR2(20 BYTE),
+        CREATED_DATE      NUMBER NOT NULL ENABLE,
+        UPDATED_DATE      NUMBER,
+        CREATED_BY        VARCHAR2(100 BYTE) NOT NULL ENABLE,
+        UPDATED_BY        VARCHAR2(100 BYTE),
+        PARTITION_DATE     DATE GENERATED ALWAYS AS (TO_DATE('1970-01-01 00:00:00','SYYYY-MM-DD HH24:MI:SS')+CREATED_DATE/1000/86400) VIRTUAL )
+        PARTITION BY RANGE (PARTITION_DATE) INTERVAL (NUMTOYMINTERVAL(1,'MONTH'))(PARTITION P_START VALUES LESS THAN (TO_DATE('01-01-2020','DD-MM-YYYY'))
+      ) ;
+
+--CREATE Sequence
+CREATE SEQUENCE custom_rev_id_seq START WITH 1 INCREMENT BY 1 NOCACHE;
+
+--CREATE table AUDIT_REVISION_INFO
+CREATE TABLE AUDIT_REVISION_INFO
+  (
+    AUDIT_REVISION_ID   NUMBER(19,0) PRIMARY KEY ,
+    AUDIT_REVISION_TIME NUMBER NOT NULL ,
+    ENTITY_CLASS_NAME   VARCHAR2(200 BYTE) NOT NULL
+  ) ;
+
+--CREATE table TOKEN_AUDIT
+  CREATE TABLE TOKEN_AUDIT
+  (
+    ID RAW(16) DEFAULT SYS_GUID() NOT NULL ENABLE,
+    REV               NUMBER(19,0),
+    REVTYPE           NUMBER(3,0),
+    MERCHANT_ID       VARCHAR2(20 BYTE),
+    TOKEN_TYPE        VARCHAR2(50 BYTE),
+    GENERATED_TOKEN   VARCHAR2(2000 BYTE),
+    ORDER_HASH        VARCHAR2(2000 BYTE),
+    TOKEN_EXPIRY_TIME NUMBER,
+    IS_TOKEN_VALID    NUMBER(1,0),
+    FAILED_REASON     VARCHAR2(100 BYTE),
+    REMARKS           VARCHAR2(100 BYTE),
+    EXPIRED_AT        NUMBER,
+    AES_KEY           VARCHAR2(2000 BYTE),
+    STATUS            VARCHAR2(20 BYTE),
+    CREATED_DATE      NUMBER NOT NULL ENABLE,
+    UPDATED_DATE      NUMBER,
+    CREATED_BY        VARCHAR2(100 BYTE) NOT NULL ENABLE,
+    UPDATED_BY        VARCHAR2(100 BYTE),
+    PARTITION_DATE    DATE GENERATED ALWAYS AS (TO_DATE('1970-01-01 00:00:00','SYYYY-MM-DD HH24:MI:SS')+CREATED_DATE/1000/86400) VIRTUAL )
+    PARTITION BY RANGE(PARTITION_DATE) INTERVAL (NUMTOYMINTERVAL(1,'MONTH'))(PARTITION P_START VALUES LESS THAN (TO_DATE('01-01-2020','DD-MM-YYYY'))
+  ) ;
+
+
+--liquibase formatted sql
+--changeset TRANSACTION:123
+ALTER TABLE TOKEN DROP COLUMN ID;
+alter table TOKEN ADD ID NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY;
+
+ALTER TABLE TOKEN_AUDIT DROP COLUMN ID;
+alter table TOKEN_AUDIT ADD ID NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY;
+
+--CREATE Sequence
+CREATE SEQUENCE custom_id_seq START WITH 1 INCREMENT BY 1 NOCACHE;
+
+could not execute statement [ORA-32795: cannot insert into a generated always identity column
+
+https://docs.oracle.com/error-help/db/ora-32795/] [insert into token (aes_key,created_by,created_date,expired_at,failed_reason,generated_token,is_token_valid,merchant_id,order_hash,remarks,status,token_expiry_time,token_type,updated_by,updated_date,id) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)]
