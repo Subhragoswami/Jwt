@@ -114,3 +114,9 @@ CREATE SEQUENCE custom_id_seq START WITH 1 INCREMENT BY 1 NOCACHE;
 could not execute statement [ORA-32795: cannot insert into a generated always identity column
 
 https://docs.oracle.com/error-help/db/ora-32795/] [insert into token (aes_key,created_by,created_date,expired_at,failed_reason,generated_token,is_token_valid,merchant_id,order_hash,remarks,status,token_expiry_time,token_type,updated_by,updated_date,id) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)]
+
+
+
+
+
+https://docs.google.com/document/d/1MgZdR3NiEDhHk0bvRR0zQEbyxWrb1bpTQ1hMkINPc4w/edit?addon_store&tab=t.0
