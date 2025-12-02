@@ -43,3 +43,43 @@ expected: not <null>
             return refundBookingDto;
         });
     }
+
+@Test
+void searchRefundBookingRequest() {
+
+    List<RefundBooking> entityList = new ArrayList<>();
+    RefundBooking booking = new RefundBooking();
+    booking.setAtrnNum("ATRN123");
+    entityList.add(booking);
+
+    Page<RefundBooking> entityPage = new PageImpl<>(entityList, pageable, 1L);
+
+    List<RefundBookingDto> dtoList = Collections.singletonList(new RefundBookingDto());
+    Page<RefundBookingDto> dtoPage = new PageImpl<>(dtoList, pageable, 1L);
+
+    List<MerchantOrderPayment> paymentList = new ArrayList<>();
+    MerchantOrderPayment mop = new MerchantOrderPayment();
+    mop.setAtrnNumber("ATRN123");
+    mop.setPayMode(PayMode.UPI);
+    paymentList.add(mop);
+
+    try (MockedStatic<RefundBookingSpecification> mockedStatic = mockStatic(RefundBookingSpecification.class)) {
+
+        mockedStatic.when(() -> RefundBookingSpecification.searchRefund(refundSearchRequest))
+                .thenReturn(mock(Specification.class));
+
+        when(refundRepository.findAll(any(Specification.class), eq(pageable)))
+                .thenReturn(entityPage);
+
+        when(merchantOrderPaymentDao.findByAtrnNumberIn(anyList()))
+                .thenReturn(paymentList);
+
+        when(refundMapper.mapPageWithPaymentsToDto(entityPage, paymentList))
+                .thenReturn(dtoPage);
+
+        Page<RefundBookingDto> result = refundDao.searchRefundBookingRequest(refundSearchRequest, pageable);
+
+        assertNotNull(result);
+        assertEquals(1, result.getContent().size());
+    }
+}
