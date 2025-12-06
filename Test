@@ -1,7 +1,15 @@
-https://uat.epay.sbi/api/transaction/v1/customer/*&^%^%$$#@!#%^&/active
+  default List<Object> mapRefundBookingDtoToList(RefundBookingDto dto) {
+        dto.setRefundType(dto.getRefundType().equals(REFUND_TYPE_FULL) ? "1":"0");
+        return List.of(
+                nullSafe(dto.getSbiOrderRefNumber(), StringUtils.EMPTY),
+                nullSafe(dto.getAtrnNum(), StringUtils.EMPTY),
+                nullSafe(dto.getRefundType(), StringUtils.EMPTY),
+                nullSafe(String.valueOf(dto.getRefundAmount()), StringUtils.EMPTY)
+        );
+    }
 
-here if I pass *&^%^%$$#@!#%^& this is throwing 
+DecimalFormat df = new DecimalFormat("0.00");
+System.out.println("Formatted String: " + df.format(new BigDecimal("0.1")));
 
-<!doctype html>HTTP Status 400 – Bad Requestbody {font-family:Tahoma,Arial,sans-serif;} h1, h2, h3, b {color:white;background-color:#525D76;} h1 {font-size:22px;} h2 {font-size:16px;} h3 {font-size:14px;} p {font-size:12px;} a {color:black;} .line {height:1px;background-color:#525D76;border:none;}
 
-but in same place if I pass $#@%$!#@%@$# it's going inside my controller in my validation class in java springboot ?
+add this code for getRefundAmount
