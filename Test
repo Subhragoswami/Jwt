@@ -1,15 +1,10 @@
-  default List<Object> mapRefundBookingDtoToList(RefundBookingDto dto) {
+    default List<Object> mapRefundBookingDtoToList(RefundBookingDto dto) {
         dto.setRefundType(dto.getRefundType().equals(REFUND_TYPE_FULL) ? "1":"0");
+        DecimalFormat df = new DecimalFormat("0.00");
         return List.of(
                 nullSafe(dto.getSbiOrderRefNumber(), StringUtils.EMPTY),
                 nullSafe(dto.getAtrnNum(), StringUtils.EMPTY),
                 nullSafe(dto.getRefundType(), StringUtils.EMPTY),
-                nullSafe(String.valueOf(dto.getRefundAmount()), StringUtils.EMPTY)
+                ObjectUtils.isNotEmpty(dto.getRefundAmount()) ? df.format(dto.getRefundAmount()) : StringUtils.EMPTY
         );
     }
-
-DecimalFormat df = new DecimalFormat("0.00");
-System.out.println("Formatted String: " + df.format(new BigDecimal("0.1")));
-
-
-add this code for getRefundAmount
