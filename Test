@@ -82,3 +82,4 @@ public class MerchantOrderPayment extends AuditEntity {
     }
 
 }
+Caused by: java.lang.IllegalArgumentException: Failed to create query for method public abstract org.springframework.data.domain.Page com.epay.transaction.repository.MerchantOrderPaymentRepository.findAllByAtrnAndPaymode(org.springframework.data.jpa.domain.Specification,org.springframework.data.domain.Pageable); No property 'atrn' found for type 'MerchantOrderPayment'
