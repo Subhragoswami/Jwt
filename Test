@@ -1,10 +1,84 @@
-    default List<Object> mapRefundBookingDtoToList(RefundBookingDto dto) {
-        dto.setRefundType(dto.getRefundType().equals(REFUND_TYPE_FULL) ? "1":"0");
-        DecimalFormat df = new DecimalFormat("0.00");
-        return List.of(
-                nullSafe(dto.getSbiOrderRefNumber(), StringUtils.EMPTY),
-                nullSafe(dto.getAtrnNum(), StringUtils.EMPTY),
-                nullSafe(dto.getRefundType(), StringUtils.EMPTY),
-                ObjectUtils.isNotEmpty(dto.getRefundAmount()) ? df.format(dto.getRefundAmount()) : StringUtils.EMPTY
-        );
+Caused by: java.lang.IllegalArgumentException: org.hibernate.query.sqm.UnknownPathException: Could not resolve attribute 'payMod' of 'com.epay.transaction.entity.MerchantOrderPayment' [Select m from MerchantOrderPayment m where m.atrnNumber In (:atrnNumbers) and (:payMode IS NULL or :payMode = '' or m.payMod = :payMode)]
+    @Query("Select m from MerchantOrderPayment m where m.atrnNumber In (:atrnNumbers) and (:payMode IS NULL or :payMode = '' or m.payMod = :payMode)")
+    List<MerchantOrderPayment> findAllByAtrnAndPaymode(List<String> atrnNumbers, PayMode payMode);
+    public List<MerchantOrderPayment> findAllByAtrnAndPaymode(List<String> atrnNumbers, String payMode){
+        return merchantOrderPaymentRepository.findAllByAtrnAndPaymode(atrnNumbers, PayMode.getPayMode(payMode));
+
+public enum PayMode {
+    UPI, NB, CC, DC, PC,WALLET;
+
+    public static PayMode getPayMode(String payMode) {
+        return Arrays.stream(values()).filter(p -> p.name().equals(payMode)).findFirst().orElseThrow(() -> new TransactionException(INVALID_ERROR_CODE_NO_REASON, MessageFormat.format(INVALID_ERROR_MESSAGE_NO_REASON, "PayMode", payMode)));
     }
+}
+
+@Data
+@EqualsAndHashCode(callSuper = true)
+@Entity
+@Table(name = "MERCHANT_ORDER_PAYMENTS")
+public class MerchantOrderPayment extends AuditEntity {
+
+    @Id
+    @Column(name = "ATRN_NUM", nullable = false, updatable = false, unique = true)
+    private String atrnNumber;
+    @Column(name = "MERCHANT_ID")
+    private String mId;
+    private String orderRefNumber;
+    private String sbiOrderRefNumber;
+    private String bankReferenceNumber;
+    private String oldBankReferenceNumber;
+
+    private String currencyCode;
+    private BigDecimal orderAmount;
+    @Column(name = "DEBIT_AMT")
+    private BigDecimal debitAmount;
+    private BigDecimal availableRefundAmount;
+    private BigDecimal chargebackAmount;
+
+    private String gstIn;
+    private String channelBank;
+    @Enumerated(EnumType.STRING)
+    private PayMode payMode;
+    @Column(name = "GTW_MAP_ID")
+    private String pgBankCode;//this is gateway map id
+    private String payProcId; //this is pay proc id e.g. Visa, Master, Rupay
+    @Column(name = "PAY_PROC_TYPE")
+    private String paymodeType; //this is Pay proc type e.g. onus, offus
+    @Column(name = "GTW_ISSUE_MECODE")
+    private String gatewayIssueMECode; //merchant wise and/or payment wise ME code received from bank
+    private String cin;
+
+    @Enumerated(EnumType.STRING)
+    private PaymentStatus paymentStatus;
+    @Enumerated(EnumType.STRING)
+    private TransactionStatus transactionStatus;
+    @Enumerated(EnumType.STRING)
+    private SettlementStatus settlementStatus;
+    @Enumerated(EnumType.STRING)
+    private TransactionRefundStatus refundStatus;
+    @Enumerated(EnumType.STRING)
+    private CancellationStatus cancellationStatus;
+    private String chargebackStatus;
+
+    @Lob
+    private String pushResponse;
+    private Date paymentSuccessDate;
+    private String failReason;
+    private String pushStatus;
+
+    private UUID rfId;
+    private Long settlementTime;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sbiOrderRefNumber", insertable = false, updatable = false)
+    private Order order;
+
+    /**
+     * Generate ATRN number dynamically for transaction.
+     */
+    @PrePersist
+    protected void generatedATRN() {
+        this.atrnNumber = TransactionUtil.createAtrnNumber(mId, payMode);
+    }
+
+}
