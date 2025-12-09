@@ -1,85 +1,56 @@
-Caused by: java.lang.IllegalArgumentException: org.hibernate.query.sqm.UnknownPathException: Could not resolve attribute 'payMod' of 'com.epay.transaction.entity.MerchantOrderPayment' [Select m from MerchantOrderPayment m where m.atrnNumber In (:atrnNumbers) and (:payMode IS NULL or :payMode = '' or m.payMod = :payMode)]
-    @Query("Select m from MerchantOrderPayment m where m.atrnNumber In (:atrnNumbers) and (:payMode IS NULL or :payMode = '' or m.payMod = :payMode)")
-    List<MerchantOrderPayment> findAllByAtrnAndPaymode(List<String> atrnNumbers, PayMode payMode);
-    public List<MerchantOrderPayment> findAllByAtrnAndPaymode(List<String> atrnNumbers, String payMode){
-        return merchantOrderPaymentRepository.findAllByAtrnAndPaymode(atrnNumbers, PayMode.getPayMode(payMode));
+Strict stubbing argument mismatch. Please check:
+- this invocation of 'findAllByAtrnAndPaymode' method:
+merchantOrderPaymentDao.findAllByAtrnAndPaymode(
+[ATRN123],
+null
+);
+-> at com.epay.transaction.dao.RefundDao.searchRefundBookingRequest(RefundDao.java:125)
+- has following stubbing(s) with different arguments:
+1. merchantOrderPaymentDao.findAllByAtrnAndPaymode(
+[],
+null
+);
+-> at com.epay.transaction.dao.RefundDaoTest.searchRefundBookingRequest(RefundDaoTest.java:141)
+Typically, stubbing argument mismatch indicates user mistake when writing tests.
+Mockito fails early so that you can debug potential problem easily.
+However, there are legit scenarios when this exception generates false negative signal:
+- stubbing the same method multiple times using 'given().will()' or 'when().then()' API
+Please use 'will().given()' or 'doReturn().when()' API for stubbing.
+- stubbed method is intentionally invoked with different arguments by code under test
+Please use default or 'silent' JUnit Rule (equivalent of Strictness.LENIENT).
+For more information see javadoc for PotentialStubbingProblem class. 
 
-public enum PayMode {
-    UPI, NB, CC, DC, PC,WALLET;
-
-    public static PayMode getPayMode(String payMode) {
-        return Arrays.stream(values()).filter(p -> p.name().equals(payMode)).findFirst().orElseThrow(() -> new TransactionException(INVALID_ERROR_CODE_NO_REASON, MessageFormat.format(INVALID_ERROR_MESSAGE_NO_REASON, "PayMode", payMode)));
+    public Page<RefundBookingDto> searchRefundBookingRequest(RefundSearchRequest refundSearchRequest, Pageable pageable) {
+        logger.info("Searching refund bookings - Merchant ID: {}", refundSearchRequest.getMId());
+        Specification<RefundBooking> specification = RefundBookingSpecification.searchRefund(refundSearchRequest);
+        Page<RefundBooking> refundBookingPage = refundRepository.findAll(specification, pageable);
+        List<String> atrnNumbers = refundBookingPage.getContent().stream()
+                .map(RefundBooking::getAtrnNum)
+                .collect(Collectors.toList());
+        List<MerchantOrderPayment> merchantOrderPaymentList = merchantOrderPaymentDao.findAllByAtrnAndPaymode(atrnNumbers, refundSearchRequest.getPayMode());
+        return refundMapper.mapPageWithPaymentsToDto(refundBookingPage, merchantOrderPaymentList);
     }
-}
 
-@Data
-@EqualsAndHashCode(callSuper = true)
-@Entity
-@Table(name = "MERCHANT_ORDER_PAYMENTS")
-public class MerchantOrderPayment extends AuditEntity {
-
-    @Id
-    @Column(name = "ATRN_NUM", nullable = false, updatable = false, unique = true)
-    private String atrnNumber;
-    @Column(name = "MERCHANT_ID")
+RefundBookingDto {
+    @JsonProperty("mId")
     private String mId;
-    private String orderRefNumber;
     private String sbiOrderRefNumber;
-    private String bankReferenceNumber;
-    private String oldBankReferenceNumber;
-
-    private String currencyCode;
-    private BigDecimal orderAmount;
-    @Column(name = "DEBIT_AMT")
-    private BigDecimal debitAmount;
-    private BigDecimal availableRefundAmount;
-    private BigDecimal chargebackAmount;
-
-    private String gstIn;
-    private String channelBank;
-    @Enumerated(EnumType.STRING)
+    private String arrnNumber;
+    private String atrnNumber;
+    private BigDecimal refundAmount;
+    private String refundType;
+    private String refundStatus;
     private PayMode payMode;
-    @Column(name = "GTW_MAP_ID")
-    private String pgBankCode;//this is gateway map id
-    private String payProcId; //this is pay proc id e.g. Visa, Master, Rupay
-    @Column(name = "PAY_PROC_TYPE")
-    private String paymodeType; //this is Pay proc type e.g. onus, offus
-    @Column(name = "GTW_ISSUE_MECODE")
-    private String gatewayIssueMECode; //merchant wise and/or payment wise ME code received from bank
-    private String cin;
-
-    @Enumerated(EnumType.STRING)
-    private PaymentStatus paymentStatus;
-    @Enumerated(EnumType.STRING)
-    private TransactionStatus transactionStatus;
-    @Enumerated(EnumType.STRING)
-    private SettlementStatus settlementStatus;
-    @Enumerated(EnumType.STRING)
-    private TransactionRefundStatus refundStatus;
-    @Enumerated(EnumType.STRING)
-    private CancellationStatus cancellationStatus;
-    private String chargebackStatus;
-
-    @Lob
-    private String pushResponse;
-    private Date paymentSuccessDate;
-    private String failReason;
-    private String pushStatus;
-
-    private UUID rfId;
-    private Long settlementTime;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sbiOrderRefNumber", insertable = false, updatable = false)
-    private Order order;
-
-    /**
-     * Generate ATRN number dynamically for transaction.
-     */
-    @PrePersist
-    protected void generatedATRN() {
-        this.atrnNumber = TransactionUtil.createAtrnNumber(mId, payMode);
+    private String remark;
+    private String createdBy;
+    private Long createdDate;
+    private String updatedBy;
+    private Long updatedDate;
+    private Integer refundRetry;
+    private Long refundAdjustedDate;
+    private String settlementStatus;
+    private Long refundProcessedDate;
+   public List<MerchantOrderPayment> findAllByAtrnAndPaymode(List<String> atrnNumbers, String paymode){
+        PayMode payMode = StringUtils.isEmpty(paymode) ? null : PayMode.getPayMode(paymode);
+        return merchantOrderPaymentRepository.findAllByAtrnAndPaymode(atrnNumbers, payMode);
     }
-
-}
-Caused by: java.lang.IllegalArgumentException: Failed to create query for method public abstract org.springframework.data.domain.Page com.epay.transaction.repository.MerchantOrderPaymentRepository.findAllByAtrnAndPaymode(org.springframework.data.jpa.domain.Specification,org.springframework.data.domain.Pageable); No property 'atrn' found for type 'MerchantOrderPayment'
