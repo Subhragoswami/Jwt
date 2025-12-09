@@ -54,3 +54,70 @@ RefundBookingDto {
         PayMode payMode = StringUtils.isEmpty(paymode) ? null : PayMode.getPayMode(paymode);
         return merchantOrderPaymentRepository.findAllByAtrnAndPaymode(atrnNumbers, payMode);
     }
+
+
+
+
+
+Test
+    void searchRefundBookingRequest() {
+
+        // ----------------------
+        // 1. Prepare input
+        // ----------------------
+        RefundSearchRequest request = new RefundSearchRequest();
+        request.setMId("MID123");
+        request.setPayMode(null);  // optional
+        Pageable pageable = PageRequest.of(0, 10);
+
+        // ----------------------
+        // 2. Mock refundRepository.findAll()
+        // ----------------------
+        RefundBooking booking = new RefundBooking();
+        booking.setAtrnNum("ATRN123");
+
+        Page<RefundBooking> refundBookingPage =
+                new PageImpl<>(List.of(booking), pageable, 1);
+
+        when(refundRepository.findAll(any(Specification.class), eq(pageable)))
+                .thenReturn(refundBookingPage);
+
+        // ----------------------
+        // 3. Mock merchantOrderPaymentDao.findAllByAtrnAndPaymode()
+        // ----------------------
+        MerchantOrderPayment payment = new MerchantOrderPayment();
+        payment.setAtrnNumber("ATRN123");
+
+        List<MerchantOrderPayment> paymentList = List.of(payment);
+
+        when(merchantOrderPaymentDao.findAllByAtrnAndPaymode(
+                anyList(),
+                nullable(String.class)
+        )).thenReturn(paymentList);
+
+        // ----------------------
+        // 4. Mock refundMapper.mapPageWithPaymentsToDto()
+        // ----------------------
+        Page<RefundBookingDto> dtoPage = new PageImpl<>(List.of(new RefundBookingDto()));
+
+        when(refundMapper.mapPageWithPaymentsToDto(refundBookingPage, paymentList))
+                .thenReturn(dtoPage);
+
+        // ----------------------
+        // 5. Execute the method under test
+        // ----------------------
+        Page<RefundBookingDto> result =
+                refundDao.searchRefundBookingRequest(request, pageable);
+
+        // ----------------------
+        // 6. Assertions
+        // ----------------------
+        assertNotNull(result);
+        assertEquals(1, result.getTotalElements());
+
+        // Verify interactions
+        verify(refundRepository).findAll(any(Specification.class), eq(pageable));
+        verify(merchantOrderPaymentDao).findAllByAtrnAndPaymode(anyList(), nullable(String.class));
+        verify(refundMapper).mapPageWithPaymentsToDto(refundBookingPage, paymentList);
+    }
+}
