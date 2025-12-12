@@ -54,3 +54,25 @@ public class RefundBookingDto {
     private String settlementStatus;
     private Long refundProcessedDate;
 }
+
+
+
+@Test
+void downloadRefundBookings_Success() throws IOException {
+    byteArrayOutputStream = new ByteArrayOutputStream();
+    ServletOutputStream servletOutputStream = new DelegatingServletOutputStream(byteArrayOutputStream);
+    when(response.getOutputStream()).thenReturn(servletOutputStream);
+
+    // Arrange
+    testRefundBookingDto.setPayMode(PayMode.UPI);  // <-- IMPORTANT FIX
+
+    List<RefundBookingDto> refundBookings = List.of(testRefundBookingDto);
+    when(refundDao.downloadRefundBookingRequest(testRefundSearchRequest))
+            .thenReturn(refundBookings);
+
+    // Act
+    refundService.downloadRefundBookings(response, testRefundSearchRequest);
+
+    // Assert
+    verify(refundDao, times(1)).downloadRefundBookingRequest(testRefundSearchRequest);
+}
