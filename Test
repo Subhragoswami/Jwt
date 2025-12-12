@@ -95,3 +95,8 @@ void downloadRefundBookings_WithNullRequest() {
     // DAO must not be called
     verify(refundDao, never()).downloadRefundBookingRequest(any());
 }
+
+
+Unexpected exception type thrown, expected: <com.epay.transaction.exceptions.ValidationException> but was: <java.lang.NullPointerException>
+Expected :class com.epay.transaction.exceptions.ValidationException
+Actual   :class java.lang.NullPointerException
