@@ -1,115 +1,56 @@
-Cannot invoke "com.epay.transaction.model.request.RefundSearchRequest.getMId()" because "refundSearchRequest" is null 
+Cannot invoke "com.epay.transaction.util.enums.PayMode.name()" because the return value of "com.epay.transaction.dto.RefundBookingDto.getPayMode()" is null
+java.lang.NullPointerException: Cannot invoke "com.epay.transaction.util.enums.PayMode.name()" because the return value of "com.epay.transaction.dto.RefundBookingDto.getPayMode()" is null
+
 
     @Test
-    void downloadRefundBookings_WithNullRequest() {
+    void downloadRefundBookings_Success() throws IOException {
+        byteArrayOutputStream = new ByteArrayOutputStream();
+        ServletOutputStream servletOutputStream = new DelegatingServletOutputStream(byteArrayOutputStream);
+        when(response.getOutputStream()).thenReturn(servletOutputStream);
         // Arrange
-        RefundSearchRequest nullRequest = null;
-        doThrow(new ValidationException(List.of(ErrorDto.builder().build()))).when(refundValidator).validateRefundSearchRequest(nullRequest);
+        List<RefundBookingDto> refundBookings = List.of(testRefundBookingDto);
+        when(refundDao.downloadRefundBookingRequest(testRefundSearchRequest)).thenReturn(refundBookings);
 
-        // Act & Assert
-        assertThrows(ValidationException.class, () -> {
-            refundService.downloadRefundBookings(response, nullRequest);
-        });
+        // Act
+        refundService.downloadRefundBookings(response, testRefundSearchRequest);
 
-        verify(refundDao, never()).downloadRefundBookingRequest(nullRequest);
+        // Assert
+        verify(refundDao, times(1)).downloadRefundBookingRequest(testRefundSearchRequest);
     }
 
-   public void validateRefundSearchRequest(RefundSearchRequest refundSearchRequest) {
-        logger.info("Inside validateRefundDetailRequest for mid: {}", refundSearchRequest.getMId());
-        errorDtoList = new ArrayList<>();
-        validateMandatoryFields(refundSearchRequest);
-        checkMandatoryFieldCount(refundSearchRequest);
-        validateFieldsValue(refundSearchRequest);
-        validateReportDates(refundSearchRequest.getFrom(), refundSearchRequest.getTo());
-    }
+public class RefundSearchRequest {
 
-    public void downloadRefundBookings(HttpServletResponse response,RefundSearchRequest refundSearchRequest) {
+    @NotBlank(message = "mId is required")
+    @JsonProperty("mId")
+    private String mId;
+    private String atrnNumber;
+    private String arrnNumber;
+    private String sbiOrderRefNumber;
+    private String refundStatus;
+    private String refundType;
+    private String payMode;
+    private Long from;
+    private Long to;
 
-        logger.info("Get refund request received for refundDetailRequest: {}", refundSearchRequest);
-
-        //Step-1: Validate refund search request
-        //refundValidator.validateRefundSearchRequest(refundSearchRequest);
-
-        //Step-2: Search refund request in db for requested parameters
-        List<RefundBookingDto> refundBookings = refundDao.downloadRefundBookingRequest(refundSearchRequest);
-        logger.debug("Refund Response received for refundDetailRequest: {}", refundSearchRequest);
-
-        List<List<Object>> fileData = refundBookings.stream().map(this::convertToListOfObject).toList();
-
-        //Step-3: Build and return the refund bookings data
-        CSVGenerator.downloadCsvFile(response, "Refund_bookings",refundSearchRequest.getMId(), REFUND_BOOKINGS_HEADER_LIST, fileData);
-    }
-
-    public List<RefundBookingDto> downloadRefundBookingRequest(RefundSearchRequest refundSearchRequest) {
-        logger.info("Searching refund bookings - Merchant ID: {}", refundSearchRequest.getMId());
-        Specification<RefundBooking> specification = RefundBookingSpecification.searchRefund(refundSearchRequest);
-        List<RefundBooking> refundBookings = refundRepository.findAll(specification);
-
-        List<String> atrnNumbers = refundBookings.stream()
-                .map(RefundBooking::getAtrnNum)
-                .collect(Collectors.toList());
-        List<MerchantOrderPayment> merchantOrderPaymentList = merchantOrderPaymentDao.findAllByAtrnAndPaymode(atrnNumbers, refundSearchRequest.getPayMode());
-
-        return refundMapper.entityToDto(refundBookings, merchantOrderPaymentList);
-    }
-
- default List<RefundBookingDto> entityToDto(List<RefundBooking> refundBookings, List<MerchantOrderPayment> merchantOrderPaymentList) {
-        return getRfundBookingDtoList(refundBookings, merchantOrderPaymentList);
-    };
-
-    default List<RefundBookingDto> getRfundBookingDtoList ( List<RefundBooking> refundBookingPage,
-                                                    List<MerchantOrderPayment> payments) {
-        Map<String, PayMode> payModeMap = payments.stream()
-                .collect(Collectors.toMap(MerchantOrderPayment::getAtrnNumber,
-                        MerchantOrderPayment::getPayMode));
-
-        return refundBookingPage.stream()
-                .filter(RefundBooking -> payModeMap.containsKey(RefundBooking.getAtrnNum()))
-                .map(RefundBooking -> {
-                    RefundBookingDto refundBookingDto = entityToDto(RefundBooking);
-                    refundBookingDto.setPayMode(payModeMap.get(RefundBooking.getAtrnNum()));
-                    return refundBookingDto;
-                })
-                .toList();
-    }
-
-
-
-
-
-@Test
-void downloadRefundBookings_WithNullRequest() {
-    // Arrange
-    RefundSearchRequest nullRequest = null;
-
-    // Force the validator to throw BEFORE the DAO is reached
-    doThrow(new ValidationException(List.of(ErrorDto.builder().build())))
-            .when(refundValidator)
-            .validateRefundSearchRequest(nullRequest);
-
-    // Act & Assert
-    assertThrows(ValidationException.class, () ->
-            refundService.downloadRefundBookings(response, nullRequest)
-    );
-
-    // DAO must not be called
-    verify(refundDao, never()).downloadRefundBookingRequest(any());
 }
 
-
-Unexpected exception type thrown, expected: <com.epay.transaction.exceptions.ValidationException> but was: <java.lang.NullPointerException>
-Expected :class com.epay.transaction.exceptions.ValidationException
-Actual   :class java.lang.NullPointerException
-
-
-
-@Test
-void downloadRefundBookings_WithNullRequest() {
-    // Act & Assert
-    assertThrows(NullPointerException.class, () ->
-            refundService.downloadRefundBookings(response, null)
-    );
-
-    // DAO should still NOT be called with a null request
-    verify(refundDao, never()).downloadRefundBookingRequest(any());
+public class RefundBookingDto {
+    @JsonProperty("mId")
+    private String mId;
+    private String sbiOrderRefNumber;
+    private String arrnNumber;
+    private String atrnNumber;
+    private BigDecimal refundAmount;
+    private String refundType;
+    private String refundStatus;
+    private PayMode payMode;
+    private String remark;
+    private String createdBy;
+    private Long createdDate;
+    private String updatedBy;
+    private Long updatedDate;
+    private Integer refundRetry;
+    private Long refundAdjustedDate;
+    private String settlementStatus;
+    private Long refundProcessedDate;
 }
