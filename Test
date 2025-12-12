@@ -72,3 +72,26 @@ Cannot invoke "com.epay.transaction.model.request.RefundSearchRequest.getMId()" 
                 })
                 .toList();
     }
+
+
+
+
+
+@Test
+void downloadRefundBookings_WithNullRequest() {
+    // Arrange
+    RefundSearchRequest nullRequest = null;
+
+    // Force the validator to throw BEFORE the DAO is reached
+    doThrow(new ValidationException(List.of(ErrorDto.builder().build())))
+            .when(refundValidator)
+            .validateRefundSearchRequest(nullRequest);
+
+    // Act & Assert
+    assertThrows(ValidationException.class, () ->
+            refundService.downloadRefundBookings(response, nullRequest)
+    );
+
+    // DAO must not be called
+    verify(refundDao, never()).downloadRefundBookingRequest(any());
+}
