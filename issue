@@ -31,3 +31,24 @@ public class CaptchaResponse {
 
 C:\Users\v1019256\E-Pay\epay_merchant_service\src\main\java\com\epay\merchant\mapper\CaptchaMapper.java:55: error: Method has no source parameter named "captchaText". Method source parameters are: "captchaDto, base64Image, base64Audio".
     CaptchaResponse mapCaptchaDtoToCaptchaResponse(CaptchaDto captchaDto, String base64Image, String base64Audio);
+
+
+
+@Test
+void downloadRefundBookings_WithNullRequest() {
+    // Arrange
+    RefundSearchRequest nullRequest = null;
+
+    // Force the validator to throw BEFORE the DAO is reached
+    doThrow(new ValidationException(List.of(ErrorDto.builder().build())))
+            .when(refundValidator)
+            .validateRefundSearchRequest(nullRequest);
+
+    // Act & Assert
+    assertThrows(ValidationException.class, () ->
+            refundService.downloadRefundBookings(response, nullRequest)
+    );
+
+    // DAO must not be called
+    verify(refundDao, never()).downloadRefundBookingRequest(any());
+}
