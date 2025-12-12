@@ -1,123 +1,74 @@
-Strict stubbing argument mismatch. Please check:
-- this invocation of 'findAllByAtrnAndPaymode' method:
-merchantOrderPaymentDao.findAllByAtrnAndPaymode(
-[ATRN123],
-null
-);
--> at com.epay.transaction.dao.RefundDao.searchRefundBookingRequest(RefundDao.java:125)
-- has following stubbing(s) with different arguments:
-1. merchantOrderPaymentDao.findAllByAtrnAndPaymode(
-[],
-null
-);
--> at com.epay.transaction.dao.RefundDaoTest.searchRefundBookingRequest(RefundDaoTest.java:141)
-Typically, stubbing argument mismatch indicates user mistake when writing tests.
-Mockito fails early so that you can debug potential problem easily.
-However, there are legit scenarios when this exception generates false negative signal:
-- stubbing the same method multiple times using 'given().will()' or 'when().then()' API
-Please use 'will().given()' or 'doReturn().when()' API for stubbing.
-- stubbed method is intentionally invoked with different arguments by code under test
-Please use default or 'silent' JUnit Rule (equivalent of Strictness.LENIENT).
-For more information see javadoc for PotentialStubbingProblem class. 
+Cannot invoke "com.epay.transaction.model.request.RefundSearchRequest.getMId()" because "refundSearchRequest" is null 
 
-    public Page<RefundBookingDto> searchRefundBookingRequest(RefundSearchRequest refundSearchRequest, Pageable pageable) {
+    @Test
+    void downloadRefundBookings_WithNullRequest() {
+        // Arrange
+        RefundSearchRequest nullRequest = null;
+        doThrow(new ValidationException(List.of(ErrorDto.builder().build()))).when(refundValidator).validateRefundSearchRequest(nullRequest);
+
+        // Act & Assert
+        assertThrows(ValidationException.class, () -> {
+            refundService.downloadRefundBookings(response, nullRequest);
+        });
+
+        verify(refundDao, never()).downloadRefundBookingRequest(nullRequest);
+    }
+
+   public void validateRefundSearchRequest(RefundSearchRequest refundSearchRequest) {
+        logger.info("Inside validateRefundDetailRequest for mid: {}", refundSearchRequest.getMId());
+        errorDtoList = new ArrayList<>();
+        validateMandatoryFields(refundSearchRequest);
+        checkMandatoryFieldCount(refundSearchRequest);
+        validateFieldsValue(refundSearchRequest);
+        validateReportDates(refundSearchRequest.getFrom(), refundSearchRequest.getTo());
+    }
+
+    public void downloadRefundBookings(HttpServletResponse response,RefundSearchRequest refundSearchRequest) {
+
+        logger.info("Get refund request received for refundDetailRequest: {}", refundSearchRequest);
+
+        //Step-1: Validate refund search request
+        //refundValidator.validateRefundSearchRequest(refundSearchRequest);
+
+        //Step-2: Search refund request in db for requested parameters
+        List<RefundBookingDto> refundBookings = refundDao.downloadRefundBookingRequest(refundSearchRequest);
+        logger.debug("Refund Response received for refundDetailRequest: {}", refundSearchRequest);
+
+        List<List<Object>> fileData = refundBookings.stream().map(this::convertToListOfObject).toList();
+
+        //Step-3: Build and return the refund bookings data
+        CSVGenerator.downloadCsvFile(response, "Refund_bookings",refundSearchRequest.getMId(), REFUND_BOOKINGS_HEADER_LIST, fileData);
+    }
+
+    public List<RefundBookingDto> downloadRefundBookingRequest(RefundSearchRequest refundSearchRequest) {
         logger.info("Searching refund bookings - Merchant ID: {}", refundSearchRequest.getMId());
         Specification<RefundBooking> specification = RefundBookingSpecification.searchRefund(refundSearchRequest);
-        Page<RefundBooking> refundBookingPage = refundRepository.findAll(specification, pageable);
-        List<String> atrnNumbers = refundBookingPage.getContent().stream()
+        List<RefundBooking> refundBookings = refundRepository.findAll(specification);
+
+        List<String> atrnNumbers = refundBookings.stream()
                 .map(RefundBooking::getAtrnNum)
                 .collect(Collectors.toList());
         List<MerchantOrderPayment> merchantOrderPaymentList = merchantOrderPaymentDao.findAllByAtrnAndPaymode(atrnNumbers, refundSearchRequest.getPayMode());
-        return refundMapper.mapPageWithPaymentsToDto(refundBookingPage, merchantOrderPaymentList);
+
+        return refundMapper.entityToDto(refundBookings, merchantOrderPaymentList);
     }
 
-RefundBookingDto {
-    @JsonProperty("mId")
-    private String mId;
-    private String sbiOrderRefNumber;
-    private String arrnNumber;
-    private String atrnNumber;
-    private BigDecimal refundAmount;
-    private String refundType;
-    private String refundStatus;
-    private PayMode payMode;
-    private String remark;
-    private String createdBy;
-    private Long createdDate;
-    private String updatedBy;
-    private Long updatedDate;
-    private Integer refundRetry;
-    private Long refundAdjustedDate;
-    private String settlementStatus;
-    private Long refundProcessedDate;
-   public List<MerchantOrderPayment> findAllByAtrnAndPaymode(List<String> atrnNumbers, String paymode){
-        PayMode payMode = StringUtils.isEmpty(paymode) ? null : PayMode.getPayMode(paymode);
-        return merchantOrderPaymentRepository.findAllByAtrnAndPaymode(atrnNumbers, payMode);
+ default List<RefundBookingDto> entityToDto(List<RefundBooking> refundBookings, List<MerchantOrderPayment> merchantOrderPaymentList) {
+        return getRfundBookingDtoList(refundBookings, merchantOrderPaymentList);
+    };
+
+    default List<RefundBookingDto> getRfundBookingDtoList ( List<RefundBooking> refundBookingPage,
+                                                    List<MerchantOrderPayment> payments) {
+        Map<String, PayMode> payModeMap = payments.stream()
+                .collect(Collectors.toMap(MerchantOrderPayment::getAtrnNumber,
+                        MerchantOrderPayment::getPayMode));
+
+        return refundBookingPage.stream()
+                .filter(RefundBooking -> payModeMap.containsKey(RefundBooking.getAtrnNum()))
+                .map(RefundBooking -> {
+                    RefundBookingDto refundBookingDto = entityToDto(RefundBooking);
+                    refundBookingDto.setPayMode(payModeMap.get(RefundBooking.getAtrnNum()));
+                    return refundBookingDto;
+                })
+                .toList();
     }
-
-
-
-
-
-Test
-    void searchRefundBookingRequest() {
-
-        // ----------------------
-        // 1. Prepare input
-        // ----------------------
-        RefundSearchRequest request = new RefundSearchRequest();
-        request.setMId("MID123");
-        request.setPayMode(null);  // optional
-        Pageable pageable = PageRequest.of(0, 10);
-
-        // ----------------------
-        // 2. Mock refundRepository.findAll()
-        // ----------------------
-        RefundBooking booking = new RefundBooking();
-        booking.setAtrnNum("ATRN123");
-
-        Page<RefundBooking> refundBookingPage =
-                new PageImpl<>(List.of(booking), pageable, 1);
-
-        when(refundRepository.findAll(any(Specification.class), eq(pageable)))
-                .thenReturn(refundBookingPage);
-
-        // ----------------------
-        // 3. Mock merchantOrderPaymentDao.findAllByAtrnAndPaymode()
-        // ----------------------
-        MerchantOrderPayment payment = new MerchantOrderPayment();
-        payment.setAtrnNumber("ATRN123");
-
-        List<MerchantOrderPayment> paymentList = List.of(payment);
-
-        when(merchantOrderPaymentDao.findAllByAtrnAndPaymode(
-                anyList(),
-                nullable(String.class)
-        )).thenReturn(paymentList);
-
-        // ----------------------
-        // 4. Mock refundMapper.mapPageWithPaymentsToDto()
-        // ----------------------
-        Page<RefundBookingDto> dtoPage = new PageImpl<>(List.of(new RefundBookingDto()));
-
-        when(refundMapper.mapPageWithPaymentsToDto(refundBookingPage, paymentList))
-                .thenReturn(dtoPage);
-
-        // ----------------------
-        // 5. Execute the method under test
-        // ----------------------
-        Page<RefundBookingDto> result =
-                refundDao.searchRefundBookingRequest(request, pageable);
-
-        // ----------------------
-        // 6. Assertions
-        // ----------------------
-        assertNotNull(result);
-        assertEquals(1, result.getTotalElements());
-
-        // Verify interactions
-        verify(refundRepository).findAll(any(Specification.class), eq(pageable));
-        verify(merchantOrderPaymentDao).findAllByAtrnAndPaymode(anyList(), nullable(String.class));
-        verify(refundMapper).mapPageWithPaymentsToDto(refundBookingPage, paymentList);
-    }
-}
