@@ -1,70 +1,21 @@
-Cannot invoke "com.epay.transaction.model.request.RefundSearchRequest.getMId()" because "refundSearchRequest" is null 
-
     @Test
-    void downloadRefundBookings_WithNullRequest() {
-        // Arrange
-        RefundSearchRequest nullRequest = null;
-        doThrow(new ValidationException(List.of(ErrorDto.builder().build()))).when(refundValidator).validateRefundSearchRequest(nullRequest);
-
-        // Act & Assert
-        assertThrows(ValidationException.class, () -> {
-            refundService.downloadRefundBookings(response, nullRequest);
-        });
-
-        verify(refundDao, never()).downloadRefundBookingRequest(nullRequest);
+    void downloadRefundBookingRequest() {
+        try (MockedStatic<RefundBookingSpecification> mockedStatic = mockStatic(RefundBookingSpecification.class)) {
+            mockedStatic.when(() -> RefundBookingSpecification.searchRefund(refundSearchRequest))
+                    .thenReturn(mock(Specification.class));
+            List<RefundBooking> refundBookings = List.of(RefundBooking.builder().build());
+            List<RefundBookingDto> refundBookingDtos = List.of(RefundBookingDto.builder().build());
+            when(refundRepository.findAll(any(Specification.class))).thenReturn(refundBookings);
+            when(refundMapper.entityToDto(refundBookings)).thenReturn(refundBookingDtos);
+            List<RefundBookingDto> result = refundDao.downloadRefundBookingRequest(refundSearchRequest);
+            verify(refundRepository, times(1)).findAll(any(Specification.class));
+            assertNotNull(result);
+        }
     }
 
-public void downloadRefundBookings(HttpServletResponse response,RefundSearchRequest refundSearchRequest) {
+Required type:
+RefundBooking
 
-        logger.info("Get refund request received for refundDetailRequest: {}", refundSearchRequest);
-
-        //Step-1: Validate refund search request
-        //refundValidator.validateRefundSearchRequest(refundSearchRequest);
-
-        //Step-2: Search refund request in db for requested parameters
-        List<RefundBookingDto> refundBookings = refundDao.downloadRefundBookingRequest(refundSearchRequest);
-        logger.debug("Refund Response received for refundDetailRequest: {}", refundSearchRequest);
-
-        List<List<Object>> fileData = refundBookings.stream().map(this::convertToListOfObject).toList();
-
-        //Step-3: Build and return the refund bookings data
-        CSVGenerator.downloadCsvFile(response, "Refund_bookings",refundSearchRequest.getMId(), REFUND_BOOKINGS_HEADER_LIST, fileData);
-    }
-
- public List<RefundBookingDto> downloadRefundBookingRequest(RefundSearchRequest refundSearchRequest) {
-        logger.info("Searching refund bookings - Merchant ID: {}", refundSearchRequest.getMId());
-        Specification<RefundBooking> specification = RefundBookingSpecification.searchRefund(refundSearchRequest);
-        List<RefundBooking> refundBookings = refundRepository.findAll(specification);
-
-        List<String> atrnNumbers = refundBookings.stream()
-                .map(RefundBooking::getAtrnNum)
-                .collect(Collectors.toList());
-        List<MerchantOrderPayment> merchantOrderPaymentList = merchantOrderPaymentDao.findAllByAtrnAndPaymode(atrnNumbers, refundSearchRequest.getPayMode());
-
-        return refundMapper.entityToDto(refundBookings, merchantOrderPaymentList);
-    }
-
-    public List<MerchantOrderPayment> findAllByAtrnAndPaymode(List<String> atrnNumbers, String paymode){
-        PayMode payMode = StringUtils.isEmpty(paymode) ? null : PayMode.getPayMode(paymode);
-        return merchantOrderPaymentRepository.findAllByAtrnAndPaymode(atrnNumbers, payMode);
-    }
-
-    default List<RefundBookingDto> getRfundBookingDtoList ( List<RefundBooking> refundBookingPage,
-                                                    List<MerchantOrderPayment> payments) {
-        Map<String, PayMode> payModeMap = payments.stream()
-                .collect(Collectors.toMap(MerchantOrderPayment::getAtrnNumber,
-                        MerchantOrderPayment::getPayMode));
-
-        return refundBookingPage.stream()
-                .filter(RefundBooking -> payModeMap.containsKey(RefundBooking.getAtrnNum()))
-                .map(RefundBooking -> {
-                    RefundBookingDto refundBookingDto = entityToDto(RefundBooking);
-                    refundBookingDto.setPayMode(payModeMap.get(RefundBooking.getAtrnNum()));
-                    return refundBookingDto;
-                })
-                .toList();
-    }
-
-   default List<RefundBookingDto> entityToDto(List<RefundBooking> refundBookings, List<MerchantOrderPayment> merchantOrderPaymentList) {
-        return getRfundBookingDtoList(refundBookings, merchantOrderPaymentList);
-    };
+Provided:
+List
+<com.epay.transaction.entity.RefundBooking>
