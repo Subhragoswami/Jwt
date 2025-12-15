@@ -1,83 +1,21 @@
-    @Test
-    void downloadRefundBookingRequest() {
-        try (MockedStatic<RefundBookingSpecification> mockedStatic = mockStatic(RefundBookingSpecification.class)) {
-            mockedStatic.when(() -> RefundBookingSpecification.searchRefund(refundSearchRequest))
-                    .thenReturn(mock(Specification.class));
-            List<RefundBooking> refundBookings = List.of(RefundBooking.builder().build());
-            List<RefundBookingDto> refundBookingDtos = List.of(RefundBookingDto.builder().build());
-            when(refundRepository.findAll(any(Specification.class))).thenReturn(refundBookings);
-            when(refundMapper.entityToDto(refundBookings)).thenReturn(refundBookingDtos);
-            List<RefundBookingDto> result = refundDao.downloadRefundBookingRequest(refundSearchRequest);
-            verify(refundRepository, times(1)).findAll(any(Specification.class));
-            assertNotNull(result);
-        }
-    }
-
-Required type:
-RefundBooking
-
-Provided:
-List
-<com.epay.transaction.entity.RefundBooking>
-
-
-
-@Test
-void downloadRefundBookingRequest() {
-
-    try (MockedStatic<RefundBookingSpecification> mockedStatic =
-                 mockStatic(RefundBookingSpecification.class)) {
-
-        Specification<RefundBooking> specification = mock(Specification.class);
-
-        mockedStatic.when(() ->
-                RefundBookingSpecification.searchRefund(refundSearchRequest))
-                .thenReturn(specification);
-
-        // Mock data
-        RefundBooking refundBooking = RefundBooking.builder()
-                .atrnNum("ATRN123")
-                .build();
-
-        List<RefundBooking> refundBookings = List.of(refundBooking);
-
-        MerchantOrderPayment payment = MerchantOrderPayment.builder()
-                .atrnNumber("ATRN123")
-                .payMode(PayMode.UPI)
-                .build();
-
-        List<MerchantOrderPayment> payments = List.of(payment);
-
-        List<RefundBookingDto> refundBookingDtos =
-                List.of(RefundBookingDto.builder().build());
-
-        // Mock repository & DAO
-        when(refundRepository.findAll(specification))
-                .thenReturn(refundBookings);
-
-        when(merchantOrderPaymentDao.findAllByAtrnAndPaymode(
-                anyList(),
-                anyString()
-        )).thenReturn(payments);
-
-        when(refundMapper.entityToDto(refundBookings, payments))
-                .thenReturn(refundBookingDtos);
-
-        // Act
-        List<RefundBookingDto> result =
-                refundDao.downloadRefundBookingRequest(refundSearchRequest);
-
-        // Assert
-        assertNotNull(result);
-        assertEquals(1, result.size());
-
-        verify(refundRepository, times(1))
-                .findAll(specification);
-
-        verify(merchantOrderPaymentDao, times(1))
-                .findAllByAtrnAndPaymode(anyList(), anyString());
-
-        verify(refundMapper, times(1))
-                .entityToDto(refundBookings, payments);
-    }
-}
+Strict stubbing argument mismatch. Please check:
+- this invocation of 'findAllByAtrnAndPaymode' method:
+merchantOrderPaymentDao.findAllByAtrnAndPaymode(
+[ATRN123],
+null
+);
+-> at com.epay.transaction.dao.RefundDao.downloadRefundBookingRequest(RefundDao.java:211)
+- has following stubbing(s) with different arguments:
+1. merchantOrderPaymentDao.findAllByAtrnAndPaymode(
+[],
+""
+);
+-> at com.epay.transaction.dao.RefundDaoTest.downloadRefundBookingRequest(RefundDaoTest.java:295)
+Typically, stubbing argument mismatch indicates user mistake when writing tests.
+Mockito fails early so that you can debug potential problem easily.
+However, there are legit scenarios when this exception generates false negative signal:
+- stubbing the same method multiple times using 'given().will()' or 'when().then()' API
+Please use 'will().given()' or 'doReturn().when()' API for stubbing.
+- stubbed method is intentionally invoked with different arguments by code under test
+Please use default or 'silent' JUnit Rule (equivalent of Strictness.LENIENT).
+For more information see javadoc for PotentialStubbingProblem class. 
