@@ -19,3 +19,13 @@ Please use 'will().given()' or 'doReturn().when()' API for stubbing.
 - stubbed method is intentionally invoked with different arguments by code under test
 Please use default or 'silent' JUnit Rule (equivalent of Strictness.LENIENT).
 For more information see javadoc for PotentialStubbingProblem class. 
+
+
+
+===== SBI CREATE ORDER REQUEST =====
+{"orderAmount":5,"mId":"1000003","expiry":1766488362555,"orderRefNumber":"ORD1766486568387","returnUrl":"http://localhost:8081/Prahari/sbi/return","currencyCode":"INR"}
+-- request created 
+-- getting error on this line (responseNode = sbiePayClient.orders.create(ePayOrderRequest.toString());)
+java.lang.NoSuchMethodError: okhttp3.RequestBody.create(Ljava/lang/String;Lokhttp3/MediaType;)Lokhttp3/RequestBody;
+
+
