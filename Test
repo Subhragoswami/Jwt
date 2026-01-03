@@ -26,3 +26,113 @@
         merchantUser.setStatus(UserStatus.ACTIVE);
         save(merchantUser);
     }
+
+
+
+
+
+
+private static final String SMS_OTP_PREFIX = "S";
+private static final String EMAIL_OTP_PREFIX = "E";
+
+public void validateOtpAndUnblockUser(UnblockUserRequest request) {
+
+    log.info("Starting OTP validation for request ID: {}", request.getRequestId());
+
+    List<OtpManagement> otps = fetchLatestOtps(request.getRequestId());
+
+    Map<String, OtpManagement> otpMap = mapOtpsByPrefix(otps);
+
+    validateOtp(otpMap.get(SMS_OTP_PREFIX), request.getSmsOtp());
+    validateOtp(otpMap.get(EMAIL_OTP_PREFIX), request.getEmailOtp());
+
+    markOtpsAsVerified(otps);
+
+    unblockUser(request);
+
+    log.info("User unblocked successfully: {}", request.getUserName());
+}
+
+private List<OtpManagement> fetchLatestOtps(String requestId) {
+
+    List<OtpManagement> otpList =
+            otpManagementRepository.findLatestTwoOtpByRequestId(
+                    UUID.fromString(requestId),
+                    PageRequest.of(0, 2)
+            );
+
+    if (otpList.isEmpty()) {
+        throw new MerchantException(
+                ErrorConstants.NOT_FOUND_ERROR_CODE,
+                MessageFormat.format(
+                        ErrorConstants.NOT_FOUND_ERROR_MESSAGE,
+                        REQUEST_ID
+                )
+        );
+    }
+    return otpList;
+}
+
+private Map<String, OtpManagement> mapOtpsByPrefix(List<OtpManagement> otps) {
+
+    Map<String, OtpManagement> otpMap = otps.stream()
+            .collect(Collectors.toMap(
+                    otp -> otp.getOtpCode().substring(0, 1),
+                    Function.identity(),
+                    (existing, replacement) -> existing
+            ));
+
+    if (!otpMap.containsKey(SMS_OTP_PREFIX) ||
+        !otpMap.containsKey(EMAIL_OTP_PREFIX)) {
+
+        throw new MerchantException(
+                ErrorConstants.INVALID_ERROR_CODE,
+                "Required OTPs not found"
+        );
+    }
+
+    return otpMap;
+}
+
+
+
+
+private void validateOtp(OtpManagement otp, String requestOtp) {
+
+    if (otp == null || !otp.getOtpCode().equals(requestOtp)) {
+        throw new MerchantException(
+                ErrorConstants.INVALID_ERROR_CODE,
+                MessageFormat.format(
+                        ErrorConstants.INVALID_ERROR_MESSAGE,
+                        OTP,
+                        INVALID_OTP_MESSAGE
+                )
+        );
+    }
+}
+
+
+private void markOtpsAsVerified(List<OtpManagement> otps) {
+    otps.forEach(otp -> otp.setVerified(true));
+    otpManagementRepository.saveAll(otps);
+}
+
+
+
+
+
+
+private void unblockUser(UnblockUserRequest request) {
+
+    MerchantUser merchantUser =
+            getMerchantUserByStatus(
+                    request.getUserName(),
+                    request.getUserName(),
+                    request.getUserName(),
+                    List.of(UserStatus.BLOCKED)
+            );
+
+    merchantUser.setLoginFailAttempt(0);
+    merchantUser.setStatus(UserStatus.ACTIVE);
+    save(merchantUser);
+}
