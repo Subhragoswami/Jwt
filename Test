@@ -1,31 +1,28 @@
-Strict stubbing argument mismatch. Please check:
-- this invocation of 'findAllByAtrnAndPaymode' method:
-merchantOrderPaymentDao.findAllByAtrnAndPaymode(
-[ATRN123],
-null
-);
--> at com.epay.transaction.dao.RefundDao.downloadRefundBookingRequest(RefundDao.java:211)
-- has following stubbing(s) with different arguments:
-1. merchantOrderPaymentDao.findAllByAtrnAndPaymode(
-[],
-""
-);
--> at com.epay.transaction.dao.RefundDaoTest.downloadRefundBookingRequest(RefundDaoTest.java:295)
-Typically, stubbing argument mismatch indicates user mistake when writing tests.
-Mockito fails early so that you can debug potential problem easily.
-However, there are legit scenarios when this exception generates false negative signal:
-- stubbing the same method multiple times using 'given().will()' or 'when().then()' API
-Please use 'will().given()' or 'doReturn().when()' API for stubbing.
-- stubbed method is intentionally invoked with different arguments by code under test
-Please use default or 'silent' JUnit Rule (equivalent of Strictness.LENIENT).
-For more information see javadoc for PotentialStubbingProblem class. 
+ public void validateOtpAndUnblockUser(UnblockUserRequest unblockUserRequest) {
+        log.info("Starting OTP validation for request ID: {}", unblockUserRequest.getRequestId());
+        List<OtpManagement> otpManagementList = otpManagementRepository.findLatestTwoOtpByRequestId(
+                UUID.fromString(unblockUserRequest.getRequestId()), PageRequest.of(0, 2));
+        if(otpManagementList.isEmpty()) {
+            throw new MerchantException(ErrorConstants.NOT_FOUND_ERROR_CODE, MessageFormat.format(ErrorConstants.NOT_FOUND_ERROR_MESSAGE, REQUEST_ID));
+        }
+        Map<String, OtpManagement> otpMap = otpManagementList.stream()
+                .collect(Collectors.toMap(
+                        otp -> otp.getOtpCode().substring(0, 1),
+                        Function.identity()
+                ));
+        String smsOtp = otpMap.get("S").getOtpCode();
+        String emailOtp = otpMap.get("E").getOtpCode();
 
-
-
-===== SBI CREATE ORDER REQUEST =====
-{"orderAmount":5,"mId":"1000003","expiry":1766488362555,"orderRefNumber":"ORD1766486568387","returnUrl":"http://localhost:8081/Prahari/sbi/return","currencyCode":"INR"}
--- request created 
--- getting error on this line (responseNode = sbiePayClient.orders.create(ePayOrderRequest.toString());)
-java.lang.NoSuchMethodError: okhttp3.RequestBody.create(Ljava/lang/String;Lokhttp3/MediaType;)Lokhttp3/RequestBody;
-
-
+        if (!smsOtp.equals(unblockUserRequest.getSmsOtp())) {
+            throw new MerchantException(ErrorConstants.INVALID_ERROR_CODE, MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, OTP, INVALID_OTP_MESSAGE));
+        } else if (!emailOtp.equals(unblockUserRequest.getEmailOtp())) {
+            throw new MerchantException(ErrorConstants.INVALID_ERROR_CODE, MessageFormat.format(ErrorConstants.INVALID_ERROR_MESSAGE, OTP, INVALID_OTP_MESSAGE));
+        }
+        log.info("SMS and Email OTPs validated successfully for user: {}", unblockUserRequest.getUserName());
+        otpManagementList.forEach(otpManagement -> otpManagement.setVerified(true));
+        otpManagementRepository.saveAll(otpManagementList);
+        MerchantUser merchantUser = getMerchantUserByStatus(unblockUserRequest.getUserName(), unblockUserRequest.getUserName(), unblockUserRequest.getUserName(), List.of(UserStatus.BLOCKED));
+        merchantUser.setLoginFailAttempt(0);
+        merchantUser.setStatus(UserStatus.ACTIVE);
+        save(merchantUser);
+    }
